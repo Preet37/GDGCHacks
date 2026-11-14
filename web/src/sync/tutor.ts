@@ -94,7 +94,7 @@ export class Tutor {
 
   private async send(opts: { mode: CheckRequest['mode']; area?: PageRect; question?: string }) {
     const shapes = studentShapes(this.editor)
-    const bounds = studentBounds(this.editor, shapes)
+    const bounds = studentBounds(this.editor, shapes, opts.area)
     if (!bounds) return
     this.emit({ type: 'busy', busy: true })
     try {

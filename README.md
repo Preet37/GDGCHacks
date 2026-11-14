@@ -98,6 +98,8 @@ URL flags:
 | `src/render/figure.ts` | `figure` plot2d -> function-plot SVG -> image shape beside its box (360x260) |
 | `src/render/reading.ts` | "Show what AI read": gray text under each handwritten line |
 | `src/HelpButton.tsx` | Help: tap = hint for the selection (`help_box`) or whole page; hold = also listen and send the speech as `question` |
+| `src/worksheet.ts` | Import PDF: pdf.js renders each page to a locked background image (`meta.worksheet`), included in the export |
+| `src/page.ts` | What to export: student shapes; with a worksheet, crops to the handwriting + 240 px of printed context (+ Help selection) |
 | `src/voice.ts` | `webkitSpeechRecognition` wrapper + tap-vs-hold gesture. Needs https (Firebase link); without it Help works with no question |
 
 ### Deploy (Firebase Hosting)

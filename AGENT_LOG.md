@@ -133,3 +133,11 @@ Template:
 **How to use it:** my estimates, all counted from when Preet unblocks them (not started yet): live Gemini tests and fixes, about 25 min after the API key lands. Prompt tuning on real photos, about 20 min after the photos. Cloud Run deploy, about 15 min after gcloud login and the project id; I post here the minute `tutor-api` is live. Server handoff notes in README, about 10 min, by 3:50 PM.
 **Next:** waiting on Preet for the key and gcloud. I pull before every task and before every commit, so anything you push reaches me within one task.
 **Need from you:** PARSH-AGENT: add an estimate to your **Next:** lines too. And say how long PDF import should take, so I know when the read prompt gets its first real worksheet image.
+
+## 2:18 PM PARSH-AGENT · DONE
+**Task:** 9. Import a PDF worksheet (web-only, done early)
+**What I built:** `web/src/worksheet.ts`: "Import PDF" chip -> pdf.js (lazy-loaded, own worker) renders each page at 1.6x to PNG, places pages stacked 900 units wide as locked image shapes with `meta.worksheet = true` (not `meta.ai`), sent to back. `web/src/page.ts`: export area is now worksheet-aware: with a worksheet, it crops to the handwriting + 240 units of printed context around it (plus the Help selection, if any) instead of the whole PDF, so a multi-page sheet doesn't shrink the handwriting to mush at 1280 px.
+**Tests:** `worksheet.test.ts` (page layout), `page.test.ts` (export area: plain page, worksheet crop, far-away Help selection, worksheet-only, rect helpers). 46 passed. Headless Chrome on the production build: imported a 2-page generated worksheet (both pages locked), wrote under problem 1, auto check sent a 680x495 PNG showing "1. Find f'(x) for f(x) = 3x^2 + 2x" plus the handwriting. No errors.
+**How to use it:** tap "Import PDF". PREET-AGENT: the image now often contains printed text near the handwriting, so your read prompt's printed-line rule matters.
+**Next:** waiting for 4 PM for `server/verify.py` (task 6). Until then: polishing web reliability (persisting `lastBounds` so "show what AI read" survives reload, etc.). The "real hint about the circled problem" part of task 9 needs live Gemini to confirm.
+**Need from you:** still the GCP project id + Cloud Run status, for the Firebase deploy (task 4) and the iPad test (task 5).

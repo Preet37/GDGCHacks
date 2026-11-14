@@ -3,6 +3,7 @@ import type { Editor } from 'tldraw'
 import type { PageRect } from './render/geometry'
 import type { Tutor } from './sync/tutor'
 import { HoldGesture, startListening, type Listening } from './voice'
+import { importPdf } from './worksheet'
 
 /**
  * Big floating Help. Tap: hint for the selection (lasso/box select) or the whole page.
@@ -41,6 +42,22 @@ export function HelpButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) 
   }
   const up = () => gesture.pointerUp()
 
+  const fileInput = useRef<HTMLInputElement>(null)
+  const [importing, setImporting] = useState(false)
+  const onPdf = async (file: File | undefined) => {
+    if (!file) return
+    setImporting(true)
+    try {
+      await importPdf(editor, file)
+    } catch (err) {
+      console.error('PDF import failed', err)
+      alert("Couldn't open that PDF")
+    } finally {
+      setImporting(false)
+      if (fileInput.current) fileInput.current.value = ''
+    }
+  }
+
   const toggleReading = () => {
     tutor.setShowReading(!reading)
     setReading(!reading)
@@ -48,6 +65,16 @@ export function HelpButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) 
 
   return (
     <div className="tutor-controls">
+      <input
+        ref={fileInput}
+        type="file"
+        accept="application/pdf"
+        hidden
+        onChange={(e) => void onPdf(e.target.files?.[0])}
+      />
+      <button className="tutor-chip" disabled={importing} onClick={() => fileInput.current?.click()}>
+        {importing ? 'Importing…' : 'Import PDF'}
+      </button>
       <button className={'tutor-chip' + (reading ? ' on' : '')} onClick={toggleReading}>
         Show what AI read
       </button>
