@@ -134,6 +134,7 @@ export interface CheckRequest {
   image_base64: string;       // PNG, longest side <= 1280 px
   mode: "auto" | "help";      // auto = sent after a pause; help = user tapped Help
   help_box?: Box;             // help mode: area the user selected (missing = whole page)
+  question?: string;          // help mode: what the student asked out loud, transcribed (missing = no question)
   state: PageState;
 }
 
@@ -197,7 +198,7 @@ export interface CheckResponse {
   - Call `verify_step` on every new line before judging it.
   - Only flag a line as a mistake if `verify_step` said `incorrect`. If it said `unknown`, only flag when you're very sure.
   - Never give the answer first. Mistake notes ask a question that points at the error.
-  - In `help` mode, give the next hint level for that problem: 1 = a nudge (which idea or rule to use), 2 = a bigger push (set up the first step), 3 = show the next worked step. Raise `hint_level` by 1.
+  - In `help` mode, if `question` is set, answer that question as a hint (never the final answer). Then give the next hint level for that problem: 1 = a nudge (which idea or rule to use), 2 = a bigger push (set up the first step), 3 = show the next worked step. Raise `hint_level` by 1.
   - If a line has `confidence: "low"`, use `ask` ("did you mean...?") instead of marking it wrong.
   - Don't repeat feedback for lines in `flagged_line_ids` unless the line changed. If a flagged line is now correct, put it in `clear_line_ids`.
   - If the student writes "graph", "plot" or "sketch" near an expression, return a `figure` action with a `FigureSpec`.
@@ -230,6 +231,8 @@ export interface CheckResponse {
 5. **Deploy to Cloud Run** as service `tutor-api`, region `us-central1`, with `GEMINI_API_KEY` and `GEMINI_MODEL` set as environment variables. Parsh's Firebase setup sends `/api/**` to it.
    *Done when:* the deployed `/api/health` responds.
 6. **Handoff (3:30 to 4:00).** Test end to end with Parsh's page on the iPad. Write the server part of `README.md`: how to run locally, how to deploy, where the prompts are, what works, known bugs, and that `verify.py` is the next thing to build.
+
+**Printed worksheets:** the page image may include an imported PDF worksheet under the handwriting. `prompts/read.md` must tell Gemini to read printed problem text as context (mark those lines `relation: "other"`, problem_id of the problem they belong to) and never grade printed text, only handwriting.
 
 ## Things only Preet can do (ask him)
 

@@ -119,6 +119,7 @@ export interface CheckRequest {
   image_base64: string;       // PNG, longest side <= 1280 px
   mode: "auto" | "help";      // auto = sent after a pause; help = user tapped Help
   help_box?: Box;             // help mode: area the user selected (missing = whole page)
+  question?: string;          // help mode: what the student asked out loud, transcribed (missing = no question)
   state: PageState;
 }
 
@@ -203,6 +204,8 @@ export interface CheckResponse {
 **Help button**
 
 - Big floating button. If the student has something selected (lasso), send `mode: "help"` with that selection as `help_box`. Otherwise send the whole page.
+- **Voice is part of Help, not a separate feature.** Hold the Help button (or a mic button) and speak; transcribe with the browser's `webkitSpeechRecognition` and send the text as `question` in the same `mode: "help"` request. Circle + speak = Help. If speech recognition isn't available, Help still works without `question`.
+- When the reply has a `speak` action, read it out loud with `speechSynthesis`.
 
 **Small touches that matter for the demo**
 
@@ -237,7 +240,10 @@ export interface CheckResponse {
 7. **Hint ladder.** Help button sends `mode: "help"`; hint level per problem comes back in `state`.
    *Done when:* tapping Help 3 times on the same problem gives a nudge, a bigger push, then the worked step.
 8. **Firestore.** Save each page (tldraw snapshot + `PageState`) under `pages/{page_id}`, and load it on start.
-9. **Graphs.** `figure` actions with `plot2d` render with function-plot and get placed next to their box.
-10. **Demo set.** 5 problems with planted mistakes that work every time (wrong derivative, sign error in algebra, wrong integral, a correct one, a "graph this"). Write them in `README.md` with what should happen.
+9. **Import a PDF worksheet.** An "Import PDF" button renders each page with pdf.js to an image and places it on the canvas as a locked background shape (not `meta.ai`). Include it in the exported image so Gemini sees the printed problem; the read prompt already knows to grade only handwriting.
+   *Done when:* a problem set PDF shows on the canvas, you circle a part, tap Help, and get a hint about that problem.
+10. **Voice in Help.** Hold-to-talk on the Help button, sends `question` (see "Help button" above).
+11. **Graphs.** `figure` actions with `plot2d` render with function-plot and get placed next to their box.
+12. **Demo set.** 5 problems with planted mistakes that work every time (wrong derivative, sign error in algebra, wrong integral, a correct one, a "graph this"). Write them in `README.md` with what should happen.
 
-Log every finished task in `AGENT_LOG.md` before moving on. Preet's agent picks up voice, 3D figures and polish tonight, and will read the log first.
+Log every finished task in `AGENT_LOG.md` before moving on. Preet's agent picks up 3D figures, voice polish and the pitch tonight, and will read the log first.

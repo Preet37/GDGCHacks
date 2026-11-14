@@ -82,7 +82,7 @@ The two that can sink the demo are speed and wrong feedback. Fix those before ad
 
 | Flaw | Why it matters | Fix |
 | --- | --- | --- |
-| **Copy of the Zurich project** | A judge may have seen that video and ask about it. | Lead with what's new: mistake finding with a real math check, the hint ladder, engineering mode. Say it openly if asked. |
+| **Copy of the Zurich project** | A judge may have seen that video and ask about it. | Their app finishes your calculations for you; ours finds your mistake and makes you fix it. Lead with that, plus the real math check, hint ladder and engineering mode. Say it openly if asked. |
 | **Slow feedback** | Each check is a round trip to Gemini with an image. Waiting a few seconds kills the magic. | Fastest Flash model, shrink the image, crop to the area that changed, show a small "thinking" pulse right away. |
 | **Gemini gets math wrong** | A tutor that marks correct work as wrong is worse than nothing. | Gemini only flags; the SymPy checker confirms before a red circle is drawn. |
 | **Handwriting misread** | A misread `x²` looks like a math mistake. | Show what Gemini read in small gray text. If the reading is unsure, ask "did you mean...?" instead of marking it wrong. |
@@ -117,13 +117,15 @@ Preet builds the brain (Gemini pipeline and the contract) before 4 PM, so Parsh 
 
 - [ ] Math checker: a small Python service with SymPy, `verify_step` endpoint, deployed on Cloud Run. Hook it up as a Gemini tool.
 - [ ] Hint ladder: the Help button, hint level saved per problem in Firestore, sent to Gemini with each request.
+- [ ] Import PDF worksheet: place problem-set pages on the canvas so students work on their real homework (the Zurich demo did this).
+- [ ] Voice as part of Help: circle a problem, hold Help and ask out loud. The spoken question goes in the same help request (`question` field).
 - [ ] Graph tool: `plot_2d` draws with function-plot and places the image next to the problem.
 - [ ] Save and reload notebook pages in Firestore.
 - [ ] Build a demo set: 5 problems with planted mistakes that work every time.
 
 ### Tonight (Preet back, both)
 
-- [ ] Preet: voice (hold to ask, answers out loud with the browser's built-in speech).
+- [ ] Preet: voice polish (answers read out loud, test the mic on the iPad at the venue).
 - [ ] Preet: 3D figure tool with Three.js, if the core is solid.
 - [ ] Both: fix whatever the demo set breaks, then polish the look and loading states.
 - [ ] Preet: draft the Devpost write-up.
@@ -149,7 +151,7 @@ Before Preet leaves, Parsh should be able to run, change and deploy everything w
 
 **90-second table demo**
 
-1. **Problem (15 sec):** "AI homework tools hand you the answer, so you don't learn. A real tutor watches you work and catches your mistakes."
+1. **Problem (15 sec):** "Right now, asking AI about your homework means screenshot, share, paste into a chat, and it just hands you the answer. Other AI tutors finish your homework. Ours finds your mistake and makes you fix it."
 2. **Live demo (50 sec):** write a problem with a planted mistake and it gets circled. Tap Help for a hint. Write "graph this" and a graph appears. Hand the judge the Pencil.
 3. **How it works (25 sec):** Gemini reads the handwriting and decides how to teach, a math engine double-checks every step, and Firebase saves your notebook.
 
