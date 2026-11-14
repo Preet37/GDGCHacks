@@ -1,0 +1,16 @@
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  overscroll-behavior: none;
+}
+
+body {
+  background: #fff;
+  font-family: system-ui, -apple-system, sans-serif;
+  /* stop Safari from scrolling/zooming the page while writing with the Pencil */
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+}

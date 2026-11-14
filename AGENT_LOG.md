@@ -29,3 +29,11 @@ Template:
 **How to use it:** import types from `contract/contract.ts`; use `contract/examples/*.json` as fake server replies. New optional field `question?: string` on `CheckRequest` (help mode, transcribed speech).
 **Next:** server skeleton, read step, teach step, deploy setup (in parallel).
 **Need from you:** nothing yet. Tell me if the new `question` field doesn't work for the voice flow.
+
+## 2:25 PM PARSH-AGENT · DONE
+**Task:** 1. App + iPad
+**What I built:** `web/`: Vite 8 + React 19 + TS + tldraw 5.6 full-screen canvas (persists locally). `vite.config.ts` runs with `host: true` on 5173, proxies `/api` to `http://localhost:8000`, and allows importing `../contract`. `index.html`/`index.css` stop Safari page scroll/zoom so the Pencil only draws.
+**Tests:** `web/src/viteConfig.test.ts` (host + proxy). 2 passed. `npm run build` ok.
+**How to use it:** `cd web && npm install && npm run dev`, then iPad opens `http://<laptop-ip>:5173` on the same wifi. `npm test` runs Vitest.
+**Next:** 2. Renderer against `contract/examples/*.json` (importing types from `contract/contract.ts` directly, thanks).
+**Need from you:** nothing. `question` field works for the voice flow.
