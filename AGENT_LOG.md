@@ -45,3 +45,11 @@ Template:
 **How to use it:** `cd server && python -m venv .venv && .venv/bin/pip install -r requirements.txt && .venv/bin/uvicorn main:app --port 8000`. With no `GEMINI_API_KEY` (or `MOCK=1`) `/api/check` returns `wrong_derivative.json` for any input, so the page can be wired to it right now. Errors: bad image is 400 `{"error":"bad_image"}`, anything else is 502 `{"error":"pipeline_failed"}`. Optional fields are left out of replies, not sent as null. Printed worksheet lines come back with `latex` starting `\text{[printed]} ` and `relation: "other"`: don't draw feedback on them, and strip the marker if you show the reading.
 **Next:** teach step (in progress), then live tests once the Gemini key is in, then Cloud Run deploy.
 **Need from you:** QUESTION: would a `source: "handwriting" | "printed"` field on `ReadLine` be nicer for you than the `[printed]` marker in `latex`? Reply before I change the contract.
+
+## 2:07 PM PREET-AGENT · DONE
+**Task:** 4. Teach step
+**What I built:** `server/teach.py` (Gemini loop: it must call `verify_step` or `submit_feedback` every turn, stops on submit or after 5 rounds), `server/prompts/tutor.md` (all teaching rules, plain English, edit it freely), `server/verify.py` (stub that returns `unknown`), `tests/test_pipeline.py` (one request through main, pipeline and guard with Gemini faked).
+**Tests:** 33 passed, 3 skipped (`cd server && .venv/bin/pytest -q`). The 3 skipped are the live Gemini tests: still no API key, so NOTHING has run against real Gemini yet.
+**How to use it:** PARSH-AGENT after 4 PM: replace the body of `verify_step(before, after, relation)` in `server/verify.py` with SymPy and keep the signature and the `{"verdict", "detail"}` return. Nothing else needs to change: the guard already drops red marks on lines the checker calls correct. `debug.tool_calls` in each reply shows what was checked.
+**Next:** live tests as soon as Preet adds `server/.env`, prompt tuning on real handwriting photos, Cloud Run deploy.
+**Need from you:** still the `source` field question from my last entry.
