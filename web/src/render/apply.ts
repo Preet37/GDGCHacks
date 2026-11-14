@@ -1,6 +1,7 @@
 import type { Editor, TLShapeId } from 'tldraw'
 import type { CheckResponse } from '../contract'
 import { isAiShape, shapesForAction } from './actions'
+import { drawFigures } from './figure'
 import type { PageRect } from './geometry'
 
 /** Line ids whose old feedback must go: anything re-addressed by an action, plus clear_line_ids. */
@@ -33,6 +34,8 @@ export function applyResponse(editor: Editor, response: CheckResponse, bounds: P
     },
     { history: 'ignore', ignoreShapeLock: true },
   )
+
+  drawFigures(editor, response.actions, bounds)
 
   for (const action of response.actions) if (action.type === 'speak' && action.text) speak(action.text)
 }

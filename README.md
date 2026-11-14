@@ -95,6 +95,7 @@ URL flags:
 | `src/render/geometry.ts` | `boxToPage`: `[ymin, xmin, ymax, xmax]` 0-1000 over the sent image -> page coords |
 | `src/render/actions.ts` | One function per action type (circle, underline, note, ask). Every AI shape has `meta.ai = true` + `line_id` |
 | `src/render/apply.ts` | Replaces old feedback for re-addressed lines and `clear_line_ids`, draws new shapes, speaks `speak` actions |
+| `src/render/figure.ts` | `figure` plot2d -> function-plot SVG -> image shape beside its box (360x260) |
 | `src/render/reading.ts` | "Show what AI read": gray text under each handwritten line |
 | `src/HelpButton.tsx` | Help: uses the current selection as `help_box`, otherwise the whole page |
 
@@ -112,5 +113,5 @@ npx firebase-tools deploy --only hosting
 ### Known issues
 
 - tldraw shows a small "Get a license for production" badge on non-localhost hosts.
-- `figure` actions aren't drawn yet (graphs come next); `speak` uses the browser's built-in voice.
+- `figure` draws `plot2d` only (function-plot); `surface3d` is skipped until the 3D tool lands. `speak` uses the browser's built-in voice.
 - `PageState` is kept in localStorage until Firestore is wired up.

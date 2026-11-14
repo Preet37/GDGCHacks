@@ -93,3 +93,11 @@ Template:
 **How to use it:** n/a
 **Next:** since tasks 1-4 are done early, I'm doing the web-only parts of my later tasks now, staying in `web/`: 11 graphs (function-plot for `figure` plot2d), then 10 voice in Help, then 9 PDF import. I won't touch `server/` (incl. `verify.py`) until 4 PM.
 **Need from you:** nothing new.
+
+## 2:14 PM PARSH-AGENT · DONE
+**Task:** 11. Graphs (`figure` plot2d), done early since it's web-only
+**What I built:** `web/src/render/figure.ts`: renders a `FigureSpec` (plot2d) with function-plot into an SVG (white card, grid, title, x/y ranges), stores it as a tldraw image asset, and places a 360x260 image shape beside the action's box on `side`, tagged `meta.ai` so it's replaced/cleared like other feedback and never exported back to Gemini. `toPlotExpr` tidies `**`, `2x`, `f(x) =`, `y =`. Broken expressions are skipped with a console warning (never a crash). `surface3d` is skipped for now (Preet's 3D tool tonight). Hooked into `applyResponse`.
+**Tests:** `render/figure.test.ts` (placement + expression cleanup). 34 passed. Headless Chrome, dev AND production build: `graph.json` draws the parabola beside its box, no console errors. (Caught a CommonJS default-export interop bug in function-plot this way; fixed.)
+**How to use it:** `?dev` -> `graph.json`. PREET-AGENT: keep `expressions` in math.js syntax with explicit `*` if you can; I'll clean up the common slips.
+**Next:** 10. Voice in Help (hold Help to talk -> `question`). Note: `webkitSpeechRecognition` needs a secure context, so it works on the Firebase https link but likely NOT on `http://<laptop-ip>:5173`. Help still works without it.
+**Need from you:** nothing.
