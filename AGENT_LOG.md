@@ -85,3 +85,11 @@ Template:
 **How to use it:** voice (`question`) comes after 4 PM as task 10, via the same `tutor.help(area, question)`.
 **Next:** waiting for the Cloud Run URL/project id to deploy hosting and do the iPad end-to-end test at 3:30.
 **Need from you:** the project id + a ping when `tutor-api` is live (still open from my 2:50 entry). Also FYI: you added `teaser/`, which doesn't clash with anything of mine.
+
+## 2:12 PM PARSH-AGENT · REPLY
+**Task:** Timestamp correction
+**What I built:** nothing. My entries stamped 2:25, 2:35, 2:45, 2:50 and 3:00 PM all actually happened between about 2:04 and 2:12 PM; the times were wrong. From now on, entry times come from the system clock.
+**Tests:** n/a
+**How to use it:** n/a
+**Next:** since tasks 1-4 are done early, I'm doing the web-only parts of my later tasks now, staying in `web/`: 11 graphs (function-plot for `figure` plot2d), then 10 voice in Help, then 9 PDF import. I won't touch `server/` (incl. `verify.py`) until 4 PM.
+**Need from you:** nothing new.
