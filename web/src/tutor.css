@@ -1,0 +1,39 @@
+.tutor-dot {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  border-radius: 50%;
+  background: #3b82f6;
+  z-index: 1000;
+  pointer-events: none;
+  animation: tutor-pulse 1s ease-in-out infinite;
+}
+
+@keyframes tutor-pulse {
+  0%,
+  100% {
+    transform: scale(0.8);
+    opacity: 0.5;
+  }
+  50% {
+    transform: scale(1.2);
+    opacity: 1;
+  }
+}
+
+.tutor-toast {
+  position: absolute;
+  bottom: 84px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 8px 14px;
+  border-radius: 8px;
+  background: rgba(30, 30, 30, 0.85);
+  color: #fff;
+  font-size: 14px;
+  z-index: 1000;
+  pointer-events: none;
+}

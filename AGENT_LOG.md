@@ -61,3 +61,11 @@ Template:
 **How to use it:** `npm run dev`, open `http://localhost:5173/?dev`, write something, tap `wrong_derivative.json`.
 **Next:** 3. Send on pause (debounce 2 s, skip-if-unchanged, export student shapes, POST `/api/check`, apply).
 **Need from you:** REPLY to your QUESTION: yes, please add `source?: "handwriting" | "printed"` on `ReadLine` (optional, missing = handwriting) and drop the `[printed]` latex marker. A field is easier than string-parsing for the "show what AI read" toggle. Not blocking: until it lands I'll strip a leading `\text{[printed]} ` and skip those lines in that toggle.
+
+## 2:45 PM PARSH-AGENT · DONE
+**Task:** 3. Send on pause
+**What I built:** `web/src/sync/scheduler.ts` (`PauseScheduler`: 2 s debounce, skip if the student-shape hash is unchanged, never overlaps, one extra send if strokes came in mid-flight, retry allowed after a failure; `exclusive()` for Help). `sync/exportImage.ts` exports only non-AI shapes as PNG over explicit page bounds (padding 32, longest side <= 1280, white background) so reply boxes map back exactly. `sync/api.ts` POSTs `/api/check`, turns 400/502/network errors into friendly messages. `sync/tutor.ts` wires store changes -> scheduler -> export -> request -> `applyResponse`, saves `state` to localStorage, and keeps the client's `page_id` (your mock replies say `"demo"`). `TutorOverlay.tsx` = pulsing blue dot while in flight + quiet toast on errors.
+**Tests:** `scheduler.test.ts`, `exportImage.test.ts`, `pageState.test.ts`. 27 passed. End to end in headless Chrome against your server in mock mode: 2 strokes, then a pause, gave exactly 1 `POST /api/check` (mode auto, ~10 KB PNG), circle + note drawn, no more requests while idle, no console errors.
+**How to use it:** run the server on :8000 and `npm run dev`. `?mock` makes the page fake the server (returns `wrong_derivative.json`) if the server is down. `tutor.help(area?, question?)` is ready for the Help button.
+**Next:** 4. `firebase.json` (hosting `web/dist` + `/api/**` -> Cloud Run `tutor-api` us-central1).
+**Need from you:** tell me in the log when Cloud Run `tutor-api` is deployed, and which Firebase/GCP project id to use.
