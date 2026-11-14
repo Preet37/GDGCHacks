@@ -1,0 +1,399 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI tutor notebook teaser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Caveat:wght@700&family=Kalam:wght@400&display=block" rel="stylesheet">
+<style>
+  :root {
+    --desk: #18264d;      /* fountain-pen blue desk */
+    --desk-soft: #8e9dc9; /* muted type on the desk */
+    --paper: #f4f7f3;
+    --grid: #cbdbe6;
+    --ink: #1c2857;       /* the student's pen */
+    --red: #e3342a;       /* the tutor's pencil */
+    --teal: #0b8a7a;      /* the tutor's figures */
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; background: #0c1430; overflow: hidden; }
+  #stage {
+    position: absolute; left: 50%; top: 50%;
+    width: 1080px; height: 1920px; margin: -960px 0 0 -540px;
+    background: var(--desk); overflow: hidden; transform-origin: 50% 50%;
+    font-family: "Bricolage Grotesque", system-ui, sans-serif; color: var(--paper);
+    user-select: none; -webkit-user-select: none;
+  }
+  #stage.playing { cursor: none; }
+  .layer { position: absolute; inset: 0; }
+
+  /* Beat 1: the pain */
+  #s1 .lead { position: absolute; left: 80px; top: 400px; font-weight: 500; font-size: 50px; color: var(--desk-soft); }
+  #s1 .step { position: absolute; left: 80px; font-weight: 800; font-size: 104px; line-height: 1; letter-spacing: -0.03em; }
+  #s1 .bubble {
+    position: absolute; left: 80px; top: 1010px; width: 820px; padding: 46px 54px 52px;
+    background: var(--paper); color: var(--ink); border-radius: 44px 44px 44px 8px;
+    transform-origin: 0 100%;
+  }
+  #s1 .bubble small { display: block; font-weight: 500; font-size: 44px; opacity: .7; margin-bottom: 10px; }
+  #s1 .bubble b { font-weight: 800; font-size: 92px; letter-spacing: -0.02em; }
+  #s1 .after { position: absolute; left: 80px; top: 1350px; width: 900px; font-weight: 800; font-size: 76px; line-height: 1.05; letter-spacing: -0.02em; }
+
+  /* Beat 2: the notebook */
+  .cap {
+    position: absolute; left: 70px; bottom: 1535px; width: 940px;
+    font-weight: 800; font-size: 58px; line-height: 1.1; letter-spacing: -0.02em; opacity: 0;
+  }
+  .paper {
+    position: absolute; background-color: var(--paper);
+    background-image:
+      linear-gradient(var(--grid) 2px, transparent 2px),
+      linear-gradient(90deg, var(--grid) 2px, transparent 2px);
+    background-size: 60px 60px; background-position: 29px 29px;
+    box-shadow: 0 30px 80px rgba(4, 9, 30, .55);
+  }
+  #page { left: 50px; top: 420px; width: 980px; height: 1600px; border-radius: 30px 30px 0 0; }
+  .hand { position: absolute; white-space: nowrap; line-height: 1; }
+  .student { font-family: "Kalam", cursive; color: var(--ink); }
+  .tutor { font-family: "Caveat", cursive; font-weight: 700; color: var(--red); }
+  .g, .sp { display: inline-block; }
+  .sp { width: .3em; }
+  .sup { font-size: .58em; position: relative; top: -.62em; margin-left: .04em; }
+  #l1, #l2 { left: 80px; font-size: 118px; }
+  #l1 { top: 70px; } #l2 { top: 235px; }
+  #l2 .fix { position: absolute; top: 0; }
+  #note { left: 380px; top: 425px; font-size: 80px; line-height: .98; transform: rotate(-3deg); transform-origin: 0 0; white-space: normal; width: 560px; }
+  #note div { white-space: nowrap; }
+  #gt { left: 80px; top: 640px; font-size: 96px; }
+  #marks, #graph { position: absolute; overflow: visible; }
+  #marks { left: 0; top: 0; width: 980px; height: 1600px; pointer-events: none; }
+  #graph { left: 90px; top: 770px; width: 780px; height: 470px; }
+  #scan { position: absolute; left: 0; top: 60px; width: 150px; height: 320px; opacity: 0;
+    background: linear-gradient(90deg, transparent, rgba(11,138,122,.20), transparent); }
+  #dots { position: absolute; top: 300px; display: flex; gap: 16px; }
+  #dots i { width: 20px; height: 20px; border-radius: 50%; background: var(--teal); opacity: 0; }
+  #pen { position: absolute; left: 0; top: 0; width: 10px; height: 10px; overflow: visible; opacity: 0; pointer-events: none; }
+
+  /* Beat 3: the line */
+  #s3 .ln { position: absolute; left: 80px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; white-space: nowrap; }
+  #s3 .a { font-size: 96px; }
+  #s3 .b { font-size: 112px; }
+  #strike { position: absolute; inset: 0; width: 1080px; height: 1920px; overflow: visible; }
+
+  /* End card */
+  #endpage { left: 50px; top: 300px; width: 980px; height: 1320px; border-radius: 30px; color: var(--ink); }
+  #name { left: 80px; top: 150px; font-size: 150px; }
+  #endmarks { position: absolute; inset: 0; width: 980px; height: 1320px; overflow: visible; }
+  #endpage p { position: absolute; left: 84px; width: 800px; }
+  #what { top: 440px; font-weight: 500; font-size: 52px; line-height: 1.18; }
+  #hints { top: 745px; font-family: "Caveat", cursive; font-weight: 700; font-size: 70px; line-height: 1; color: var(--red); transform: rotate(-2deg); transform-origin: 0 0; }
+  #where { top: 1040px; font-weight: 800; font-size: 54px; letter-spacing: -0.02em; }
+  #who { top: 1120px; font-weight: 500; font-size: 54px; }
+</style>
+</head>
+<body>
+<div id="stage">
+  <div class="layer" id="s1">
+    <div class="lead">Asking AI about your homework today</div>
+    <div class="step" style="top:510px">Screenshot.</div>
+    <div class="step" style="top:630px">Share.</div>
+    <div class="step" style="top:750px">Paste into a chat.</div>
+    <div class="bubble"><small>Here's the answer:</small><b>f′(x) = 6x + 2</b></div>
+    <div class="after">It just hands you the answer.</div>
+  </div>
+
+  <div class="layer" id="s2">
+    <div class="cap">Do your math by hand, on the iPad.</div>
+    <div class="cap">Pause. Gemini reads your work and a real math engine checks it.</div>
+    <div class="cap">It circles the exact mistake. You get a hint, not the answer.</div>
+    <div class="cap">You fix it yourself.</div>
+    <div class="cap">Write “graph this” and the graph appears.</div>
+    <div class="paper" id="page">
+      <div id="scan"></div>
+      <div class="hand student" id="l1"></div>
+      <div class="hand student" id="l2"></div>
+      <div id="dots"><i></i><i></i><i></i></div>
+      <div class="hand tutor" id="note"><div id="n1"></div><div id="n2"></div></div>
+      <div class="hand student" id="gt"></div>
+      <svg id="graph" viewBox="0 0 780 470" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path id="gx" stroke="#0b8a7a" stroke-width="5" pathLength="1" stroke-dasharray="1 1"/>
+        <path id="gy" stroke="#0b8a7a" stroke-width="5" pathLength="1" stroke-dasharray="1 1"/>
+        <path id="gticks" stroke="#0b8a7a" stroke-width="4"/>
+        <path id="gcurve" stroke="#0b8a7a" stroke-width="9" pathLength="1" stroke-dasharray="1 1"/>
+        <text id="glabel" x="10" y="462" font-family="Caveat, cursive" font-weight="700" font-size="60" fill="#0b8a7a">y = 3x² + 2x</text>
+      </svg>
+      <svg id="marks" fill="none" stroke-linecap="round" stroke-linejoin="round">
+        <path id="circle" stroke="#e3342a" stroke-width="9" pathLength="1" stroke-dasharray="1 1"/>
+      </svg>
+    </div>
+  </div>
+
+  <div class="layer" id="s3">
+    <div class="ln a" style="top:470px">Other AI tutors</div>
+    <div class="ln a" style="top:580px">finish your</div>
+    <div class="ln a" style="top:690px">homework.</div>
+    <svg id="strike" fill="none" stroke="#e3342a" stroke-width="12" stroke-linecap="round"></svg>
+    <div class="ln b" style="top:930px">Ours finds</div>
+    <div class="ln b" style="top:1056px">your mistake</div>
+    <div class="ln b" style="top:1182px">and makes</div>
+    <div class="ln b" style="top:1308px">you fix it.</div>
+  </div>
+
+  <div class="layer" id="s4">
+    <div class="paper" id="endpage">
+      <div class="hand student" id="name"></div>
+      <svg id="endmarks" fill="none" stroke-linecap="round"><path id="under" stroke="#e3342a" stroke-width="9" pathLength="1" stroke-dasharray="1 1"/></svg>
+      <p id="what">A notebook that reads your handwritten math, circles where you went wrong, and writes a hint in the margin.</p>
+      <p id="hints">Hints come in three levels: a nudge, a bigger push, a worked step.</p>
+      <p id="where">Built at Google DevFest · UCSC</p>
+      <p id="who">Preet + Parsh</p>
+    </div>
+  </div>
+
+  <svg id="pen" viewBox="0 0 10 10">
+    <g transform="rotate(56)">
+      <rect x="26" y="-13" width="620" height="26" rx="13" fill="#fbfcfb" stroke="#b9c3d6" stroke-width="2"/>
+      <path d="M0 0 L28 -11 L28 11 Z" fill="#e9edf2" stroke="#b9c3d6" stroke-width="2" stroke-linejoin="round"/>
+    </g>
+  </svg>
+</div>
+
+<script>
+// ---- The one line to change when the project has a name ----
+const PROJECT_NAME = "[need: name]";
+// Shown on the end card while PROJECT_NAME is still the placeholder.
+const NAME_FALLBACK = "AI tutor notebook";
+
+const DURATION = 25;           // seconds; the end card holds after this
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => [...document.querySelectorAll(s)];
+const clamp = (v) => Math.max(0, Math.min(1, v));
+const prog = (t, a, d) => clamp((t - a) / d);
+const eout = (p) => 1 - Math.pow(1 - p, 3);
+const eio = (p) => p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
+// 0 -> 1 -> 0 window with fades
+const win = (t, a, b, f = .25) => Math.min(prog(t, a, f), 1 - prog(t, b - f, f));
+
+const stage = $("#stage");
+function fit() {
+  const s = Math.min(innerWidth / 1080, innerHeight / 1920);
+  stage.style.transform = `scale(${s})`;
+}
+addEventListener("resize", fit); fit();
+
+// ---- handwriting: one span per glyph, revealed left to right in sequence ----
+function hand(el, text) {
+  el.textContent = ""; el._g = [];
+  for (const ch of text) {
+    const s = document.createElement("span");
+    if (ch === " ") s.className = "sp";
+    else { s.className = "g"; s.textContent = ch === "²" ? "2" : ch; if (ch === "²") s.classList.add("sup"); el._g.push(s); }
+    el.appendChild(s);
+  }
+  return el;
+}
+function reveal(span, p) {
+  span.style.visibility = p <= 0 ? "hidden" : "visible";
+  span.style.clipPath = p >= 1 || p <= 0 ? "none" : `inset(-40% ${(1 - eio(p)) * 100}% -40% -40%)`;
+}
+function write(glyphs, t, start, dur) {
+  const slot = dur / glyphs.length;
+  glyphs.forEach((g, i) => reveal(g, clamp((t - start) / slot - i)));
+}
+function draw(path, p) {
+  path.style.strokeDashoffset = 1 - p;
+  path.style.visibility = p <= 0 ? "hidden" : "visible";
+}
+
+const l1 = hand($("#l1"), "f(x) = 3x² + 2x");
+const l2 = hand($("#l2"), "f'(x) = 6x + 1");
+const n1 = hand($("#n1"), "What happens to");
+const n2 = hand($("#n2"), "the x in 2x?");
+const gt = hand($("#gt"), "graph this");
+const isPlaceholder = /^\s*\[need/i.test(PROJECT_NAME) || !PROJECT_NAME.trim();
+const nameEl = hand($("#name"), isPlaceholder ? NAME_FALLBACK : PROJECT_NAME);
+const plus = l2._g[8], one = l2._g[9];
+const two = document.createElement("span"); two.className = "g fix"; two.textContent = "2"; l2.appendChild(two);
+
+// ---- graph of f(x) = 3x^2 + 2x ----
+const GX = (x) => (x + 1.72) / 2.8 * 780, GY = (y) => 440 - (y + .6) / 5.8 * 440;
+(function buildGraph() {
+  const w = (i) => Math.sin(i * 2.1) * 1.6; // slight hand wobble
+  let d = "";
+  for (let i = 0; i <= 20; i++) d += `${i ? "L" : "M"}${(8 + i * 38.2).toFixed(1)} ${(GY(0) + w(i)).toFixed(1)}`;
+  $("#gx").setAttribute("d", d);
+  d = "";
+  for (let i = 0; i <= 12; i++) d += `${i ? "L" : "M"}${(GX(0) + w(i + 3)).toFixed(1)} ${(436 - i * 36).toFixed(1)}`;
+  $("#gy").setAttribute("d", d);
+  d = "";
+  for (const x of [-1, 1]) d += `M${GX(x)} ${GY(0) - 9}L${GX(x)} ${GY(0) + 9}`;
+  for (const y of [1, 2, 3, 4, 5]) d += `M${GX(0) - 9} ${GY(y)}L${GX(0) + 9} ${GY(y)}`;
+  $("#gticks").setAttribute("d", d);
+  d = "";
+  for (let i = 0; i <= 90; i++) { const x = -1.68 + i * (2.69 / 90); d += `${i ? "L" : "M"}${GX(x).toFixed(1)} ${GY(3 * x * x + 2 * x).toFixed(1)}`; }
+  $("#gcurve").setAttribute("d", d);
+})();
+
+// ---- layout that depends on real glyph positions (after fonts load) ----
+let penSegs = [];
+function layout() {
+  two.style.left = one.offsetLeft + "px";
+  // red circle around "+ 1"
+  const x0 = l2.offsetLeft + plus.offsetLeft, x1 = l2.offsetLeft + one.offsetLeft + one.offsetWidth;
+  const cx = (x0 + x1) / 2 + 8, cy = l2.offsetTop + plus.offsetTop + plus.offsetHeight * CIRCLE_Y;
+  const rx = (x1 - x0) / 2 + 14, ry = plus.offsetHeight * .5;
+  let d = ""; const N = 90, a0 = -2.3, rot = -.1;
+  for (let i = 0; i <= N; i++) {
+    const a = a0 + (Math.PI * 2 + .7) * i / N;
+    const f = .96 + .05 * Math.sin(2 * a + 1) + .1 * i / N;
+    const ex = rx * f * Math.cos(a), ey = ry * f * Math.sin(a);
+    d += `${i ? "L" : "M"}${(cx + ex * Math.cos(rot) - ey * Math.sin(rot)).toFixed(1)} ${(cy + ex * Math.sin(rot) + ey * Math.cos(rot)).toFixed(1)}`;
+  }
+  $("#circle").setAttribute("d", d);
+  $("#dots").style.left = (x1 + 40) + "px";
+
+  // strike-through for the first sentence of the core line
+  const lines = $$("#s3 .a"); let sd = "";
+  lines.forEach((ln, i) => {
+    const y = ln.offsetTop + ln.offsetHeight * .56, xa = ln.offsetLeft - 16, xb = ln.offsetLeft + ln.offsetWidth + 16;
+    sd += `<path pathLength="1" stroke-dasharray="1 1" d="M${xa} ${y + 6} Q${(xa + xb) / 2} ${y - 14 + i * 9} ${xb} ${y - 4}"/>`;
+  });
+  $("#strike").innerHTML = sd;
+
+  // end card: shrink a long name to fit, then underline it
+  let fs = 150; nameEl.style.fontSize = fs + "px";
+  while (nameEl.offsetWidth > 800 && fs > 60) { fs -= 4; nameEl.style.fontSize = fs + "px"; }
+  const uy = nameEl.offsetTop + nameEl.offsetHeight + 14, ux = nameEl.offsetLeft, uw = nameEl.offsetWidth;
+  $("#under").setAttribute("d", `M${ux - 6} ${uy + 6} Q${ux + uw * .3} ${uy - 12} ${ux + uw * .55} ${uy + 2} T${ux + uw + 14} ${uy - 6}`);
+
+  penSegs = [
+    { line: l1, g: l1._g, a: T.l1[0], d: T.l1[1] },
+    { line: l2, g: l2._g, a: T.l2[0], d: T.l2[1] },
+    { line: l2, g: [one], a: T.erase[0], d: T.erase[1], scrub: true },
+    { line: l2, g: [two], a: T.fix[0], d: T.fix[1] },
+    { line: gt, g: gt._g, a: T.gt[0], d: T.gt[1] },
+  ];
+}
+const CIRCLE_Y = .47;
+
+// ---- timeline (seconds) ----
+const T = {
+  s1out: 3.7, pageIn: 3.8,
+  l1: [4.5, 2.0], l2: [6.9, 1.8],
+  think: [8.8, 1.2],
+  circle: [10.0, .6], note: [10.7, 1.5],
+  erase: [12.9, .45], fix: [13.4, .5], clear: [14.0, .5],
+  gt: [14.7, 1.0], graph: [15.9, 1.6],
+  pageOut: 17.9, line: 18.3, strike: 19.5, ours: 20.2,
+  end: 22.6, name: [23.2, .9],
+};
+const CAPS = [[4.1, 8.7], [8.7, 10.0], [10.0, 12.8], [12.8, 14.6], [14.6, 17.9]];
+
+const el = {
+  s1: $("#s1"), lead: $("#s1 .lead"), steps: $$("#s1 .step"), bubble: $("#s1 .bubble"), after: $("#s1 .after"),
+  caps: $$(".cap"), page: $("#page"), scan: $("#scan"), dots: $$("#dots i"), circle: $("#circle"), note: $("#note"),
+  gx: $("#gx"), gy: $("#gy"), gticks: $("#gticks"), gcurve: $("#gcurve"), glabel: $("#glabel"),
+  pen: $("#pen"), s3: $("#s3"), a: $$("#s3 .a"), b: $$("#s3 .b"), s4: $("#s4"), endpage: $("#endpage"),
+  under: $("#under"), what: $("#what"), hints: $("#hints"), where: $("#where"), who: $("#who"),
+};
+const pop = (node, p, dy = 26) => { node.style.opacity = p; node.style.transform = `translateY(${(1 - eout(p)) * dy}px)`; };
+
+function render(t) {
+  // Beat 1
+  el.s1.style.opacity = 1 - prog(t, T.s1out, .35);
+  el.s1.style.visibility = t > T.s1out + .4 ? "hidden" : "visible";
+  el.lead.style.opacity = prog(t, .15, .3);
+  el.steps.forEach((s, i) => pop(s, prog(t, .45 + i * .45, .22)));
+  const bp = prog(t, 1.95, .3);
+  el.bubble.style.opacity = bp; el.bubble.style.transform = `scale(${.86 + .14 * eout(bp)})`;
+  pop(el.after, prog(t, 2.6, .3));
+
+  // Beat 2
+  const inP = eout(prog(t, T.pageIn, .7)), outP = eio(prog(t, T.pageOut, .6));
+  el.page.style.transform = `translateY(${(1 - inP) * 1600 + outP * 1700}px)`;
+  el.page.style.visibility = t < T.pageIn || t > T.pageOut + .7 ? "hidden" : "visible";
+  el.caps.forEach((c, i) => { c.style.opacity = win(t, CAPS[i][0], CAPS[i][1]); });
+
+  write(l1._g, t, ...T.l1);
+  write(l2._g, t, ...T.l2);
+  // the fix: the wrong "1" is rubbed out, a "2" is written in its place
+  const er = prog(t, ...T.erase);
+  if (er > 0) { one.style.clipPath = "none"; one.style.opacity = 1 - er; } else one.style.opacity = 1;
+  write([two], t, ...T.fix);
+
+  // thinking pulse while it reads
+  const th = win(t, T.think[0], T.think[0] + T.think[1], .2), sp = prog(t, ...T.think);
+  el.scan.style.opacity = th; el.scan.style.transform = `translateX(${-150 + sp * 1130}px)`;
+  el.dots.forEach((d, i) => { d.style.opacity = th * (.25 + .75 * Math.max(0, Math.sin((t - T.think[0]) * 9 - i * 1.1))); });
+
+  // red circle + margin note, cleared once the step is fixed
+  const clear = 1 - prog(t, ...T.clear);
+  draw(el.circle, eio(prog(t, ...T.circle))); el.circle.style.opacity = clear;
+  const ng = [...n1._g, ...n2._g];
+  write(ng, t, ...T.note); el.note.style.opacity = clear;
+
+  write(gt._g, t, ...T.gt);
+  const gp = prog(t, ...T.graph);
+  draw(el.gx, eio(clamp(gp / .28))); draw(el.gy, eio(clamp((gp - .12) / .28)));
+  el.gticks.style.opacity = clamp((gp - .35) / .1);
+  draw(el.gcurve, eio(clamp((gp - .4) / .6)));
+  el.glabel.style.opacity = clamp((gp - .85) / .15);
+
+  // the pencil follows whatever the student is writing
+  let best = null, bd = 1e9;
+  for (const s of penSegs) { const d = t < s.a ? s.a - t : t > s.a + s.d ? t - s.a - s.d : 0; if (d < bd) { bd = d; best = s; } }
+  if (best && bd < .3) {
+    const q = clamp((t - best.a) / best.d) * best.g.length, i = Math.min(best.g.length - 1, Math.floor(q)), p = clamp(q - i), g = best.g[i];
+    const jig = best.scrub ? Math.sin(p * 18) * .5 + .5 : eio(p);
+    const x = 50 + best.line.offsetLeft + g.offsetLeft + g.offsetWidth * jig;
+    const y = 420 + best.line.offsetTop + g.offsetTop + g.offsetHeight * (.56 + .2 * Math.sin(p * 6.283 + i));
+    el.pen.style.transform = `translate(${x}px, ${y}px)`;
+    el.pen.style.opacity = 1 - bd / .3;
+  } else el.pen.style.opacity = 0;
+
+  // Beat 3
+  el.s3.style.visibility = t < T.line || t > T.end + .5 ? "hidden" : "visible";
+  el.s3.style.opacity = 1 - prog(t, T.end, .4);
+  const dim = 1 - .55 * prog(t, T.strike + .5, .4);
+  el.a.forEach((n, i) => { const p = prog(t, T.line + i * .12, .3); pop(n, p); n.style.opacity = p * dim; });
+  [...$("#strike").children].forEach((p, i) => draw(p, eio(prog(t, T.strike + i * .18, .28))));
+  el.b.forEach((n, i) => pop(n, prog(t, T.ours + i * .22, .3), 34));
+
+  // End card
+  const ep = eout(prog(t, T.end + .1, .7));
+  el.endpage.style.transform = `translateY(${(1 - ep) * 1700}px)`;
+  el.s4.style.visibility = t < T.end ? "hidden" : "visible";
+  write(nameEl._g, t, ...T.name);
+  draw(el.under, eio(prog(t, T.name[0] + T.name[1] + .05, .35)));
+  el.what.style.opacity = prog(t, 23.7, .4);
+  el.hints.style.opacity = prog(t, 24.1, .4);
+  el.where.style.opacity = prog(t, 24.4, .4);
+  el.who.style.opacity = prog(t, 24.55, .4);
+}
+
+// ---- playback: auto-play; R or click restarts; ?t=<seconds> jumps there and pauses ----
+let t0 = 0, playing = false;
+function tick(now) {
+  if (!playing) return;
+  const t = (now - t0) / 1000;
+  render(Math.min(t, DURATION));
+  if (t < DURATION) requestAnimationFrame(tick); else { playing = false; stage.classList.remove("playing"); }
+}
+function play() { t0 = performance.now(); if (!playing) { playing = true; stage.classList.add("playing"); requestAnimationFrame(tick); } }
+function seek(t) { playing = false; stage.classList.remove("playing"); render(Math.max(0, Math.min(t, DURATION))); }
+addEventListener("keydown", (e) => { if (e.key === "r" || e.key === "R") play(); });
+addEventListener("click", play);
+
+const fonts = ['118px Kalam', '700 80px Caveat', '800 96px "Bricolage Grotesque"', '500 50px "Bricolage Grotesque"'];
+const ready = Promise.all(fonts.map((f) => document.fonts.load(f))).then(() => document.fonts.ready);
+Promise.race([ready, new Promise((r) => setTimeout(r, 4000))]).then(() => {
+  layout();
+  const q = new URLSearchParams(location.search).get("t");
+  if (q !== null && !isNaN(parseFloat(q))) seek(parseFloat(q)); else play();
+  document.documentElement.dataset.ready = "1";
+});
+</script>
+</body>
+</html>
