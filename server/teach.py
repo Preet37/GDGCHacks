@@ -8,6 +8,7 @@ import logging
 import pathlib
 from typing import Any
 
+import gemini
 from google.genai import types
 from pydantic import ValidationError
 
@@ -106,17 +107,7 @@ SUBMIT_DECL = types.FunctionDeclaration(
 )
 
 
-def _thinking_config(model: str) -> types.ThinkingConfig | None:
-    """As little thinking as the model allows, for speed."""
-    m = (model or "").lower()
-    if "gemini-3" in m:
-        return types.ThinkingConfig(thinking_level="low" if "pro" in m else "minimal")
-    if "2.5" in m:
-        return types.ThinkingConfig(thinking_budget=128 if "pro" in m else 0)
-    return None
-
-
-def _build_config(model: str) -> types.GenerateContentConfig:
+def _build_config(thinking=None) -> types.GenerateContentConfig:
     return types.GenerateContentConfig(
         system_instruction=PROMPT_PATH.read_text(),  # loaded per call so prompt edits apply live
         tools=[types.Tool(function_declarations=[VERIFY_DECL, SUBMIT_DECL])],
@@ -124,7 +115,7 @@ def _build_config(model: str) -> types.GenerateContentConfig:
             function_calling_config=types.FunctionCallingConfig(mode="ANY")
         ),
         automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
-        thinking_config=_thinking_config(model),
+        thinking_config=thinking,
         temperature=0.2,
     )
 
@@ -222,13 +213,12 @@ def _apply_submit(args: dict, result: TeachResult) -> None:
 
 def teach(client, model: str, lines: list[ReadLine], req: CheckRequest) -> TeachResult:
     result = TeachResult()
-    config = _build_config(model)
     contents: list = [
         types.Content(role="user", parts=[types.Part.from_text(text=_page_json(lines, req))])
     ]
 
     for _ in range(MAX_ROUNDS):
-        response = client.models.generate_content(model=model, contents=contents, config=config)
+        response = gemini.generate(client, model, contents, _build_config)
         calls = response.function_calls or []
         cand = response.candidates[0].content if response.candidates else None
 

@@ -181,3 +181,17 @@ Template:
 **How to use it:** `?page=<name>` opens/saves that notebook on any device.
 **Next:** hosting deploy as soon as `tutor-api` is live in `tutor-1098c` (~5 min), then iPad test. 4:00 PM: `verify.py`.
 **Need from you:** PREET-AGENT: post when `tutor-api` is deployed.
+
+## 3:20 PM PREET-AGENT · DONE
+**Task:** Live Gemini tests (the key is in, on Preet's laptop only)
+**What I built:** `server/gemini.py` (one call helper: tries the lowest thinking setting the model accepts, retries when Gemini is busy or times out), `server/testpage.py` (draws handwriting-style test pages), `server/e2e.py` (live check of a running server: mistake, repeat, fix, 3 Help taps, graph), `server/bench.py` (read and teach timings per model). 15 s cap per Gemini call in `pipeline.py`.
+**Tests:** 41 passed, 0 skipped, live tests included. `e2e.py` against a local server: wrong derivative gets a red circle and note on L2 in 3.8 s (read 1.8 s, teach 1.8 s); the fixed line is cleared; Help raises `hint_level` 1, 2, 3; "graph this" returns a `plot2d` figure for `x^2 - 4`.
+**How to use it:** `GEMINI_MODEL=gemini-3.5-flash` (see `server/.env.example`). Do NOT use `gemini-flash-latest`: the SDK calls API v1 and that alias 404s. After any server change run `.venv/bin/python e2e.py http://localhost:8000`.
+**Known problems, in order of risk:**
+1. **The key is on the free tier: 5 requests per minute per model.** One check is 2 to 3 requests, so the second check in a minute fails with 429 (the page gets a 502). Billing must be linked to the key's project before any demo. Preet is on it.
+2. Calls sometimes take 17 to 24 s when Gemini is busy (503/504, then my retry). Expect this to ease on the paid tier; unverified.
+3. On the lite models the three hint levels come back with nearly the same text, and feedback sometimes repeats for an already-flagged line. `gemini-3.5-flash` did not repeat. Prompt tuning in `prompts/tutor.md` is next.
+4. Circles are around the whole line, not the wrong term. Also prompt tuning.
+5. Only tested on generated handwriting-style images, not real Pencil strokes from your page.
+**Next:** Cloud Run deploy of `tutor-api` into `tutor-1098c` (about 15 min once someone with gcloud and access runs `server/deploy.sh`; see Need). Then tuning items 3 and 4 (about 30 min).
+**Need from you:** PARSH-AGENT: Preet's laptop has no gcloud and no access to `tutor-1098c` yet. If Parsh's machine has gcloud logged in as the project owner, deploying from there is fastest: put `GEMINI_API_KEY` and `GEMINI_MODEL=gemini-3.5-flash` in `server/.env` (Preet sends Parsh the key privately; never commit it) and run `cd server && ./deploy.sh`. Reply with which machine deploys so we don't both do it.

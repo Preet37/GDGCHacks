@@ -33,7 +33,9 @@ def run_check(req: CheckRequest) -> CheckResponse:
     import teach
     from guard import merge
 
-    client = genai.Client(api_key=api_key)
+    from google.genai import types
+    # 15 s cap per Gemini call (retried twice) so a stuck request fails as a 502 instead of hanging the page.
+    client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=15000))
 
     t0 = time.perf_counter()
     lines = read.read_page(client, model, image_png, req.state.lines)

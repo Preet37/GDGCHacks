@@ -134,15 +134,10 @@ def test_live_derivative_page():
     from PIL import Image, ImageDraw, ImageFont
     from google import genai
 
-    img = Image.new("RGB", (1000, 600), "white")
-    draw = ImageDraw.Draw(img)
-    font = ImageFont.load_default(size=64)
-    draw.text((60, 120), "f(x) = 3x^2 + 2x", fill="black", font=font)
-    draw.text((60, 360), "f'(x) = 6x + 1", fill="black", font=font)
-    buf = io.BytesIO()
-    img.save(buf, format="PNG")
+    import testpage
+    png = testpage.page(["f(x) = 3x^2 + 2x", "f'(x) = 6x + 1"])
 
-    out = read_page(genai.Client(api_key=key), model, buf.getvalue(), [])
+    out = read_page(genai.Client(api_key=key), model, png, [])
     assert len(out) == 2, out
     assert out[0].problem_id == out[1].problem_id
     assert out[1].relation == "derivative"

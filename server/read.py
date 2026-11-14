@@ -4,6 +4,7 @@ import logging
 import re
 from pathlib import Path
 
+import gemini
 from google.genai import types
 from pydantic import ValidationError
 
@@ -71,19 +72,12 @@ def _mime(image: bytes) -> str:
     return "image/png"
 
 
-def _thinking_config(model: str) -> types.ThinkingConfig:
-    # Gemini 2.x takes a token budget (0 = off); Gemini 3+ takes a level (MINIMAL is the lowest).
-    if re.search(r"gemini-(1|2)\.", model or ""):
-        return types.ThinkingConfig(thinking_budget=0)
-    return types.ThinkingConfig(thinking_level=types.ThinkingLevel.MINIMAL)
-
-
-def _build_config(model: str, thinking: bool) -> types.GenerateContentConfig:
+def _build_config(thinking) -> types.GenerateContentConfig:
     return types.GenerateContentConfig(
         temperature=0.1,
         response_mime_type="application/json",
         response_json_schema=RESPONSE_SCHEMA,
-        thinking_config=_thinking_config(model) if thinking else None,
+        thinking_config=thinking,
     )
 
 
@@ -157,12 +151,5 @@ def read_page(client, model: str, image_png: bytes, prev_lines: list[ReadLine]) 
         prompt,
         prev_json,
     ]
-    try:
-        resp = client.models.generate_content(model=model, contents=contents, config=_build_config(model, True))
-    except Exception as e:
-        # Some models reject a thinking setting; retry once without it rather than failing the read.
-        if "think" not in str(e).lower():
-            raise
-        log.warning("read: thinking config rejected (%s), retrying without it", e)
-        resp = client.models.generate_content(model=model, contents=contents, config=_build_config(model, False))
+    resp = gemini.generate(client, model, contents, _build_config)
     return parse_lines(getattr(resp, "text", None) or "", prev_lines)
