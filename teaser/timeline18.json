@@ -1,0 +1,531 @@
+{
+ "meta": {
+  "fps": 30,
+  "width": 1920,
+  "height": 1080,
+  "duration": 18.0,
+  "frames": 540,
+  "bpm": 120,
+  "beat": 0.5,
+  "bar": 2.0,
+  "key": "G major",
+  "progression": [
+   "Gmaj7",
+   "Em9",
+   "Cmaj7",
+   "D"
+  ]
+ },
+ "segments": [
+  {
+   "id": "S1",
+   "a": 10.2,
+   "b": 15.0,
+   "out": 0.0
+  },
+  {
+   "id": "S2",
+   "a": 16.2,
+   "b": 19.2,
+   "out": 4.5
+  },
+  {
+   "id": "S3",
+   "a": 22.7,
+   "b": 25.5,
+   "out": 7.2
+  },
+  {
+   "id": "S4",
+   "a": 42.0,
+   "b": 50.0,
+   "out": 10.0
+  }
+ ],
+ "xfade": [
+  0.3,
+  0.3,
+  0.0
+ ],
+ "music": {
+  "epLowpassOpen": [
+   0,
+   1
+  ],
+  "kickFrom": 0.0,
+  "bassFrom": 2.0,
+  "hatsFrom": 2.0,
+  "clapFrom": 4.0,
+  "leadFrom": 4.0,
+  "bigFrom": 6.0,
+  "stop": [
+   10.0,
+   14.0
+  ],
+  "final": 14.0,
+  "risers": [
+   [
+    9.0,
+    10.0
+   ]
+  ],
+  "motifs": [
+   2.0
+  ]
+ },
+ "cues": [
+  {
+   "t": 0.55,
+   "type": "whoosh",
+   "id": "S1:circle",
+   "dur": 0.45,
+   "vel": 0.7,
+   "pan": 0.1
+  },
+  {
+   "t": 1.0,
+   "type": "pop",
+   "id": "S1:circleDone",
+   "vel": 0.8,
+   "pan": 0.1
+  },
+  {
+   "t": 1.35,
+   "type": "reveal",
+   "id": "S1:noteD",
+   "text": "Check the derivative of 2x. What happens to the x?",
+   "dur": 1.5
+  },
+  {
+   "t": 1.356,
+   "type": "pen",
+   "id": "S1:noteD_s",
+   "vel": 0.29,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 1.454,
+   "type": "pen",
+   "id": "S1:noteD_s",
+   "vel": 0.33,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 1.543,
+   "type": "pen",
+   "id": "S1:noteD_s",
+   "vel": 0.33,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 1.634,
+   "type": "pen",
+   "id": "S1:noteD_s",
+   "vel": 0.38,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 1.703,
+   "type": "pen",
+   "id": "S1:noteD_s",
+   "vel": 0.31,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 1.809,
+   "type": "pen",
+   "id": "S1:noteD_s",
+   "vel": 0.34,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 1.899,
+   "type": "pen",
+   "id": "S1:noteD_s",
+   "vel": 0.33,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 1.969,
+   "type": "pen",
+   "id": "S1:noteD_s",
+   "vel": 0.36,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 2.071,
+   "type": "pen",
+   "id": "S1:noteD_s",
+   "vel": 0.31,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 2.146,
+   "type": "pen",
+   "id": "S1:noteD_s",
+   "vel": 0.32,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 2.252,
+   "type": "pen",
+   "id": "S1:noteD_s",
+   "vel": 0.37,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 2.323,
+   "type": "pen",
+   "id": "S1:noteD_s",
+   "vel": 0.31,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 2.4,
+   "type": "pop",
+   "id": "S1:lblCheck",
+   "vel": 0.45,
+   "pan": 0.4
+  },
+  {
+   "t": 2.411,
+   "type": "pen",
+   "id": "S1:noteD_s",
+   "vel": 0.29,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 2.513,
+   "type": "pen",
+   "id": "S1:noteD_s",
+   "vel": 0.3,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 2.596,
+   "type": "pen",
+   "id": "S1:noteD_s",
+   "vel": 0.33,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 2.677,
+   "type": "pen",
+   "id": "S1:noteD_s",
+   "vel": 0.37,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 2.764,
+   "type": "pen",
+   "id": "S1:noteD_s",
+   "vel": 0.36,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 3.1,
+   "type": "reveal",
+   "id": "S1:capD1"
+  },
+  {
+   "t": 4.4,
+   "type": "whoosh",
+   "id": "cut1",
+   "dur": 0.6,
+   "vel": 0.4
+  },
+  {
+   "t": 5.05,
+   "type": "whoosh",
+   "id": "S2:erase",
+   "dur": 0.35,
+   "vel": 0.55,
+   "pan": 0.05
+  },
+  {
+   "t": 5.65,
+   "type": "pen",
+   "id": "S2:fix",
+   "i": 0,
+   "ch": "2",
+   "vel": 0.7,
+   "pan": 0.0
+  },
+  {
+   "t": 6.05,
+   "type": "tick",
+   "id": "S2:busy2",
+   "vel": 0.5
+  },
+  {
+   "t": 6.9,
+   "type": "reveal",
+   "id": "S2:busy2_off"
+  },
+  {
+   "t": 6.9,
+   "type": "check",
+   "id": "S2:clear",
+   "vel": 0.8,
+   "pan": 0.1
+  },
+  {
+   "t": 6.92,
+   "type": "chime",
+   "id": "S2:clearChime",
+   "note": 81,
+   "vel": 0.6
+  },
+  {
+   "t": 7.1,
+   "type": "whoosh",
+   "id": "cut2",
+   "dur": 0.6,
+   "vel": 0.4
+  },
+  {
+   "t": 7.2,
+   "type": "reveal",
+   "id": "S3:capF1"
+  },
+  {
+   "t": 7.75,
+   "type": "click",
+   "id": "S3:help1",
+   "vel": 0.9,
+   "pan": 0.5
+  },
+  {
+   "t": 8.17,
+   "type": "pop",
+   "id": "S3:lvl1",
+   "vel": 0.6,
+   "pan": 0.55,
+   "label": "a bigger push"
+  },
+  {
+   "t": 8.2,
+   "type": "reveal",
+   "id": "S3:hint1",
+   "text": "Try the product rule: (uv)′ = u′v + uv′.",
+   "dur": 0.75
+  },
+  {
+   "t": 8.204,
+   "type": "pen",
+   "id": "S3:hint1_s",
+   "vel": 0.39,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 8.311,
+   "type": "pen",
+   "id": "S3:hint1_s",
+   "vel": 0.35,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 8.396,
+   "type": "pen",
+   "id": "S3:hint1_s",
+   "vel": 0.29,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 8.482,
+   "type": "pen",
+   "id": "S3:hint1_s",
+   "vel": 0.4,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 8.58,
+   "type": "pen",
+   "id": "S3:hint1_s",
+   "vel": 0.36,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 8.674,
+   "type": "pen",
+   "id": "S3:hint1_s",
+   "vel": 0.38,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 8.774,
+   "type": "pen",
+   "id": "S3:hint1_s",
+   "vel": 0.32,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 8.86,
+   "type": "pen",
+   "id": "S3:hint1_s",
+   "vel": 0.37,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 9.0,
+   "type": "click",
+   "id": "S3:help2",
+   "vel": 0.9,
+   "pan": 0.5
+  },
+  {
+   "t": 9.42,
+   "type": "pop",
+   "id": "S3:lvl2",
+   "vel": 0.6,
+   "pan": 0.55,
+   "label": "a worked step"
+  },
+  {
+   "t": 9.45,
+   "type": "reveal",
+   "id": "S3:hint2",
+   "text": "Worked step: u = x and v = sin x, so u′v = 1 · sin x. Now you do uv′.",
+   "dur": 0.8999999999999999
+  },
+  {
+   "t": 9.451,
+   "type": "pen",
+   "id": "S3:hint2_s",
+   "vel": 0.31,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 9.551,
+   "type": "pen",
+   "id": "S3:hint2_s",
+   "vel": 0.38,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 9.642,
+   "type": "pen",
+   "id": "S3:hint2_s",
+   "vel": 0.31,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 9.738,
+   "type": "pen",
+   "id": "S3:hint2_s",
+   "vel": 0.3,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 9.81,
+   "type": "pen",
+   "id": "S3:hint2_s",
+   "vel": 0.31,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 9.909,
+   "type": "pen",
+   "id": "S3:hint2_s",
+   "vel": 0.29,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 9.994,
+   "type": "pen",
+   "id": "S3:hint2_s",
+   "vel": 0.32,
+   "pan": 0.2,
+   "soft": true
+  },
+  {
+   "t": 10.0,
+   "type": "hit",
+   "id": "S4:pay1",
+   "chord": "I"
+  },
+  {
+   "t": 11.5,
+   "type": "hit",
+   "id": "S4:pay2",
+   "chord": "vi"
+  },
+  {
+   "t": 12.5,
+   "type": "hit",
+   "id": "S4:pay3",
+   "chord": "IV",
+   "long": true
+  },
+  {
+   "t": 14.0,
+   "type": "final",
+   "id": "S4:lock"
+  },
+  {
+   "t": 14.05,
+   "type": "sub",
+   "id": "S4:lockSub",
+   "vel": 0.8
+  },
+  {
+   "t": 14.1,
+   "type": "whoosh",
+   "id": "S4:ring",
+   "dur": 0.5,
+   "vel": 0.4
+  },
+  {
+   "t": 14.45,
+   "type": "reveal",
+   "id": "S4:wordmark"
+  },
+  {
+   "t": 15.1,
+   "type": "reveal",
+   "id": "S4:tagline"
+  },
+  {
+   "t": 15.7,
+   "type": "pop",
+   "id": "S4:built",
+   "vel": 0.45
+  },
+  {
+   "t": 16.1,
+   "type": "reveal",
+   "id": "S4:byline"
+  }
+ ]
+}

@@ -1,0 +1,690 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=1920, initial-scale=1">
+<title>AI tutor notebook launch teaser</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&family=Caveat:wght@500;600;700&family=Shantell+Sans:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F7F5F1; --cream:#ECE7DF; --ink:#16151A; --muted:#7A756D; --faint:#A8A298; --line:#E4DED4; --line2:#EDE8E0; --soft:#F3F0EA;
+  /* the app's own colours: tldraw red / blue / grey / black, and the Help button blue from tutor.css */
+  --tl-red:#e03131; --tl-blue:#4465e9; --tl-grey:#9fa8b2; --tl-black:#1d1d1d; --tl-bg:#f9fafb; --tl-sel:#2f80ed;
+  --help:#2563eb; --listen:#dc2626; --busy:#3b82f6; --green:#1E9E5A;
+  --serif:'Instrument Serif', Georgia, serif;
+  --sans:'Inter', -apple-system, 'Helvetica Neue', Arial, sans-serif;
+  --mono:'JetBrains Mono', ui-monospace, Menlo, monospace;
+  --hand:'Caveat', 'Bradley Hand', cursive;
+  --draw:'Shantell Sans', 'Caveat', cursive;
+  --shadow: 0 1px 2px rgba(40,32,20,.05), 0 10px 30px -10px rgba(60,46,28,.14), 0 34px 90px -30px rgba(60,46,28,.16);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0;background:var(--paper);overflow:hidden}
+body{width:1920px;height:1080px;font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased;text-rendering:geometricPrecision}
+#stage{position:fixed;left:0;top:0;width:1920px;height:1080px;overflow:hidden;background:var(--paper)}
+.layer{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:hidden}
+.cam{position:absolute;left:0;top:0;width:1920px;height:1080px;transform-origin:0 0}
+#grid{position:absolute;inset:0;background-image:linear-gradient(to right, rgba(22,21,26,.05) 1px, transparent 1px),linear-gradient(to bottom, rgba(22,21,26,.05) 1px, transparent 1px)}
+.w{display:inline-block}
+.center{position:absolute;left:0;width:1920px;text-align:center}
+.cap{font-family:var(--serif);font-size:66px;line-height:1;letter-spacing:-.01em;color:var(--ink);top:56px}
+.card{position:absolute;background:#fff;border:1px solid var(--line);border-radius:20px;box-shadow:var(--shadow)}
+.lights{display:flex;gap:8px}
+.lights i{width:12px;height:12px;border-radius:50%;display:block}
+.lights i:nth-child(1){background:#FF5F57}.lights i:nth-child(2){background:#FEBC2E}.lights i:nth-child(3){background:#28C840}
+.tbar{height:44px;border-bottom:1px solid var(--line2);display:flex;align-items:center;padding:0 18px;background:#FBFAF8;position:relative;border-radius:20px 20px 0 0}
+.tbar .ttl{position:absolute;left:0;right:0;text-align:center;font-family:var(--mono);font-size:15px;color:var(--muted);font-weight:500}
+
+/* ---------- A: a generic AI chat ---------- */
+#chat{left:520px;top:226px;width:880px;height:548px;overflow:hidden}
+#chatb{position:absolute;left:0;right:0;top:44px;bottom:0;padding:34px 44px}
+#ask{margin-left:auto;width:max-content;display:flex;align-items:center;gap:18px;padding:14px 22px 14px 14px;border-radius:22px;background:var(--soft);border:1px solid var(--line2);font-size:22px}
+#ask .ph{width:150px;height:96px;border-radius:10px;background:#fff;border:1px solid var(--line);padding:10px 12px;font-family:var(--hand);font-weight:600;font-size:22px;line-height:1.15;color:var(--tl-black);transform:rotate(-2deg)}
+#rep{margin-top:34px;font-size:22px;line-height:1.5}
+#rep .who{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:15px;color:var(--muted);margin-bottom:10px}
+#rep .who i{width:22px;height:22px;border-radius:7px;background:var(--ink);display:block}
+#rep .m{font-family:var(--mono);font-size:20px;color:#3A3730;padding-left:2px;height:40px;display:flex;align-items:center}
+#ans{margin-top:14px;width:max-content;display:flex;align-items:center;gap:12px;padding:12px 20px;border-radius:14px;background:#EAF6EF;border:1px solid #BFE3CE;font-size:24px;font-weight:600;color:#17603B}
+#ans span{font-family:var(--mono);font-weight:700}
+
+/* ---------- the tablet, and the real page inside it ---------- */
+#tab{position:absolute;left:340px;top:176px;width:1240px;height:864px;border-radius:48px;background:#fff;border:1.5px solid #D9D2C6;box-shadow:var(--shadow)}
+#screen{position:absolute;left:12.5px;top:12.5px;width:1212px;height:836px;border-radius:34px;overflow:hidden;background:var(--tl-bg);box-shadow:0 0 0 1.5px #E4DED4}
+#canvas{position:absolute;left:0;top:0;width:1212px;height:3344px}
+.sheet{position:absolute;left:0;width:1212px;height:836px}
+.hw{position:absolute;font-family:var(--hand);font-weight:600;font-size:118px;line-height:1;color:var(--tl-black);white-space:nowrap}
+.hw .g{display:inline-block;position:relative}
+.hw .sp{display:inline-block;width:.24em}
+.hw .sup{font-size:.58em;vertical-align:.62em;margin-left:.02em}
+.rd{position:absolute;font-family:var(--sans);font-size:21px;line-height:1;color:var(--tl-grey);white-space:nowrap;letter-spacing:.01em}
+.note{position:absolute;width:470px;font-family:var(--draw);font-weight:400;font-size:32px;line-height:1.34;white-space:normal}
+.note.red{color:var(--tl-red)} .note.blue{color:var(--tl-blue)}
+.ring{position:absolute;overflow:visible;left:0;top:0}
+#sel{position:absolute;border:2px solid var(--tl-sel);background:rgba(47,128,237,.06)}
+#sel i{position:absolute;width:11px;height:11px;background:#fff;border:2px solid var(--tl-sel);border-radius:2px}
+#fig{position:absolute;width:450px;height:325px;background:#fff}
+#ws{position:absolute;left:176px;top:36px;width:860px;height:1113px;background:#fff;border:1px solid #E3E5E8;font-family:Georgia,'Times New Roman',serif;color:#22242a;padding:64px 76px}
+#ws h4{margin:0;font-size:30px;font-weight:700}
+#ws .nm{display:flex;justify-content:space-between;margin-top:18px;font-size:18px;color:#444}
+#ws hr{border:0;border-top:1.5px solid #22242a;margin:20px 0 34px}
+#ws .q{font-size:23px;height:236px}
+#ws .q b{margin-right:10px}
+#pencil{position:absolute;left:0;top:0;width:0;height:0;z-index:20}
+#pencil svg{position:absolute;left:-80px;top:-240px;overflow:visible}
+
+/* tldraw's own chrome, kept plain */
+.tlp{position:absolute;background:#fff;border-radius:11px;box-shadow:0 0 0 1px rgba(0,0,0,.04),0 1px 3px rgba(0,0,0,.10),0 4px 14px rgba(0,0,0,.06);display:flex;align-items:center}
+#tlmenu{left:10px;top:10px;height:44px;padding:0 6px;gap:2px;font-size:15px;font-weight:500;color:#2d2d2d}
+#tlmenu .b{width:36px;height:36px;display:flex;align-items:center;justify-content:center}
+#tlmenu .pg{padding:0 10px 0 6px;display:flex;align-items:center;gap:6px}
+#tltools{left:50%;transform:translateX(-50%);bottom:12px;height:56px;padding:0 6px;gap:2px}
+#tltools .b{width:46px;height:46px;border-radius:9px;display:flex;align-items:center;justify-content:center;color:#2d2d2d}
+#tltools .b.on{background:var(--tl-sel);color:#fff}
+#tltools svg,#tlmenu svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round}
+/* tutor.css, scaled 1.25x to this screen */
+.tutor-controls{position:absolute;right:20px;bottom:104px;display:flex;flex-direction:column;align-items:flex-end;gap:12px;z-index:30}
+.tutor-chip{padding:8px 15px;border:1px solid #ccc;border-radius:999px;background:#fff;color:#555;font-size:16px;font-family:system-ui,-apple-system,sans-serif;white-space:nowrap}
+.tutor-chip.on{border-color:var(--help);color:var(--help)}
+.tutor-help{width:95px;height:95px;border-radius:50%;background:var(--help);color:#fff;font-size:22px;font-weight:600;font-family:system-ui,-apple-system,sans-serif;display:flex;align-items:center;justify-content:center;box-shadow:0 5px 18px rgba(37,99,235,.4)}
+.tutor-dot{position:absolute;top:20px;left:50%;width:18px;height:18px;margin-left:-9px;border-radius:50%;background:var(--busy);z-index:30}
+#touch{position:absolute;left:0;top:0;width:54px;height:54px;margin:-27px 0 0 -27px;border-radius:50%;background:rgba(22,21,26,.16);border:2px solid rgba(22,21,26,.32);z-index:40}
+
+/* ---------- labels in the margins ---------- */
+.lbl{position:absolute;font-family:var(--mono);font-size:19px;line-height:28px;color:#4A463F;white-space:nowrap}
+.lbl b{font-weight:600;color:var(--ink)}
+.lbl .k{font-size:13px;letter-spacing:.14em;color:var(--faint);font-weight:600}
+.conn{position:absolute;left:0;top:0;width:1920px;height:1080px;overflow:visible;pointer-events:none}
+.conn path{fill:none;stroke:#16151A;stroke-width:1.4}
+.conn circle{fill:#16151A}
+.pill{height:44px;display:flex;align-items:center;gap:10px;padding:0 16px 0 8px;border-radius:22px;background:#fff;border:1.5px solid var(--line);font-family:var(--mono);font-size:18px;color:#4A463F;width:max-content;margin-bottom:10px}
+.pill i{width:26px;height:26px;border-radius:50%;background:var(--soft);font-style:normal;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center;color:#4A463F}
+.pill.on{border-color:var(--tl-blue);color:var(--ink)}
+.pill.on i{background:var(--tl-blue);color:#fff}
+#wave{display:flex;align-items:center;gap:4px;height:34px;margin-bottom:6px}
+#wave i{display:block;width:4px;border-radius:2px;background:var(--listen)}
+
+/* ---------- J: how it works ---------- */
+.jn{position:absolute;width:392px;height:204px;margin-left:-196px;top:430px;background:#fff;border:1.5px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:22px 24px}
+.jn .n{font-family:var(--mono);font-size:15px;letter-spacing:.14em;color:var(--faint);font-weight:600}
+.jn .h{font-size:31px;font-weight:600;letter-spacing:-.01em;margin-top:10px}
+.jn .s{font-size:21px;color:var(--muted);margin-top:8px;line-height:1.35}
+.jn .s code{font-family:var(--mono);font-size:19px;color:#4A463F}
+#jfoot{top:736px;font-family:var(--serif);font-style:italic;font-size:44px;color:#3A3730}
+#jpk{position:absolute;width:16px;height:16px;margin:-8px 0 0 -8px;border-radius:50%;background:var(--help);box-shadow:0 0 0 6px rgba(37,99,235,.18);z-index:5}
+
+/* ---------- payoff & end card ---------- */
+.pay{position:absolute;left:0;width:1920px;text-align:center;font-family:var(--serif);line-height:1;letter-spacing:-.02em}
+#pay1{top:470px;font-size:112px}
+#pay2{top:356px;font-size:150px}
+#pay3{top:536px;font-size:150px}
+#Llock{background:var(--cream)}
+#lockg{position:absolute;top:262px;height:190px;display:flex;align-items:center;gap:34px}
+#mark{width:150px;height:150px;position:relative;flex:none}
+#mark span{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-family:var(--serif);font-style:italic;font-size:104px;line-height:1;padding-bottom:16px}
+#wordmark{font-family:var(--serif);line-height:1;letter-spacing:-.025em;margin-top:-10px;white-space:nowrap}
+#tagline{top:500px;font-family:var(--serif);font-size:66px;line-height:1;letter-spacing:-.01em;color:#3A3730}
+#built{position:absolute;left:960px;top:622px;height:62px;padding:0 28px;border-radius:16px;background:#F7F4EE;border:1px solid #DDD5C9;display:flex;align-items:center;font-family:var(--mono);font-size:23px;white-space:nowrap}
+#byline{position:absolute;left:960px;top:734px;height:46px;padding:0 24px;border:1.5px solid var(--ink);border-radius:23px;display:flex;align-items:center;font-size:15px;font-weight:600;letter-spacing:.16em;white-space:nowrap}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="grid"></div>
+
+  <!-- A: the problem -->
+  <div class="layer" id="LA">
+    <div class="card" id="chat">
+      <div class="tbar"><div class="lights"><i></i><i></i><i></i></div><div class="ttl">an AI chat</div></div>
+      <div id="chatb">
+        <div id="ask"><div class="ph">f(x) = 3x² + 2x<br>f′(x) = ?</div><span>solve this for me</span></div>
+        <div id="rep">
+          <div class="who" id="chatL0"><i></i>assistant</div>
+          <div id="chatL1">Sure. Here is the full solution.</div>
+          <div class="m" id="chatL2">f′(x) = d/dx(3x²) + d/dx(2x)</div>
+          <div class="m" id="chatL3">f′(x) = 6x + 2</div>
+          <div id="ans"><svg width="22" height="22" viewBox="0 0 22 22"><path d="M4 11.5l4.5 4.5L18 6.5" fill="none" stroke="#17603B" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>Answer: <span>6x + 2</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- B..I: the notebook -->
+  <div class="layer" id="LB">
+    <div class="cam" id="camB">
+      <div id="tab"><div id="screen">
+        <div id="canvas">
+          <div class="sheet" style="top:0">
+            <div class="hw" id="hwL1" style="left:112px;top:84px"></div><div class="rd" id="rdL1">f(x) = 3x^2 + 2x</div>
+            <div class="hw" id="hwL2" style="left:112px;top:272px"></div><div class="rd" id="rdL2">f'(x) = 6x + 1</div>
+            <div class="hw" id="hwfix"></div>
+            <svg class="ring" id="circ1"><path fill="none" stroke="#e03131" stroke-width="3.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <div class="note red" id="noteD"></div>
+          </div>
+          <div class="sheet" style="top:836px">
+            <div class="hw" id="hwP2" style="left:112px;top:110px"></div><div class="rd" id="rdP2">(d)/(dx)(x sin x)</div>
+            <div id="sel"><i style="left:-7px;top:-7px"></i><i style="right:-7px;top:-7px"></i><i style="left:-7px;bottom:-7px"></i><i style="right:-7px;bottom:-7px"></i></div>
+            <div class="note blue" id="hint0"></div><div class="note blue" id="hint1"></div><div class="note blue" id="hint2"></div><div class="note blue" id="voiceNote"></div>
+          </div>
+          <div class="sheet" style="top:1672px">
+            <div class="hw" id="hwG1" style="left:112px;top:88px"></div><div class="rd" id="rdG1">g(x) = x^2 - 4</div>
+            <div class="hw" id="hwG2" style="left:112px;top:282px"></div><div class="rd" id="rdG2">graph this</div>
+            <div id="fig"></div>
+          </div>
+          <div class="sheet" style="top:2508px">
+            <div id="ws">
+              <h4>Derivatives: practice worksheet</h4>
+              <div class="nm"><span>Name ______________________</span><span>Date ____________</span></div><hr>
+              <div class="q"><b>1.</b> Find f′(x) for f(x) = x³ − 5x.</div>
+              <div class="q"><b>2.</b> Find f′(x) for f(x) = (2x + 1)².</div>
+              <div class="q"><b>3.</b> Find the slope of y = x² − 4 at x = 3.</div>
+            </div>
+            <div class="hw" id="hwW1" style="left:300px;top:286px;font-size:66px"></div><div class="rd" id="rdW1">f'(x) = 3x^2 - 5</div>
+          </div>
+          <div id="pencil"><svg width="160" height="250" viewBox="-80 -240 160 250"><g transform="rotate(30)">
+            <path d="M0 0 L-6.5 -22 L6.5 -22 Z" fill="#fff" stroke="#16151A" stroke-width="1.6" stroke-linejoin="round"/>
+            <path d="M0 0 L-2.2 -7.5 L2.2 -7.5 Z" fill="#16151A"/>
+            <rect x="-6.5" y="-214" width="13" height="192" rx="1" fill="#fff" stroke="#16151A" stroke-width="1.6"/>
+            <path d="M-6.5 -214 a6.5 6.5 0 0 1 13 0" fill="#fff" stroke="#16151A" stroke-width="1.6"/>
+          </g></svg></div>
+        </div>
+        <div class="tlp" id="tlmenu">
+          <div class="b"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></div>
+          <div class="pg">Page 1<svg viewBox="0 0 24 24" style="width:16px;height:16px"><path d="M7 10l5 5 5-5"/></svg></div>
+          <div class="b"><svg viewBox="0 0 24 24"><path d="M9 14L4 9l5-5"/><path d="M4 9h10a6 6 0 0 1 0 12h-3"/></svg></div>
+          <div class="b" style="opacity:.35"><svg viewBox="0 0 24 24"><path d="M15 14l5-5-5-5"/><path d="M20 9H10a6 6 0 0 0 0 12h3"/></svg></div>
+        </div>
+        <div class="tlp" id="tltools">
+          <div class="b" id="tSel"><svg viewBox="0 0 24 24"><path d="M6 3.5l12 9-5.2 1.1L15.6 20l-2.4 1-2.7-6.3L6.6 18z"/></svg></div>
+          <div class="b"><svg viewBox="0 0 24 24"><path d="M8 12V6.5a1.5 1.5 0 0 1 3 0V11m0-5.5v-1a1.5 1.5 0 0 1 3 0V11m0-4.5a1.5 1.5 0 0 1 3 0V12m0-2.5a1.5 1.5 0 0 1 3 0V15a6 6 0 0 1-6 6h-1.5a6 6 0 0 1-4.7-2.3L5 14.5a1.6 1.6 0 0 1 2.6-1.8L8 13.5"/></svg></div>
+          <div class="b" id="tDraw"><svg viewBox="0 0 24 24"><path d="M4 20l1-4.5L16.5 4a2.1 2.1 0 0 1 3 3L8 18.5z"/><path d="M14.5 6l3 3"/></svg></div>
+          <div class="b" id="tErase"><svg viewBox="0 0 24 24"><path d="M8.5 19.5L3.8 14.8a1.5 1.5 0 0 1 0-2.1l8.4-8.4a1.5 1.5 0 0 1 2.1 0l5.4 5.4a1.5 1.5 0 0 1 0 2.1l-7.7 7.7z"/><path d="M8.5 19.5H20M8.2 8.3l7 7"/></svg></div>
+          <div class="b"><svg viewBox="0 0 24 24"><path d="M5 19L19 5M10 5h9v9"/></svg></div>
+          <div class="b"><svg viewBox="0 0 24 24"><path d="M5 7V5h14v2M12 5v14M9 19h6"/></svg></div>
+          <div class="b"><svg viewBox="0 0 24 24"><path d="M5 5h14v9l-5 5H5z"/><path d="M19 14h-5v5"/></svg></div>
+          <div class="b"><svg viewBox="0 0 24 24"><rect x="4" y="5" width="16" height="14" rx="2"/><circle cx="9" cy="10" r="1.6"/><path d="M4 16l5-4 4 3 3-2 4 3"/></svg></div>
+          <div class="b"><svg viewBox="0 0 24 24"><rect x="4.5" y="5.5" width="15" height="13" rx="1.5"/></svg></div>
+          <div class="b"><svg viewBox="0 0 24 24"><path d="M7 14l5-5 5 5"/></svg></div>
+        </div>
+        <div class="tutor-dot" id="busy"></div>
+        <div class="tutor-controls">
+          <div class="tutor-chip" id="chipPdf">Import PDF</div>
+          <div class="tutor-chip on">Show what AI read</div>
+          <div class="tutor-help" id="help">Help</div>
+        </div>
+        <div id="touch"></div>
+      </div></div>
+
+      <svg class="conn" id="conn">
+        <g id="cRead"><path/><circle r="3.2"/></g>
+        <g id="cCheck"><path/><circle r="3.2"/></g>
+        <g id="cHelp"><path/><circle r="3.2"/></g>
+      </svg>
+      <div class="lbl" id="lblRead" style="text-align:right"><span class="k">IN GREY</span><br><b>what the AI read</b></div>
+      <div class="lbl" id="lblCheck" style="text-align:right"><span class="k">MATH ENGINE</span><br><b>this step fails</b></div>
+      <div class="lbl" id="lvls"><div class="k" style="margin-bottom:10px">HINT LEVEL</div>
+        <div class="pill" id="lvl0"><i>1</i>a nudge</div><div class="pill" id="lvl1"><i>2</i>a bigger push</div><div class="pill" id="lvl2"><i>3</i>a worked step</div></div>
+      <div class="lbl" id="said"><div class="k" style="margin-bottom:8px">HOLD HELP · SPEAK</div><div id="wave"></div><div id="saidT" style="white-space:normal;width:250px;color:var(--ink)"></div></div>
+    </div>
+  </div>
+
+  <!-- J: how it works -->
+  <div class="layer" id="LJ">
+    <svg class="conn" id="jsvg"></svg>
+    <div class="jn" id="jn0" style="left:258px"><div class="n">01 · THE PAGE</div><div class="h">Your handwriting</div><div class="s">A pause sends a picture of the page.</div></div>
+    <div class="jn" id="jn1" style="left:726px"><div class="n">02 · READ</div><div class="h">Gemini reads it</div><div class="s">Every line, and where it sits on the page.</div></div>
+    <div class="jn" id="jn2" style="left:1194px"><div class="n">03 · CHECK</div><div class="h">A math engine checks</div><div class="s"><code>verify_step</code> tests each step with SymPy.</div></div>
+    <div class="jn" id="jn3" style="left:1662px"><div class="n">04 · DRAW</div><div class="h">The page writes back</div><div class="s">A circle, a note, a graph. Never the answer.</div></div>
+    <div id="jpk"></div>
+    <div class="center" id="jfoot">No red circle until the math agrees.</div>
+  </div>
+
+  <!-- K: the core line -->
+  <div class="layer" id="Lpay">
+    <div class="pay" id="pay1">Other AI tutors finish your homework.</div>
+    <div class="pay" id="pay2">Ours finds your <span id="payW" style="margin-left:.08em">mistake</span></div>
+    <div class="pay" id="pay3">and makes you fix it.</div>
+    <svg class="ring" id="payRing" style="width:1920px;height:1080px"><path fill="none" stroke="#e03131" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+  </div>
+
+  <!-- L: end card -->
+  <div class="layer" id="Llock">
+    <div id="lockg">
+      <div id="mark"><span>x</span><svg class="ring" width="150" height="150"><path id="markRing" fill="none" stroke="#e03131" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+      <div id="wordmark"></div>
+    </div>
+    <div class="center" id="tagline">It finds your mistake. You fix it.</div>
+    <div id="built">Built at Google DevFest 2026 · UC Santa Cruz</div>
+    <div id="byline">PREET + PARSH</div>
+  </div>
+
+  <div class="layer" id="LCAP" style="pointer-events:none"></div>
+</div>
+
+<script>
+/* The project has no name yet. Set it here; until then the end card uses the fallback wordmark. */
+const PROJECT_NAME = "[need: name]";
+const FALLBACK_WORDMARK = "AI tutor notebook";
+
+/* ================= timeline ================= */
+let TL = window.TIMELINE;
+if (!TL) { try { const x = new XMLHttpRequest(); x.open('GET', 'timeline.json', false); x.send(); TL = JSON.parse(x.responseText); } catch (e) { console.error('timeline.json not available', e); } }
+const CUE = {}, KEYS = {};
+for (const c of TL.cues) {
+  if ((c.type === 'pen' || c.type === 'gap') && 'ch' in c) { (KEYS[c.id] = KEYS[c.id] || []).push(c); continue; }
+  if (c.type === 'word') { (KEYS[c.id] = KEYS[c.id] || []).push(c); continue; }
+  if (c.id && !(c.id in CUE)) CUE[c.id] = c;
+}
+const T = id => { if (!(id in CUE)) throw new Error('missing cue ' + id); return CUE[id].t; };
+
+/* ================= math (from the Huddle pipeline) ================= */
+const clamp = (x, a = 0, b = 1) => Math.min(b, Math.max(a, x));
+const lerp = (a, b, p) => a + (b - a) * p;
+const P = (t, t0, d) => clamp((t - t0) / d);
+const E = {
+  lin: p => p, out2: p => 1 - (1 - p) * (1 - p), out3: p => 1 - Math.pow(1 - p, 3), out4: p => 1 - Math.pow(1 - p, 4),
+  inout2: p => p < .5 ? 2 * p * p : 1 - Math.pow(-2 * p + 2, 2) / 2,
+  inout3: p => p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2,
+  back: p => { const c1 = 1.5, c3 = c1 + 1; return 1 + c3 * Math.pow(p - 1, 3) + c1 * Math.pow(p - 1, 2); },
+};
+const $ = id => document.getElementById(id);
+function vis(el, op) { el.style.opacity = op; el.style.visibility = op <= 0.001 ? 'hidden' : 'visible'; }
+function blurF(el, b) { el.style.filter = b < 0.05 ? 'none' : `blur(${b}px)`; }
+function camAt(keys, t) {
+  if (t <= keys[0].t) return keys[0];
+  for (let i = 0; i < keys.length - 1; i++) { const a = keys[i], b = keys[i + 1];
+    if (t < b.t) { const e = E[b.e || 'inout3'](clamp((t - a.t) / (b.t - a.t))); return { x: lerp(a.x, b.x, e), y: lerp(a.y, b.y, e), s: Math.exp(lerp(Math.log(a.s), Math.log(b.s), e)) }; } }
+  return keys[keys.length - 1];
+}
+function applyCam(el, c) { el.style.transform = `translate(960px,540px) scale(${c.s}) translate(${-c.x}px,${-c.y}px)`; }
+function prepWords(el) {
+  const out = [];
+  const walk = node => { for (const ch of [...node.childNodes]) {
+    if (ch.nodeType === 3) { const frag = document.createDocumentFragment();
+      for (const part of ch.textContent.split(/(\s+)/)) { if (!part) continue;
+        if (/^\s+$/.test(part)) frag.appendChild(document.createTextNode(part));
+        else { const s = document.createElement('span'); s.className = 'w'; s.textContent = part; frag.appendChild(s); out.push(s); } }
+      node.replaceChild(frag, ch);
+    } else if (ch.nodeType === 1) { ch.classList.add('w'); out.push(ch); } } };
+  walk(el); el._w = out;
+}
+function reveal(el, t0, t, dur = 0.55, stag = 0.07) {
+  el._w.forEach((w, i) => { const p = P(t, t0 + i * stag, dur), e = E.out3(p);
+    w.style.opacity = E.out2(clamp(p * 1.25)); w.style.transform = e >= 1 ? 'none' : `translateY(${12 * (1 - e)}px)`; blurF(w, 8 * (1 - e)); });
+}
+function popIn(el, t0, t, rise = 12, dur = 0.4) {
+  const p = P(t, t0 - 0.03, dur), e = E.back(p);
+  el.style.opacity = E.out2(clamp(p * 1.8));
+  el.style.transform = `translateY(${(1 - E.out3(p)) * rise}px) scale(${0.94 + 0.06 * e})`;
+  blurF(el, 6 * (1 - E.out3(p)));
+  el.style.visibility = p <= 0 ? 'hidden' : 'visible';
+  return p;
+}
+function lineIn(el, t0, t) { const p = P(t, t0, 0.22); el.style.opacity = E.out2(p); el.style.transform = p < 1 ? `translateY(${(1 - E.out3(p)) * 8}px)` : 'none'; el.style.visibility = p <= 0 ? 'hidden' : 'visible'; }
+function drawPath(p, t0, t, dur, ease = 'inout3') { const e = E[ease](P(t, t0, dur)); p.style.strokeDasharray = `${p._L} ${p._L}`; p.style.strokeDashoffset = p._L * (1 - e); p.style.opacity = e > 0 ? 1 : 0; }
+const rnd = (i, k = 1) => { const x = Math.sin(i * 127.1 + k * 311.7) * 43758.5453; return x - Math.floor(x); };
+
+/* a hand-drawn ellipse, the way tldraw's `dash: draw` geo looks: one loop that overshoots its start */
+function wobble(cx, cy, rx, ry, seed = 1) {
+  const n = 72, a0 = -2.25, turn = Math.PI * 2 * 1.07; let d = '';
+  for (let i = 0; i <= n; i++) { const u = i / n, a = a0 + turn * u;
+    const k = 0.975 + 0.05 * u + 0.022 * Math.sin(a * 2 + seed) + 0.012 * Math.sin(a * 3.1 + seed * 2);
+    d += (i ? 'L' : 'M') + (cx + Math.cos(a) * rx * k).toFixed(1) + ' ' + (cy + Math.sin(a) * ry * k).toFixed(1); }
+  return d;
+}
+
+/* ================= handwriting ================= */
+const SEQS = ['L1', 'L2', 'fix', 'P2', 'G1', 'G2', 'W1'];
+let GLY = [];            // every glyph in time order: {t, el, r}
+function buildHW(seq) {
+  const host = $('hw' + seq);
+  host.innerHTML = KEYS[seq].map((c, i) => c.ch === ' ' ? '<span class="sp"></span>'
+    : `<span class="g${c.ch[0] === '^' ? ' sup' : ''}" data-i="${i}" style="transform:translateY(${(rnd(i, seq.length) * 5 - 2.5).toFixed(1)}px) rotate(${(rnd(i, 7) * 5 - 2.5).toFixed(1)}deg)">${c.ch[0] === '^' ? c.ch[1] : c.ch}</span>`).join('');
+  host._g = [...host.querySelectorAll('.g')].map(el => ({ el, c: KEYS[seq][+el.dataset.i], seq }));
+}
+function renderHW(seq, t) {
+  for (const g of $('hw' + seq)._g) { const p = P(t, g.c.t, 0.1);
+    g.el.style.visibility = p <= 0 ? 'hidden' : 'visible';
+    g.el.style.clipPath = p >= 1 ? 'none' : `inset(-40% ${(100 * (1 - p)).toFixed(1)}% -40% -30%)`; }
+}
+function setNote(id, cls) { const c = CUE[id], el = $(id);
+  el.innerHTML = [...c.text].map(ch => `<span>${ch}</span>`).join(''); el._c = [...el.children]; el._cue = c; }
+function renderNote(id, t, tEnd = 1e9) {
+  const el = $(id), c = el._cue;
+  if (t < c.t || t >= tEnd + 0.25) { el.style.display = 'none'; return; }
+  el.style.display = 'block'; el.style.opacity = 1 - P(t, tEnd, 0.25);
+  const n = Math.ceil(P(t, c.t, c.dur) * el._c.length);
+  el._c.forEach((s, i) => { s.style.visibility = i < n ? 'visible' : 'hidden'; });
+}
+
+let GEO = {}, CAMB, PAN;
+function init() {
+  const CAPS = [['capA1', 'Most AI homework help hands you the answer.'], ['capA2', 'Homework done. Nothing learned.'],
+    ['capB1', 'Write your math by hand.'], ['capB2', 'Pause, and it reads your work.'],
+    ['capD0', 'It circles the exact mistake.'], ['capD1', 'A hint in the margin. Never the answer.'],
+    ['capE', 'Fix it yourself. The mark clears.'],
+    ['capF0', 'Stuck? Tap Help.'], ['capF1', 'Three hints. Each one a bigger push.'],
+    ['capG', 'Or select a problem and ask out loud.'],
+    ['capH', 'Write “graph this.”'], ['capI', 'Import a worksheet. Work right on it.'],
+    ['capJ', 'Gemini reads. A real math engine checks.']];
+  $('LCAP').innerHTML = CAPS.map(([id, s]) => `<div class="center cap" id="${id}">${s}</div>`).join('');
+  CAPS.forEach(([id]) => prepWords($(id)));
+
+  // end card wordmark: the real name once there is one, a plain descriptive wordmark until then
+  const named = PROJECT_NAME && !/^\[need/i.test(PROJECT_NAME);
+  const name = named ? PROJECT_NAME : FALLBACK_WORDMARK;
+  $('wordmark').textContent = name; $('wordmark').style.fontSize = Math.round(clamp(2300 / name.length, 96, 190)) + 'px';
+  ['tagline', 'wordmark'].forEach(id => prepWords($(id)));
+
+  SEQS.forEach(buildHW);
+  ['noteD', 'hint0', 'hint1', 'hint2', 'voiceNote'].forEach(id => setNote(id));
+  $('wave').innerHTML = Array.from({ length: 22 }, () => '<i></i>').join('');
+  $('saidT').innerHTML = KEYS.said.map((c, i, a) => `<span>${i ? '' : '“'}${c.w}${i === a.length - 1 ? '”' : ''}</span>`).join(' ');
+
+  // ---- geometry, measured once with the camera and the canvas pan at identity
+  $('camB').style.transform = 'none'; $('canvas').style.transform = 'none';
+  const cv = $('canvas').getBoundingClientRect();
+  const R = el => { const a = el.getBoundingClientRect(); return { x: a.left - cv.left, y: a.top - cv.top, w: a.width, h: a.height, r: a.right - cv.left, b: a.bottom - cv.top }; };
+  const S = el => { const a = el.getBoundingClientRect(); return { x: a.left, y: a.top, w: a.width, h: a.height, r: a.right, b: a.bottom, cx: a.left + a.width / 2, cy: a.top + a.height / 2 }; };
+  const place = (el, x, y) => { const sh = el.closest('.sheet'); el.style.left = x + 'px'; el.style.top = (y - (sh ? sh.offsetTop : 0)) + 'px'; };
+  for (const seq of SEQS) for (const g of $('hw' + seq)._g) g.r = R(g.el);
+  // "Show what AI read": small grey text right under each handwritten line (render/reading.ts)
+  for (const s of ['L1', 'L2', 'P2', 'G1', 'G2', 'W1']) { const r = R($('hw' + s)); place($('rd' + s), r.x + 4, r.b + 2); }
+  // the fix: a 2 written where the 1 was
+  const g2 = $('hwL2')._g, one = g2[g2.length - 1], plus = g2[g2.length - 2];
+  GEO.one = one; place($('hwfix'), one.r.x - 4, R($('hwL2')).y);
+  $('hwfix')._g[0].r = R($('hwfix')._g[0].el);
+  // red circle: the box of "+ 1", padded (render/actions.ts CIRCLE_PAD), note 20px to its right (NOTE_GAP)
+  const bx = { x: plus.r.x - 12, y: Math.min(plus.r.y, one.r.y) + 8, r: one.r.r + 14, b: Math.max(plus.r.b, one.r.b) - 2 };
+  GEO.circ = { cx: (bx.x + bx.r) / 2, cy: (bx.y + bx.b) / 2, rx: (bx.r - bx.x) / 2 + 6, ry: (bx.b - bx.y) / 2 + 2 };
+  const cp = $('circ1').querySelector('path'); cp.setAttribute('d', wobble(GEO.circ.cx, GEO.circ.cy, GEO.circ.rx, GEO.circ.ry, 2)); cp._L = cp.getTotalLength();
+  place($('noteD'), bx.r + 30, bx.y - 6); $('noteD').style.width = Math.min(470, 1190 - bx.r - 30) + 'px';
+  // sheet 2: hints go below the problem (side: "below"), the selection hugs it
+  const p2 = R($('hwP2')); GEO.p2 = p2;
+  ['hint0', 'hint1', 'hint2', 'voiceNote'].forEach(id => place($(id), p2.x + 4, p2.b + 52));
+  // sheet 3: figure to the right of the line (render/figure.ts)
+  const g1 = R($('hwG1')); place($('fig'), Math.min(g1.r + 50, 740), g1.y - 2);
+  $('fig').innerHTML = plotSvg(); const cu = $('curve'); cu._L = cu.getTotalLength();
+
+  // screen-space anchors for labels and touches
+  const scr = S($('screen')); GEO.scr = scr;
+  const help = S($('help')), chip = S($('chipPdf')); GEO.help = help; GEO.chip = chip;
+  const rd2 = S($('rdL2'));
+  place($('lblRead'), 0, rd2.cy - 39); $('lblRead').style.width = '296px';
+  $('cRead').querySelector('path').setAttribute('d', `M 308 ${rd2.cy} H ${rd2.x - 10}`); $('cRead').querySelector('circle').setAttribute('cx', rd2.x - 10); $('cRead').querySelector('circle').setAttribute('cy', rd2.cy);
+  const l2 = S($('hwL2'));
+  place($('lblCheck'), 0, l2.cy - 30); $('lblCheck').style.width = '296px';
+  $('cCheck').querySelector('path').setAttribute('d', `M 308 ${l2.cy - 4} H ${l2.x - 12}`); $('cCheck').querySelector('circle').setAttribute('cx', l2.x - 12); $('cCheck').querySelector('circle').setAttribute('cy', l2.cy - 4);
+  place($('lvls'), 1632, help.cy - 104); place($('said'), 1632, help.cy - 78);
+  $('cHelp').querySelector('path').setAttribute('d', `M ${help.r + 8} ${help.cy} H 1620`); $('cHelp').querySelector('circle').setAttribute('cx', help.r + 8); $('cHelp').querySelector('circle').setAttribute('cy', help.cy);
+  document.querySelectorAll('#conn path').forEach(p => { p._L = p.getTotalLength(); });
+
+  // J connectors
+  let j = '';
+  for (let k = 0; k < 3; k++) { const x0 = 258 + 468 * k + 196, x1 = 258 + 468 * (k + 1) - 196;
+    j += `<path id="jc${k}" d="M ${x0 + 10} 532 H ${x1 - 12}"/><path id="ja${k}" d="M ${x1 - 21} 525 L ${x1 - 12} 532 L ${x1 - 21} 539"/>`; }
+  $('jsvg').innerHTML = j; $('jsvg').querySelectorAll('path').forEach(p => { p._L = p.getTotalLength(); });
+
+  // core line: the red circle lands on "mistake"
+  const mw = S($('payW')); const pr = $('payRing').querySelector('path');
+  pr.setAttribute('d', wobble(mw.cx, mw.cy + 10, mw.w / 2 + 22, mw.h / 2 - 8, 4)); pr._L = pr.getTotalLength();
+  const mr = $('markRing'); mr.setAttribute('d', wobble(75, 75, 62, 58, 1)); mr._L = mr.getTotalLength();
+  const lg = $('lockg'); lg.style.left = (960 - lg.getBoundingClientRect().width / 2) + 'px';
+  $('built').style.transform = 'translateX(-50%)'; $('byline').style.transform = 'translateX(-50%)';
+
+  // all glyphs in time order for the pencil
+  GLY = SEQS.flatMap(s => $('hw' + s)._g).sort((a, b) => a.c.t - b.c.t);
+
+  const fx = scr.x + GEO.circ.cx - 110, fy = 500;
+  CAMB = [
+    { t: 3.75, x: 960, y: 570, s: 0.94 }, { t: 4.5, x: 960, y: 540, s: 1.0, e: 'out3' },
+    { t: 9.95, x: 960, y: 540, s: 1.0, e: 'lin' }, { t: 10.9, x: fx, y: fy, s: 1.2, e: 'inout3' },
+    { t: 15.3, x: fx + 8, y: fy, s: 1.225, e: 'lin' }, { t: 16.1, x: 960, y: 540, s: 1.0, e: 'inout3' },
+    { t: 38.2, x: 960, y: 540, s: 1.0, e: 'lin' },
+  ];
+  PAN = [['pan1', 1], ['pan2', 2], ['pan3', 3]];
+}
+
+/* the plot, drawn the way function-plot draws it in the app: white, grid on, title, 2.5px line */
+function plotSvg() {
+  const X = x => 46 + (x + 5) / 10 * 294, Y = y => 36 + (10 - y) / 16 * 194;
+  let s = `<svg width="450" height="325" viewBox="0 0 360 260" style="display:block"><rect width="360" height="260" fill="#fff"/><g id="figAx">`;
+  s += `<text x="180" y="22" text-anchor="middle" font-family="system-ui,sans-serif" font-size="16" fill="#222">y = x^2 - 4</text>`;
+  for (let x = -5; x <= 5; x++) { s += `<path d="M ${X(x)} ${Y(-6)} V ${Y(10)}" stroke="${x === 0 ? '#9a9a9a' : '#e6e6e6'}" stroke-width="1"/>`;
+    s += `<text x="${X(x)}" y="${Y(-6) + 14}" text-anchor="middle" font-family="system-ui,sans-serif" font-size="10" fill="#444">${x}</text>`; }
+  for (let y = -6; y <= 10; y += 2) { s += `<path d="M ${X(-5)} ${Y(y)} H ${X(5)}" stroke="${y === 0 ? '#9a9a9a' : '#e6e6e6'}" stroke-width="1"/>`;
+    s += `<text x="${X(-5) - 7}" y="${Y(y) + 3.5}" text-anchor="end" font-family="system-ui,sans-serif" font-size="10" fill="#444">${y}</text>`; }
+  s += `<path d="M ${X(-5)} ${Y(10)} V ${Y(-6)} H ${X(5)}" stroke="#444" stroke-width="1" fill="none"/></g>`;
+  let d = ''; for (let i = 0; i <= 80; i++) { const x = -3.7417 + 7.4834 * i / 80; d += (i ? 'L' : 'M') + X(x).toFixed(2) + ' ' + Y(x * x - 4).toFixed(2); }
+  return s + `<path id="curve" d="${d}" fill="none" stroke="#4682b4" stroke-width="2.5" stroke-linejoin="round"/></svg>`;
+}
+
+/* ================= captions ================= */
+const CAPT = [['capA1', 0.4, 2.4], ['capA2', 2.6, 3.7], ['capB1', 4.2, 7.8], ['capB2', 8.0, 9.8], ['capD0', 10.1, 13.1], ['capD1', 13.3, 15.8],
+  ['capE', 16.1, 19.7], ['capF0', 20.1, 22.5], ['capF1', 22.7, 25.8], ['capG', 26.1, 29.7], ['capH', 30.1, 33.7], ['capI', 34.1, 37.7], ['capJ', 38.15, 41.65]];
+function renderCaps(t) {
+  for (const [id, a, b] of CAPT) {
+    const el = $(id);
+    if (t < a - 0.05 || t > b + 0.4) { el.style.visibility = 'hidden'; continue; }
+    el.style.visibility = 'visible';
+    reveal(el, a, t);
+    const e = E.inout2(P(t, b, 0.3));
+    el.style.opacity = 1 - e; if (e > 0) blurF(el, 8 * e); else el.style.filter = 'none';
+  }
+  const c1 = $('capA1'), up = E.inout3(P(t, 0.85, 0.7));
+  c1.style.top = lerp(480, 56, up) + 'px'; c1.style.fontSize = lerp(88, 66, up) + 'px';
+  }
+
+/* ================= A ================= */
+function renderA(t) {
+  const L = $('LA');
+  if (t > 4.0) { vis(L, 0); return; } vis(L, 1);
+  const out = E.inout2(P(t, T('A_out'), 0.3)); L.style.opacity = 1 - out; blurF(L, 8 * out);
+  popIn($('chat'), T('chatCard'), t, 22, 0.5);
+  popIn($('ask'), T('chatAsk'), t, 10);
+  for (let i = 0; i < 4; i++) lineIn($('chatL' + i), T('chatL' + i), t);
+  popIn($('ans'), T('chatAns'), t, 8);
+}
+
+/* ================= B..I: the notebook ================= */
+const BUSY = [['busy1', 'busy1_off'], ['busy2', 'busy2_off'], ['busy3', 'busy3_off']];
+function renderTab(t) {
+  const L = $('LB'), tin = T('tab_in'), tout = T('I_out');
+  if (t < tin - 0.05 || t > tout + 0.5) { vis(L, 0); return; } vis(L, 1);
+  const cin = E.out3(P(t, tin, 0.6)), cout = E.inout2(P(t, tout, 0.4));
+  L.style.opacity = clamp(cin * 1.4) * (1 - cout); blurF(L, 10 * (1 - cin) + 8 * cout);
+  const cam = camAt(CAMB, t); GEO.cam = cam; applyCam($('camB'), cam);
+  $('tab').style.transform = `translateY(${(1 - cin) * 40}px)`;
+
+  // canvas pan between problems (the student scrolls the infinite page)
+  let pan = 0; for (const [id, k] of PAN) pan = lerp(pan, k, E.inout3(P(t, T(id), 0.62)));
+  $('canvas').style.transform = `translateY(${-pan * 836}px)`;
+
+  // handwriting + the fix
+  SEQS.forEach(s => renderHW(s, t));
+  const er = P(t, T('erase'), 0.3); GEO.one.el.style.opacity = 1 - E.out2(er);
+
+  // what the AI read
+  const rd = (id, t0, t1 = 1e9) => { const el = $(id), p = P(t, t0, 0.3); vis(el, t >= t1 ? 0 : 0.9 * E.out2(p)); el.style.transform = `translateY(${(1 - E.out3(p)) * 5}px)`; };
+  rd('rdL1', T('read1')); rd('rdL2', T('read2'));
+  $('rdL2').textContent = t >= T('clear') ? "f'(x) = 6x + 2" : "f'(x) = 6x + 1";
+  rd('rdP2', T('hint0')); rd('rdG1', T('figure')); rd('rdG2', T('figure') + 0.08); rd('rdW1', 1e9);
+
+  // the red circle and its note; both clear once the step is right
+  const tc = T('circle'), cl = T('clear'), cpth = $('circ1').querySelector('path');
+  drawPath(cpth, tc, t, 0.45, 'inout2');
+  const gone = E.out2(P(t, cl, 0.3)); $('circ1').style.opacity = 1 - gone;
+  renderNote('noteD', t, cl);
+
+  // Help: three hints, each replacing the last (same line_id); then the spoken question's reply
+  renderNote('hint0', t, T('hint1') - 0.12); renderNote('hint1', t, T('hint2') - 0.12); renderNote('hint2', t, T('voiceNote') - 0.12); renderNote('voiceNote', t);
+  const sel = $('sel'), ts = T('select'), sp = E.out3(P(t, ts, 0.34)), p2 = GEO.p2;
+  if (t < ts || t >= T('holdEnd') + 0.15) sel.style.visibility = 'hidden';
+  else { sel.style.visibility = 'visible'; sel.style.left = (p2.x - 14) + 'px'; sel.style.top = (p2.y - 836 - 2) + 'px';
+    sel.style.width = (p2.w + 28) * sp + 'px'; sel.style.height = (p2.h + 12) * sp + 'px'; sel.style.opacity = 1 - P(t, T('holdEnd'), 0.15); }
+
+  // the figure
+  const fg = $('fig'); popIn(fg, T('figure'), t, 10, 0.4); drawPath($('curve'), T('curve'), t, 0.6, 'inout2');
+
+  // the worksheet
+  const ws = $('ws'), wp = P(t, T('sheet'), 0.45); vis(ws, E.out2(clamp(wp * 1.6))); ws.style.transform = `translateY(${(1 - E.out3(wp)) * 18}px)`;
+
+  // controls: Help press, hold-to-listen, Import PDF
+  const help = $('help'); let press = 0;
+  for (const id of ['help0', 'help1', 'help2']) { const q = P(t, T(id) - 0.05, 0.3); if (q > 0 && q < 1) press = Math.sin(q * Math.PI); }
+  const hs = T('holdStart'), he = T('holdEnd'), listening = t >= hs && t < he;
+  if (listening) press = 0.6;
+  help.style.transform = `scale(${1 - 0.07 * press})`;
+  help.textContent = listening ? 'Listening…' : 'Help';
+  help.style.background = listening ? 'var(--listen)' : 'var(--help)'; help.style.fontSize = listening ? '16px' : '22px';
+  if (listening) { const u = ((t - hs) % 1.2) / 1.2; help.style.boxShadow = `0 0 0 ${(22 * E.out2(u)).toFixed(1)}px rgba(220,38,38,${(0.6 * (1 - u)).toFixed(3)})`; }
+  else help.style.boxShadow = '0 5px 18px rgba(37,99,235,.4)';
+  const imp = t >= T('import') && t < T('sheet'), chip = $('chipPdf');
+  chip.textContent = imp ? 'Importing…' : 'Import PDF'; chip.style.opacity = imp ? 0.55 : 1;
+  const ipr = P(t, T('import') - 0.05, 0.3); chip.style.transform = `scale(${1 - 0.06 * (ipr > 0 && ipr < 1 ? Math.sin(ipr * Math.PI) : 0)})`;
+
+  // pulsing dot while the tutor is thinking (TutorOverlay)
+  let busy = BUSY.some(([a, b]) => t >= T(a) && t < T(b));
+  for (const k of [0, 1, 2]) if (t >= T('help' + k) + 0.06 && t < T('hint' + k)) busy = true;
+  if (t >= he + 0.05 && t < T('voiceNote')) busy = true;
+  const dot = $('busy'); dot.style.visibility = busy ? 'visible' : 'hidden';
+  const ph = 0.5 - 0.5 * Math.cos(t * Math.PI * 2); dot.style.transform = `scale(${0.8 + 0.4 * ph})`; dot.style.opacity = 0.5 + 0.5 * ph;
+
+  // toolbar: which tldraw tool is active
+  const tool = (t >= T('erase') - 0.3 && t < T('erase') + 0.5) ? 'tErase' : (t >= T('select') - 0.25 && t < T('pan2')) ? 'tSel' : 'tDraw';
+  for (const id of ['tSel', 'tDraw', 'tErase']) $(id).className = 'b' + (id === tool ? ' on' : '');
+
+  renderPencil(t); renderTouch(t); renderLabels(t);
+}
+
+function renderPencil(t) {
+  const pen = $('pencil'); let op = 0, x = 0, y = 0;
+  const te = T('erase');
+  if (t >= te - 0.3 && t < te + 0.5) {          // rubbing the 1 out
+    const r = GEO.one.r; op = Math.min(P(t, te - 0.3, 0.15), 1 - P(t, te + 0.35, 0.15));
+    x = r.x + r.w / 2 + Math.sin((t - te) * 30) * 12 * (t >= te ? 1 : 0); y = r.y + r.h * 0.62 + Math.cos((t - te) * 19) * 5;
+  } else {
+    let ai = -1; for (let i = 0; i < GLY.length; i++) { if (GLY[i].c.t <= t) ai = i; else break; }
+    const a = ai >= 0 ? GLY[ai] : null, b = GLY[ai + 1] || null;
+    for (const g of [a, b]) if (g) op = Math.max(op, clamp(Math.min((t - (g.c.t - 0.32)) / 0.16, (g.c.t + 0.5 - t) / 0.16)));
+    const at = (g, p) => [g.r.x + g.r.w * (0.15 + 0.8 * p), g.r.y + g.r.h * (0.74 - 0.3 * Math.sin(p * Math.PI))];
+    let pos;
+    if (!a) pos = at(b, 0);
+    else { const pa = P(t, a.c.t, 0.1); pos = at(a, pa);
+      if (b && pa >= 1) { const gap = b.c.t - (a.c.t + 0.1);
+        if (gap < 0.7) { const q = E.inout2(clamp((t - a.c.t - 0.1) / Math.max(gap, 0.001))), nb = at(b, 0); pos = [lerp(pos[0], nb[0], q), lerp(pos[1], nb[1], q) - 10 * Math.sin(q * Math.PI)]; }
+        else if (t > b.c.t - 0.34) pos = at(b, 0); } }
+    [x, y] = pos;
+  }
+  pen.style.visibility = op <= 0.01 ? 'hidden' : 'visible'; pen.style.opacity = op;
+  pen.style.transform = `translate(${x.toFixed(1)}px,${(y - (1 - op) * 14).toFixed(1)}px)`;
+}
+
+function renderTouch(t) {
+  const el = $('touch'), scr = GEO.scr, h = GEO.help, c = GEO.chip, p2 = GEO.p2;
+  const HX = h.cx - scr.x, HY = h.cy - scr.y, CX = c.cx - scr.x, CY = c.cy - scr.y;
+  // keyframes: [t, x, y, opacity, pressed]
+  const K = [
+    [T('touchF'), HX - 90, HY - 150, 0, 0], [T('help0') - 0.12, HX + 6, HY + 8, 1, 0], [T('help0'), HX + 6, HY + 8, 1, 1], [T('help0') + 0.2, HX + 6, HY + 8, 1, 0],
+    [T('help1') - 0.3, HX + 26, HY - 34, 1, 0], [T('help1'), HX + 4, HY + 6, 1, 1], [T('help1') + 0.2, HX + 4, HY + 6, 1, 0],
+    [T('help2') - 0.3, HX + 26, HY - 34, 1, 0], [T('help2'), HX + 6, HY + 4, 1, 1], [T('help2') + 0.2, HX + 6, HY + 4, 1, 0],
+    [T('help2') + 0.7, HX + 40, HY - 60, 0, 0],
+    [T('select') - 0.25, p2.x - 40, p2.y - 838 - 30, 0, 0], [T('select'), p2.x - 14, p2.y - 838, 1, 1], [T('select') + 0.34, p2.r + 14, p2.b - 836 + 10, 1, 1],
+    [T('select') + 0.42, p2.r + 14, p2.b - 836 + 10, 1, 0], [T('holdStart') - 0.03, HX + 5, HY + 6, 1, 0], [T('holdStart'), HX + 5, HY + 6, 1, 1],
+    [T('holdEnd'), HX + 5, HY + 6, 1, 1], [T('holdEnd') + 0.12, HX + 5, HY + 6, 1, 0], [T('holdEnd') + 0.5, HX + 40, HY - 60, 0, 0],
+    [T('touchI'), CX - 70, CY - 110, 0, 0], [T('import') - 0.1, CX + 4, CY + 4, 1, 0], [T('import'), CX + 4, CY + 4, 1, 1], [T('import') + 0.2, CX + 4, CY + 4, 1, 0],
+    [T('import') + 0.6, CX + 50, CY - 70, 0, 0],
+  ];
+  let k = K[0];
+  if (t > K[0][0]) { k = K[K.length - 1]; for (let i = 0; i < K.length - 1; i++) { const a = K[i], b = K[i + 1];
+    if (t < b[0]) { const e = E.inout2(clamp((t - a[0]) / (b[0] - a[0]))); k = [t, lerp(a[1], b[1], e), lerp(a[2], b[2], e), lerp(a[3], b[3], e), lerp(a[4], b[4], e)]; break; } } }
+  el.style.visibility = k[3] <= 0.01 ? 'hidden' : 'visible'; el.style.opacity = k[3];
+  el.style.transform = `translate(${k[1].toFixed(1)}px,${k[2].toFixed(1)}px) scale(${1 - 0.22 * k[4]})`;
+  el.style.background = `rgba(22,21,26,${0.12 + 0.16 * k[4]})`;
+}
+
+function renderLabels(t) {
+  const fade = (el, a, b, d = 0.3) => vis(el, E.out2(P(t, a, d)) * (1 - E.out2(P(t, b, d))));
+  const conn = (id, a, b) => { const g = $(id), p = g.querySelector('path'); drawPath(p, a, t, 0.4, 'out3'); g.style.opacity = 1 - E.out2(P(t, b, 0.3)); g.style.visibility = t < a || t > b + 0.3 ? 'hidden' : 'visible'; };
+  fade($('lblRead'), T('lblRead'), 9.85); conn('cRead', T('lblRead') - 0.1, 9.85);
+  fade($('lblCheck'), T('lblCheck'), 15.2); conn('cCheck', T('lblCheck') - 0.1, 15.2);
+  const lv = $('lvls'); fade(lv, T('lvl0') - 0.15, 25.9);
+  conn('cHelp', T('lvl0') - 0.2, 29.5); if (t > 25.9 && t < T('listen')) $('cHelp').style.opacity = 0.35;
+  for (let k = 0; k < 3; k++) { const el = $('lvl' + k); popIn(el, T('lvl' + k), t, 8, 0.35); el.className = 'pill' + ((k === 2 || t < T('lvl' + (k + 1))) && t >= T('lvl' + k) ? ' on' : ''); if (t >= T('lvl' + k) + 0.4 && !el.classList.contains('on')) el.style.opacity = 0.55; }
+  const sd = $('said'); fade(sd, T('listen'), 29.5);
+  const hs = T('holdStart'), he = T('holdEnd'), on = t >= hs && t < he;
+  [...$('wave').children].forEach((b, i) => { const a = on ? 0.25 + 0.75 * Math.abs(Math.sin(t * (7 + (i % 5)) + i * 1.7)) * (0.5 + 0.5 * rnd(i, 3)) : 0.12; b.style.height = (4 + 28 * a).toFixed(1) + 'px'; b.style.opacity = on ? 1 : 0.35; });
+  [...$('saidT').children].forEach((s, i) => { s.style.opacity = E.out2(P(t, KEYS.said[i].t, 0.18)); });
+}
+
+/* ================= J: how it works ================= */
+function renderJ(t) {
+  const L = $('LJ');
+  if (t < T('node0') - 0.2 || t >= T('pay1')) { vis(L, 0); return; } vis(L, 1);
+  const out = E.inout2(P(t, T('pay1') - 0.35, 0.3)); L.style.opacity = 1 - out; blurF(L, 8 * out);
+  for (let k = 0; k < 4; k++) popIn($('jn' + k), T('node' + k), t, 14);
+  for (let k = 0; k < 3; k++) { drawPath($('jc' + k), T('node' + (k + 1)) - 0.3, t, 0.35); $('ja' + k).style.opacity = E.out2(P(t, T('node' + (k + 1)) - 0.02, 0.15)); }
+  const xs = [258, 726, 1194, 1662], hops = [T('hop0'), T('hop1'), T('hop2')], pk = $('jpk');
+  if (t < hops[0] - 0.25 || t > T('landed') + 0.5) pk.style.visibility = 'hidden';
+  else { pk.style.visibility = 'visible'; let x = xs[0] + 196;
+    for (let k = 0; k < 3; k++) x = lerp(x, xs[k + 1] - 196, E.inout3(P(t, hops[k], 0.32)));
+    x = lerp(x, x, 0); pk.style.left = x + 'px'; pk.style.top = '532px';
+    pk.style.opacity = E.out2(P(t, hops[0] - 0.25, 0.2)) * (1 - P(t, T('landed') + 0.2, 0.3)); }
+  for (let k = 0; k < 4; k++) { const tk = k === 0 ? hops[0] - 0.2 : k === 3 ? T('landed') - 0.05 : hops[k - 1] + 0.3, q = P(t, tk, 0.6);
+    $('jn' + k).style.borderColor = q > 0 && q < 1 ? `rgba(37,99,235,${(0.9 * Math.sin(q * Math.PI)).toFixed(2)})` : (k === 3 && t >= T('landed') ? '#e03131' : ''); }
+  const f = $('jfoot'), fp = P(t, T('jfoot'), 0.5); f.style.opacity = E.out2(fp); f.style.transform = `translateY(${(1 - E.out3(fp)) * 10}px)`; blurF(f, 6 * (1 - E.out3(fp)));
+}
+
+/* ================= K / L ================= */
+function renderPay(t) {
+  const L = $('Lpay');
+  if (t < T('pay1') || t >= T('lock')) { vis(L, 0); return; } vis(L, 1);
+  const hit = (id, t0, t1) => { const el = $(id);
+    if (t < t0 || t >= t1) { el.style.visibility = 'hidden'; return; } el.style.visibility = 'visible';
+    const p = P(t, t0, 0.16), e = E.out3(p); el.style.opacity = E.out2(clamp(p * 1.8)); el.style.transform = `scale(${1.05 - 0.05 * e})`; blurF(el, 9 * (1 - e)); };
+  hit('pay1', T('pay1'), T('pay2')); hit('pay2', T('pay2'), T('lock')); hit('pay3', T('pay3'), T('lock'));
+  const pr = $('payRing'); pr.style.visibility = t >= T('pay2') + 0.3 ? 'visible' : 'hidden';
+  drawPath(pr.querySelector('path'), T('pay2') + 0.32, t, 0.5, 'inout2');
+}
+function renderLock(t) {
+  const L = $('Llock');
+  if (t < T('lock')) { vis(L, 0); return; } vis(L, 1);
+  L.style.opacity = clamp(E.out3(P(t, T('lock'), 0.3)) * 1.5);
+  drawPath($('markRing'), T('ring'), t, 0.55, 'inout2');
+  const xg = $('mark').querySelector('span'), xp = P(t, T('lock') + 0.02, 0.35); xg.style.opacity = E.out2(xp); blurF(xg, 6 * (1 - E.out3(xp)));
+  const lgW = $('lockg').getBoundingClientRect().width;
+  const wm = T('wordmark'), sl = E.inout3(P(t, wm - 0.1, 0.55)), off = (lgW / 2 - 75) * (1 - sl);
+  $('mark').style.transform = `translateX(${off}px)`; $('wordmark').style.transform = `translateX(${off}px)`;
+  $('wordmark').style.visibility = t >= wm - 0.05 ? 'visible' : 'hidden';
+  reveal($('wordmark'), wm, t); reveal($('tagline'), T('tagline'), t, 0.5, 0.05);
+  const cp = P(t, T('built'), 0.45); $('built').style.opacity = E.out2(cp); $('built').style.transform = `translate(-50%, ${(1 - E.out3(cp)) * 10}px)`;
+  const sp = P(t, T('byline') - 0.04, 0.4); $('byline').style.opacity = E.out2(clamp(sp * 1.8)); $('byline').style.transform = `translateX(-50%) scale(${0.8 + 0.2 * E.back(sp)})`;
+}
+function renderGrid(t) {
+  const g = $('grid'); let c = { x: 960, y: 540, s: 1 };
+  if ($('LB').style.visibility === 'visible' && GEO.cam) c = GEO.cam;
+  const sz = 48 * c.s;
+  g.style.backgroundSize = `${sz}px ${sz}px`;
+  g.style.backgroundPosition = `${(960 - c.x * c.s) % sz}px ${(540 - c.y * c.s) % sz}px`;
+  g.style.opacity = t >= T('pay1') ? 0 : 1;
+}
+
+window.renderFrame = function (ms) {
+  const t = ms / 1000;
+  renderA(t); renderTab(t); renderJ(t); renderPay(t); renderLock(t); renderCaps(t); renderGrid(t);
+};
+(async function boot() {
+  try {
+    await Promise.all(['400 40px "Instrument Serif"', 'italic 400 40px "Instrument Serif"', '400 20px Inter', '500 20px Inter', '600 20px Inter', '700 20px Inter',
+      '400 20px "JetBrains Mono"', '500 20px "JetBrains Mono"', '600 20px "JetBrains Mono"', '700 20px "JetBrains Mono"',
+      '600 40px Caveat', '400 20px "Shantell Sans"'].map(f => document.fonts.load(f)));
+    await document.fonts.ready;
+  } catch (e) { console.error('font load', e); }
+  init();
+  window.renderFrame(0);
+  window.__ready = true;
+})();
+</script>
+</body>
+</html>

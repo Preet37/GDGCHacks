@@ -3,396 +3,789 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>AI tutor notebook teaser</title>
+<title>AI tutor notebook: launch film</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,800&family=Caveat:wght@700&family=Kalam:wght@400&display=block" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&family=Caveat:wght@700&family=JetBrains+Mono:wght@500;700&family=Kalam:wght@400&display=block" rel="stylesheet">
 <style>
-  :root {
-    --desk: #18264d;      /* fountain-pen blue desk */
-    --desk-soft: #8e9dc9; /* muted type on the desk */
-    --paper: #f4f7f3;
-    --grid: #cbdbe6;
-    --ink: #1c2857;       /* the student's pen */
-    --red: #e3342a;       /* the tutor's pencil */
-    --teal: #0b8a7a;      /* the tutor's figures */
-  }
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; background: #0c1430; overflow: hidden; }
-  #stage {
-    position: absolute; left: 50%; top: 50%;
-    width: 1080px; height: 1920px; margin: -960px 0 0 -540px;
-    background: var(--desk); overflow: hidden; transform-origin: 50% 50%;
-    font-family: "Bricolage Grotesque", system-ui, sans-serif; color: var(--paper);
-    user-select: none; -webkit-user-select: none;
-  }
-  #stage.playing { cursor: none; }
-  .layer { position: absolute; inset: 0; }
+:root{
+  --blue:#2532d6;      /* ballpoint blue */
+  --blue-hi:#4d5bff;
+  --ink:#0c0e36;       /* bottled ink */
+  --pen:#1a1d52;       /* the student's pen */
+  --paper:#f3f5f9;
+  --gridc:#cdd8ea;
+  --red:#f23a2e;       /* the tutor's pencil */
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;background:#05061a;overflow:hidden}
+#stage{position:absolute;left:50%;top:50%;overflow:hidden;transform-origin:0 0;background:var(--ink);
+  font-family:"Archivo",system-ui,sans-serif;color:var(--paper);user-select:none;-webkit-user-select:none;cursor:pointer}
+.scene{position:absolute;inset:0;overflow:hidden}
+.fx{position:absolute;left:0;top:0;width:100%;height:100%;overflow:visible;pointer-events:none}
+.fx path,.mk path{fill:none;stroke-linecap:round;stroke-linejoin:round}
+.gridbg{background-color:var(--paper);
+  background-image:linear-gradient(var(--gridc) 2px,transparent 2px),linear-gradient(90deg,var(--gridc) 2px,transparent 2px);
+  background-size:60px 60px;background-position:-1px -1px}
 
-  /* Beat 1: the pain */
-  #s1 .lead { position: absolute; left: 80px; top: 400px; font-weight: 500; font-size: 50px; color: var(--desk-soft); }
-  #s1 .step { position: absolute; left: 80px; font-weight: 800; font-size: 104px; line-height: 1; letter-spacing: -0.03em; }
-  #s1 .bubble {
-    position: absolute; left: 80px; top: 1010px; width: 820px; padding: 46px 54px 52px;
-    background: var(--paper); color: var(--ink); border-radius: 44px 44px 44px 8px;
-    transform-origin: 0 100%;
-  }
-  #s1 .bubble small { display: block; font-weight: 500; font-size: 44px; opacity: .7; margin-bottom: 10px; }
-  #s1 .bubble b { font-weight: 800; font-size: 92px; letter-spacing: -0.02em; }
-  #s1 .after { position: absolute; left: 80px; top: 1350px; width: 900px; font-weight: 800; font-size: 76px; line-height: 1.05; letter-spacing: -0.02em; }
+/* headline blocks: lines rise out of a mask */
+.hd{position:absolute;font-weight:800;line-height:1;letter-spacing:-.035em;white-space:nowrap;font-stretch:96%}
+.ln{display:block;overflow:hidden;padding:.05em .06em .17em 0;margin-bottom:-.2em}
+.in{display:inline-block;will-change:transform}
 
-  /* Beat 2: the notebook */
-  .cap {
-    position: absolute; left: 70px; bottom: 1535px; width: 940px;
-    font-weight: 800; font-size: 58px; line-height: 1.1; letter-spacing: -0.02em; opacity: 0;
-  }
-  .paper {
-    position: absolute; background-color: var(--paper);
-    background-image:
-      linear-gradient(var(--grid) 2px, transparent 2px),
-      linear-gradient(90deg, var(--grid) 2px, transparent 2px);
-    background-size: 60px 60px; background-position: 29px 29px;
-    box-shadow: 0 30px 80px rgba(4, 9, 30, .55);
-  }
-  #page { left: 50px; top: 420px; width: 980px; height: 1600px; border-radius: 30px 30px 0 0; }
-  .hand { position: absolute; white-space: nowrap; line-height: 1; }
-  .student { font-family: "Kalam", cursive; color: var(--ink); }
-  .tutor { font-family: "Caveat", cursive; font-weight: 700; color: var(--red); }
-  .g, .sp { display: inline-block; }
-  .sp { width: .3em; }
-  .sup { font-size: .58em; position: relative; top: -.62em; margin-left: .04em; }
-  #l1, #l2 { left: 80px; font-size: 118px; }
-  #l1 { top: 70px; } #l2 { top: 235px; }
-  #l2 .fix { position: absolute; top: 0; }
-  #note { left: 380px; top: 425px; font-size: 80px; line-height: .98; transform: rotate(-3deg); transform-origin: 0 0; white-space: normal; width: 560px; }
-  #note div { white-space: nowrap; }
-  #gt { left: 80px; top: 640px; font-size: 96px; }
-  #marks, #graph { position: absolute; overflow: visible; }
-  #marks { left: 0; top: 0; width: 980px; height: 1600px; pointer-events: none; }
-  #graph { left: 90px; top: 770px; width: 780px; height: 470px; }
-  #scan { position: absolute; left: 0; top: 60px; width: 150px; height: 320px; opacity: 0;
-    background: linear-gradient(90deg, transparent, rgba(11,138,122,.20), transparent); }
-  #dots { position: absolute; top: 300px; display: flex; gap: 16px; }
-  #dots i { width: 20px; height: 20px; border-radius: 50%; background: var(--teal); opacity: 0; }
-  #pen { position: absolute; left: 0; top: 0; width: 10px; height: 10px; overflow: visible; opacity: 0; pointer-events: none; }
+/* handwriting */
+.hand{position:absolute;white-space:nowrap;line-height:1}
+.st{font-family:"Kalam",cursive;color:var(--pen)}
+.tu{font-family:"Caveat",cursive;font-weight:700;color:var(--red)}
+.g{display:inline-block}
+.sp{width:.3em}
+.mono{font-family:"JetBrains Mono",ui-monospace,monospace;font-weight:500}
 
-  /* Beat 3: the line */
-  #s3 .ln { position: absolute; left: 80px; font-weight: 800; letter-spacing: -0.03em; line-height: 1; white-space: nowrap; }
-  #s3 .a { font-size: 96px; }
-  #s3 .b { font-size: 112px; }
-  #strike { position: absolute; inset: 0; width: 1080px; height: 1920px; overflow: visible; }
+/* ---------- S1 cold open ---------- */
+#s1{z-index:1}
+#s1 .hd{color:var(--ink)}
+.acard{position:absolute;width:430px;padding:26px 30px 30px;background:#fff;border-radius:30px 30px 30px 8px;color:var(--ink);
+  box-shadow:0 30px 60px -18px rgba(22,30,120,.38),0 2px 0 rgba(22,30,120,.06);transform-origin:50% 100%}
+.acard small{display:flex;align-items:center;gap:12px;font-size:25px;font-weight:600;color:#7b84a8;margin-bottom:12px}
+.acard small i{width:22px;height:22px;border-radius:50%;background:linear-gradient(135deg,#9aa4ff,#2532d6)}
+.acard b{display:block;font-size:56px;font-weight:800;letter-spacing:-.03em;white-space:nowrap}
+.acard u{display:block;height:14px;border-radius:7px;background:#e2e7f3;margin-top:14px}
 
-  /* End card */
-  #endpage { left: 50px; top: 300px; width: 980px; height: 1320px; border-radius: 30px; color: var(--ink); }
-  #name { left: 80px; top: 150px; font-size: 150px; }
-  #endmarks { position: absolute; inset: 0; width: 980px; height: 1320px; overflow: visible; }
-  #endpage p { position: absolute; left: 84px; width: 800px; }
-  #what { top: 440px; font-weight: 500; font-size: 52px; line-height: 1.18; }
-  #hints { top: 745px; font-family: "Caveat", cursive; font-weight: 700; font-size: 70px; line-height: 1; color: var(--red); transform: rotate(-2deg); transform-origin: 0 0; }
-  #where { top: 1040px; font-weight: 800; font-size: 54px; letter-spacing: -0.02em; }
-  #who { top: 1120px; font-weight: 500; font-size: 54px; }
+/* ---------- S2 red ---------- */
+#s2{z-index:2;background:var(--red)}
+#s2 .hd{color:#fff}
+
+/* ---------- S3 device ---------- */
+#s3{z-index:1;background:radial-gradient(120% 90% at 50% 55%,var(--blue-hi) 0%,var(--blue) 42%,#141c94 100%)}
+#floor{position:absolute;border-radius:50%;background:rgba(6,9,70,.55);filter:blur(60px)}
+#cam{position:absolute;inset:0;perspective:2600px}
+#tab{position:absolute;left:0;top:0;transform-origin:0 0;border-radius:64px;background:#0a0b1c;
+  box-shadow:0 0 0 3px #2a2c48 inset,0 0 0 2px #3b3e63,0 90px 120px -30px rgba(3,5,50,.7),0 30px 40px -10px rgba(3,5,50,.5)}
+#screen{position:absolute;inset:28px;border-radius:38px;overflow:hidden;background:var(--paper)}
+#bar{position:absolute;left:0;top:0;right:0;height:84px;background:#fff;border-bottom:2px solid #dfe5f1;display:flex;align-items:center;padding:0 22px;gap:12px;color:var(--ink)}
+.tool{width:50px;height:50px;border-radius:14px;display:grid;place-items:center;background:#eef1f8}
+.tool.on{background:var(--ink)}
+.tool svg{width:28px;height:28px}
+#doc{font-size:25px;font-weight:700;margin-left:10px;letter-spacing:-.01em;white-space:nowrap}
+#chip{margin-left:auto;height:46px;padding:0 18px 0 14px;border-radius:23px;display:flex;align-items:center;gap:10px;font-size:22px;font-weight:600;background:#eef1f8;white-space:nowrap}
+#chip i{width:14px;height:14px;border-radius:50%;background:var(--blue)}
+#help{height:50px;padding:0 22px;border-radius:25px;background:var(--red);color:#fff;font-size:24px;font-weight:700;display:flex;align-items:center}
+#page{position:absolute;left:0;top:84px;right:0;bottom:0}
+#page.gridbg{background-size:46px 46px}
+#scan{position:absolute;top:0;bottom:0;width:190px;background:linear-gradient(90deg,transparent,rgba(37,50,214,.22) 70%,rgba(37,50,214,.5) 98%,transparent)}
+.tag{position:absolute;height:34px;padding:0 12px;border-radius:8px 8px 8px 0;background:var(--blue);color:#fff;font-size:19px;display:flex;align-items:center;white-space:nowrap}
+#pen{position:absolute;left:0;top:0;width:0;height:0;filter:drop-shadow(14px 22px 12px rgba(10,14,80,.32))}
+#pen svg{position:absolute;left:0;top:-20px;overflow:visible}
+.cap{color:#fff}
+.call{position:absolute;height:86px;padding:0 34px 0 28px;border-radius:43px;background:var(--ink);color:#fff;font-size:40px;font-weight:700;letter-spacing:-.02em;
+  display:flex;align-items:center;gap:18px;white-space:nowrap;box-shadow:0 24px 44px -14px rgba(8,10,60,.55)}
+.call i{width:20px;height:20px;border-radius:50%;background:var(--red);flex:none}
+
+/* ---------- S5 how it works ---------- */
+#s5{z-index:0}
+#s5 .hd{color:var(--ink)}
+.stn{position:absolute;color:var(--ink)}
+.stn .num{position:absolute;left:-36px;top:-36px;width:72px;height:72px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-size:36px;font-weight:800}
+.stn .lab{position:absolute;font-weight:800;letter-spacing:-.025em;line-height:1.04}
+.stn .viz{position:absolute;white-space:nowrap}
+.stn .viz .st{margin-top:14px}
+.stn .codechip{margin-top:26px}
+.stn .tile{margin-top:30px}
+.codechip{display:inline-block;background:var(--ink);color:#e9ecff;border-radius:14px;padding:16px 22px;white-space:pre}
+.codechip em{font-style:normal;color:#ff6a5e;font-weight:700}
+.tile{position:relative;background:#fff;border-radius:16px;box-shadow:0 18px 36px -14px rgba(22,30,120,.35),0 0 0 2px #dfe5f1}
+
+/* ---------- S6 structured reply ---------- */
+#s6{z-index:2;background:var(--ink)}
+#s6 .hd{color:#fff;font-weight:700}
+#code{position:absolute;border-radius:28px;background:#14174a;box-shadow:0 0 0 2px #2a2f78 inset,0 50px 80px -30px #000;padding:34px 0;font-size:31px;line-height:1.62;color:#aeb6ee}
+#code div{padding:0 38px;white-space:pre;position:relative}
+#code .k{color:#8fa0ff}#code .s{color:#fff}#code .n{color:#ffb0a8}
+#code .hl{position:absolute;left:0;right:0;top:0;bottom:0;background:var(--red);opacity:0}
+#code span{position:relative}
+#jpage{position:absolute;width:640px;height:400px;border-radius:22px;overflow:hidden;box-shadow:0 50px 80px -24px #000}
+#jpage.gridbg{background-size:40px 40px}
+
+/* ---------- montage ---------- */
+#mont{z-index:3;background:var(--ink)}
+.pan{position:absolute;left:0;top:0;transform-origin:0 0;overflow:hidden}
+.pan .hd{font-weight:800}
+.vis{position:absolute;width:860px;height:860px}
+#pA{background:var(--red);color:#fff}
+#pB{color:var(--ink)}
+#pC{background:var(--blue);color:#fff}
+#pD{background:var(--ink);color:#fff}
+.slip{position:absolute;width:740px;height:196px;background:#fff;border-radius:20px;color:var(--ink);box-shadow:0 30px 50px -20px rgba(90,0,0,.55)}
+.slip b{position:absolute;left:34px;top:34px;font-size:120px;font-weight:900;line-height:1;letter-spacing:-.04em}
+.slip span{position:absolute;left:150px;top:36px;font-size:36px;font-weight:700;letter-spacing:-.01em}
+.slip em{position:absolute;left:150px;top:88px;font:700 60px/1 "Caveat",cursive;color:var(--red);white-space:nowrap}
+#helpbig{position:absolute;left:0;top:0;height:104px;padding:0 44px;border-radius:52px;background:#fff;color:var(--red);font-size:50px;font-weight:800;display:flex;align-items:center;gap:22px;box-shadow:0 20px 40px -16px rgba(90,0,0,.55)}
+#helpbig i{width:22px;height:22px;border-radius:50%;border:4px solid var(--red)}
+#ripple{position:absolute;left:-10px;top:-10px;width:124px;height:124px;border-radius:62px;border:5px solid #fff}
+#sheet{position:absolute;left:120px;top:20px;width:620px;height:820px;background:#fff;color:#1c1c28;border-radius:6px;padding:56px 54px;font-family:Georgia,"Times New Roman",serif;box-shadow:0 60px 80px -30px rgba(3,5,60,.75);transform-origin:50% 50%}
+#sheet h4{font-size:36px;font-weight:700;margin-bottom:8px}
+#sheet p{font-size:25px;color:#666a7c;margin-bottom:38px;border-bottom:2px solid #1c1c28;padding-bottom:20px}
+#sheet li{list-style:none;font-size:34px;margin-bottom:92px;position:relative}
+#sheet li s{position:absolute;left:150px;top:92px;width:330px;border-bottom:2px solid #9a9db0;text-decoration:none}
+#sheet li q{position:absolute;left:38px;top:60px;quotes:none;font-style:italic}
+#pdfchip{position:absolute;left:560px;top:-20px;width:180px;height:92px;border-radius:18px;background:#fff;color:var(--red);font:900 44px/92px "Archivo";text-align:center;letter-spacing:.02em;box-shadow:0 24px 40px -14px rgba(3,5,60,.7)}
+#ptile{position:absolute;left:30px;top:70px;width:800px;height:330px;border-radius:22px;overflow:hidden}
+#ptile.gridbg{background-size:44px 44px}
+#mic{position:absolute;left:30px;top:480px;width:800px;height:150px;border-radius:75px;background:#1b1f63;display:flex;align-items:center;padding:0 30px;gap:9px}
+#mic .mi{width:92px;height:92px;border-radius:50%;background:var(--red);display:grid;place-items:center;margin-right:20px;flex:none}
+#mic b{display:block;width:10px;border-radius:5px;background:#fff;flex:none}
+#said{position:absolute;left:36px;top:690px;font-size:66px;font-weight:700;letter-spacing:-.03em;white-space:nowrap}
+
+/* ---------- the line ---------- */
+#sl{z-index:4}
+#sl .hd{color:var(--ink)}
+#old{position:absolute;font-weight:600;color:#6a7299;letter-spacing:-.02em;white-space:nowrap}
+
+/* ---------- end card ---------- */
+#se{z-index:5;background:radial-gradient(110% 80% at 20% 30%,#1b2080 0%,var(--ink) 60%)}
+.ghost{position:absolute;font-family:"Kalam",cursive;color:#fff;opacity:.075;white-space:nowrap;line-height:1}
+#wm{color:#fff;font-stretch:110%;font-weight:800}
+#tagl{position:absolute;font-weight:600;letter-spacing:-.02em;color:#aab3f5;white-space:nowrap}
+#rule{position:absolute;height:3px;background:#fff;opacity:.9;transform-origin:0 50%}
+.cred{position:absolute;white-space:nowrap;letter-spacing:-.01em}
+#mark{position:absolute;width:190px;height:150px}
+#mark div{position:absolute;left:0;top:0;width:190px;height:150px;font:400 86px/150px "Kalam",cursive;color:#fff;text-align:center}
+
+/* light + grain over everything */
+#light{position:absolute;inset:0;z-index:20;pointer-events:none;
+  background:radial-gradient(90% 70% at 25% 12%,rgba(255,255,255,.10),transparent 60%),radial-gradient(120% 120% at 50% 50%,transparent 62%,rgba(4,5,40,.22) 100%)}
+#grain{position:absolute;inset:0;z-index:21;pointer-events:none;opacity:.3}
 </style>
 </head>
 <body>
-<div id="stage">
-  <div class="layer" id="s1">
-    <div class="lead">Asking AI about your homework today</div>
-    <div class="step" style="top:510px">Screenshot.</div>
-    <div class="step" style="top:630px">Share.</div>
-    <div class="step" style="top:750px">Paste into a chat.</div>
-    <div class="bubble"><small>Here's the answer:</small><b>f′(x) = 6x + 2</b></div>
-    <div class="after">It just hands you the answer.</div>
-  </div>
-
-  <div class="layer" id="s2">
-    <div class="cap">Do your math by hand, on the iPad.</div>
-    <div class="cap">Pause. Gemini reads your work and a real math engine checks it.</div>
-    <div class="cap">It circles the exact mistake. You get a hint, not the answer.</div>
-    <div class="cap">You fix it yourself.</div>
-    <div class="cap">Write “graph this” and the graph appears.</div>
-    <div class="paper" id="page">
-      <div id="scan"></div>
-      <div class="hand student" id="l1"></div>
-      <div class="hand student" id="l2"></div>
-      <div id="dots"><i></i><i></i><i></i></div>
-      <div class="hand tutor" id="note"><div id="n1"></div><div id="n2"></div></div>
-      <div class="hand student" id="gt"></div>
-      <svg id="graph" viewBox="0 0 780 470" fill="none" stroke-linecap="round" stroke-linejoin="round">
-        <path id="gx" stroke="#0b8a7a" stroke-width="5" pathLength="1" stroke-dasharray="1 1"/>
-        <path id="gy" stroke="#0b8a7a" stroke-width="5" pathLength="1" stroke-dasharray="1 1"/>
-        <path id="gticks" stroke="#0b8a7a" stroke-width="4"/>
-        <path id="gcurve" stroke="#0b8a7a" stroke-width="9" pathLength="1" stroke-dasharray="1 1"/>
-        <text id="glabel" x="10" y="462" font-family="Caveat, cursive" font-weight="700" font-size="60" fill="#0b8a7a">y = 3x² + 2x</text>
-      </svg>
-      <svg id="marks" fill="none" stroke-linecap="round" stroke-linejoin="round">
-        <path id="circle" stroke="#e3342a" stroke-width="9" pathLength="1" stroke-dasharray="1 1"/>
-      </svg>
-    </div>
-  </div>
-
-  <div class="layer" id="s3">
-    <div class="ln a" style="top:470px">Other AI tutors</div>
-    <div class="ln a" style="top:580px">finish your</div>
-    <div class="ln a" style="top:690px">homework.</div>
-    <svg id="strike" fill="none" stroke="#e3342a" stroke-width="12" stroke-linecap="round"></svg>
-    <div class="ln b" style="top:930px">Ours finds</div>
-    <div class="ln b" style="top:1056px">your mistake</div>
-    <div class="ln b" style="top:1182px">and makes</div>
-    <div class="ln b" style="top:1308px">you fix it.</div>
-  </div>
-
-  <div class="layer" id="s4">
-    <div class="paper" id="endpage">
-      <div class="hand student" id="name"></div>
-      <svg id="endmarks" fill="none" stroke-linecap="round"><path id="under" stroke="#e3342a" stroke-width="9" pathLength="1" stroke-dasharray="1 1"/></svg>
-      <p id="what">A notebook that reads your handwritten math, circles where you went wrong, and writes a hint in the margin.</p>
-      <p id="hints">Hints come in three levels: a nudge, a bigger push, a worked step.</p>
-      <p id="where">Built at Google DevFest · UCSC</p>
-      <p id="who">Preet + Parsh</p>
-    </div>
-  </div>
-
-  <svg id="pen" viewBox="0 0 10 10">
-    <g transform="rotate(56)">
-      <rect x="26" y="-13" width="620" height="26" rx="13" fill="#fbfcfb" stroke="#b9c3d6" stroke-width="2"/>
-      <path d="M0 0 L28 -11 L28 11 Z" fill="#e9edf2" stroke="#b9c3d6" stroke-width="2" stroke-linejoin="round"/>
-    </g>
-  </svg>
-</div>
-
+<div id="stage"></div>
 <script>
 // ---- The one line to change when the project has a name ----
 const PROJECT_NAME = "[need: name]";
 // Shown on the end card while PROJECT_NAME is still the placeholder.
 const NAME_FALLBACK = "AI tutor notebook";
 
-const DURATION = 25;           // seconds; the end card holds after this
-const $ = (s) => document.querySelector(s);
-const $$ = (s) => [...document.querySelectorAll(s)];
-const clamp = (v) => Math.max(0, Math.min(1, v));
-const prog = (t, a, d) => clamp((t - a) / d);
-const eout = (p) => 1 - Math.pow(1 - p, 3);
-const eio = (p) => p < .5 ? 4 * p * p * p : 1 - Math.pow(-2 * p + 2, 3) / 2;
-// 0 -> 1 -> 0 window with fades
-const win = (t, a, b, f = .25) => Math.min(prog(t, a, f), 1 - prog(t, b - f, f));
+// ?format=tall (1080x1920, default) | ?format=wide (1920x1080)
+// ?t=12.5 jumps to that second and pauses. R or click restarts. Space pauses. Arrow keys step one frame.
+const Q = new URLSearchParams(location.search);
+const tall = Q.get("format") !== "wide";
+const W = tall ? 1080 : 1920, H = tall ? 1920 : 1080;
+const FPS = 30, DURATION = 34.5;
+const placeholder = !PROJECT_NAME.trim() || /^\s*\[need/i.test(PROJECT_NAME);
 
-const stage = $("#stage");
-function fit() {
-  const s = Math.min(innerWidth / 1080, innerHeight / 1920);
-  stage.style.transform = `scale(${s})`;
+// ---------- helpers ----------
+const $ = (s) => document.querySelector(s), $$ = (s) => [...document.querySelectorAll(s)];
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
+const pr = (t, a, b) => clamp((t - a) / (b - a));
+const lerp = (a, b, k) => a + (b - a) * k;
+const E = {
+  lin: (x) => x,
+  o3: (x) => 1 - (1 - x) ** 3, o5: (x) => 1 - (1 - x) ** 5,
+  i3: (x) => x ** 3,
+  io3: (x) => x < .5 ? 4 * x ** 3 : 1 - (-2 * x + 2) ** 3 / 2,
+  io5: (x) => x < .5 ? 16 * x ** 5 : 1 - (-2 * x + 2) ** 5 / 2,
+  back: (x) => 1 + 2.70158 * (x - 1) ** 3 + 1.70158 * (x - 1) ** 2,
+};
+const px = (n) => n.toFixed(2) + "px";
+const hdHTML = (lines) => lines.map((l) => `<span class="ln"><span class="in">${l}</span></span>`).join("");
+// masked line reveal; optional exit time
+function rev(el, t, t0, o = {}) {
+  const st = o.st ?? .09, d = o.d ?? .55;
+  el._in.forEach((n, i) => {
+    const a = (o.at ? o.at[i] : t0 + i * st);
+    let y = (1 - E.o5(pr(t, a, a + d))) * 112;
+    if (o.out != null) y -= E.i3(pr(t, o.out + i * .04, o.out + .3 + i * .04)) * 112;
+    n.style.transform = `translateY(${y.toFixed(2)}%)`;
+  });
 }
-addEventListener("resize", fit); fit();
-
-// ---- handwriting: one span per glyph, revealed left to right in sequence ----
-function hand(el, text) {
-  el.textContent = ""; el._g = [];
-  for (const ch of text) {
-    const s = document.createElement("span");
-    if (ch === " ") s.className = "sp";
-    else { s.className = "g"; s.textContent = ch === "²" ? "2" : ch; if (ch === "²") s.classList.add("sup"); el._g.push(s); }
-    el.appendChild(s);
-  }
-  return el;
+function fitHd(el, maxW) {
+  const w = Math.max(...el._in.map((n) => n.offsetWidth));
+  if (w > maxW) el.style.fontSize = (parseFloat(getComputedStyle(el).fontSize) * maxW / w) + "px";
 }
-function reveal(span, p) {
-  span.style.visibility = p <= 0 ? "hidden" : "visible";
-  span.style.clipPath = p >= 1 || p <= 0 ? "none" : `inset(-40% ${(1 - eio(p)) * 100}% -40% -40%)`;
+function mkHand(el, str) {
+  el.innerHTML = [...str].map((c) => c === " " ? '<span class="g sp"></span>' : `<span class="g">${c}</span>`).join("");
+  el._g = [...el.children]; return el;
 }
-function write(glyphs, t, start, dur) {
-  const slot = dur / glyphs.length;
-  glyphs.forEach((g, i) => reveal(g, clamp((t - start) / slot - i)));
+// write glyphs left to right; returns pen position in the line's offsetParent coordinates
+function write(el, t, t0, t1) {
+  const g = el._g, n = g.length, q = pr(t, t0, t1) * n;
+  g.forEach((s, i) => {
+    const k = clamp(q - i);
+    s.style.opacity = k > 0 ? 1 : 0;
+    s.style.clipPath = k >= 1 || k <= 0 ? "none" : `inset(-30% ${((1 - k) * 100).toFixed(1)}% -30% -25%)`;
+  });
+  const i = Math.min(n - 1, Math.floor(q)), k = clamp(q - i), s = g[i];
+  return { x: el.offsetLeft + s.offsetLeft + s.offsetWidth * k, y: el.offsetTop + el.offsetHeight * (.62 + .1 * Math.sin(q * 4.2)) };
 }
-function draw(path, p) {
-  path.style.strokeDashoffset = 1 - p;
-  path.style.visibility = p <= 0 ? "hidden" : "visible";
+function termBox(el, a, b) {
+  const g = el._g, x0 = el.offsetLeft + g[a].offsetLeft, x1 = el.offsetLeft + g[b].offsetLeft + g[b].offsetWidth;
+  return { cx: (x0 + x1) / 2, cy: el.offsetTop + el.offsetHeight * .5, rx: (x1 - x0) / 2, ry: el.offsetHeight * .5 };
 }
-
-const l1 = hand($("#l1"), "f(x) = 3x² + 2x");
-const l2 = hand($("#l2"), "f'(x) = 6x + 1");
-const n1 = hand($("#n1"), "What happens to");
-const n2 = hand($("#n2"), "the x in 2x?");
-const gt = hand($("#gt"), "graph this");
-const isPlaceholder = /^\s*\[need/i.test(PROJECT_NAME) || !PROJECT_NAME.trim();
-const nameEl = hand($("#name"), isPlaceholder ? NAME_FALLBACK : PROJECT_NAME);
-const plus = l2._g[8], one = l2._g[9];
-const two = document.createElement("span"); two.className = "g fix"; two.textContent = "2"; l2.appendChild(two);
-
-// ---- graph of f(x) = 3x^2 + 2x ----
-const GX = (x) => (x + 1.72) / 2.8 * 780, GY = (y) => 440 - (y + .6) / 5.8 * 440;
-(function buildGraph() {
-  const w = (i) => Math.sin(i * 2.1) * 1.6; // slight hand wobble
-  let d = "";
-  for (let i = 0; i <= 20; i++) d += `${i ? "L" : "M"}${(8 + i * 38.2).toFixed(1)} ${(GY(0) + w(i)).toFixed(1)}`;
-  $("#gx").setAttribute("d", d);
-  d = "";
-  for (let i = 0; i <= 12; i++) d += `${i ? "L" : "M"}${(GX(0) + w(i + 3)).toFixed(1)} ${(436 - i * 36).toFixed(1)}`;
-  $("#gy").setAttribute("d", d);
-  d = "";
-  for (const x of [-1, 1]) d += `M${GX(x)} ${GY(0) - 9}L${GX(x)} ${GY(0) + 9}`;
-  for (const y of [1, 2, 3, 4, 5]) d += `M${GX(0) - 9} ${GY(y)}L${GX(0) + 9} ${GY(y)}`;
-  $("#gticks").setAttribute("d", d);
-  d = "";
-  for (let i = 0; i <= 90; i++) { const x = -1.68 + i * (2.69 / 90); d += `${i ? "L" : "M"}${GX(x).toFixed(1)} ${GY(3 * x * x + 2 * x).toFixed(1)}`; }
-  $("#gcurve").setAttribute("d", d);
-})();
-
-// ---- layout that depends on real glyph positions (after fonts load) ----
-let penSegs = [];
-function layout() {
-  two.style.left = one.offsetLeft + "px";
-  // red circle around "+ 1"
-  const x0 = l2.offsetLeft + plus.offsetLeft, x1 = l2.offsetLeft + one.offsetLeft + one.offsetWidth;
-  const cx = (x0 + x1) / 2 + 8, cy = l2.offsetTop + plus.offsetTop + plus.offsetHeight * CIRCLE_Y;
-  const rx = (x1 - x0) / 2 + 14, ry = plus.offsetHeight * .5;
-  let d = ""; const N = 90, a0 = -2.3, rot = -.1;
+function handEllipse(cx, cy, rx, ry, turns = 1.1, rot = -.1, a0 = -2.4) {
+  let d = ""; const N = 96;
   for (let i = 0; i <= N; i++) {
-    const a = a0 + (Math.PI * 2 + .7) * i / N;
-    const f = .96 + .05 * Math.sin(2 * a + 1) + .1 * i / N;
+    const a = a0 + Math.PI * 2 * turns * i / N, f = .95 + .05 * Math.sin(2 * a + 1) + .1 * i / N;
     const ex = rx * f * Math.cos(a), ey = ry * f * Math.sin(a);
     d += `${i ? "L" : "M"}${(cx + ex * Math.cos(rot) - ey * Math.sin(rot)).toFixed(1)} ${(cy + ex * Math.sin(rot) + ey * Math.cos(rot)).toFixed(1)}`;
   }
-  $("#circle").setAttribute("d", d);
-  $("#dots").style.left = (x1 + 40) + "px";
+  return d;
+}
+const P = (id, stroke, w, extra = "") => `<path id="${id}" pathLength="1" stroke-dasharray="1 1" stroke="${stroke}" stroke-width="${w}" ${extra}/>`;
+function draw(p, k) { p.style.strokeDashoffset = 1 - k; p.style.visibility = k <= 0 ? "hidden" : "visible"; }
+function kf(t, K) {
+  if (t <= K[0].t) return K[0];
+  for (let i = 1; i < K.length; i++) if (t <= K[i].t) {
+    const a = K[i - 1], b = K[i], k = (b.e || E.lin)(pr(t, a.t, b.t)), o = {};
+    for (const key in b) if (key !== "t" && key !== "e") o[key] = lerp(a[key], b[key], k);
+    return o;
+  }
+  return K[K.length - 1];
+}
+const show = (el, on) => { el.style.display = on ? "" : "none"; return on; };
 
-  // strike-through for the first sentence of the core line
-  const lines = $$("#s3 .a"); let sd = "";
-  lines.forEach((ln, i) => {
-    const y = ln.offsetTop + ln.offsetHeight * .56, xa = ln.offsetLeft - 16, xb = ln.offsetLeft + ln.offsetWidth + 16;
-    sd += `<path pathLength="1" stroke-dasharray="1 1" d="M${xa} ${y + 6} Q${(xa + xb) / 2} ${y - 14 + i * 9} ${xb} ${y - 4}"/>`;
+// ---------- timeline (seconds; cuts sit on a 120 bpm grid = every 0.5 s) ----------
+const T = { s2: 4, s3: 5.5, s5: 14.5, s6: 19, m: 21.5, grid: 26.5, line: 27.5, end: 31 };
+const MP = [21.5, 22.75, 24, 25.25]; // montage panel starts
+
+// ---------- build DOM ----------
+const stage = $("#stage");
+stage.style.width = W + "px"; stage.style.height = H + "px";
+const ML = tall ? 80 : 110; // left margin for type
+
+const cards = [
+  ["AI answer", "f'(x) = 6x + 2"], ["AI answer", "x = 4"], ["Here's the full solution", null], ["AI answer", "= x³ + C"], ["AI answer", "Answer: 42"],
+];
+const cardPos = tall
+  ? [[70, 1060, -6, 1], [600, 1010, 5, .82], [470, 1300, -3, 1.04], [50, 1500, 4, .9], [560, 1640, -7, .95]]
+  : [[100, 640, -5, 1], [590, 600, 4, .85], [990, 690, -3, 1.05], [1420, 610, 5, .9], [480, 880, -6, .92]];
+
+const TW = tall ? 880 : 1200, TH = tall ? 1200 : 860, BZ = 28, BAR = 84;
+const HF = tall ? 92 : 96; // handwriting size on the tablet
+const icon = {
+  pen: '<svg viewBox="0 0 28 28"><path d="M5 23l3-9L19 3l6 6-11 11z" fill="none" stroke="#fff" stroke-width="2.6" stroke-linejoin="round"/></svg>',
+  era: '<svg viewBox="0 0 28 28"><rect x="5" y="9" width="18" height="11" rx="3" transform="rotate(-35 14 14)" fill="none" stroke="#0c0e36" stroke-width="2.6"/></svg>',
+  las: '<svg viewBox="0 0 28 28"><ellipse cx="14" cy="12" rx="10" ry="7" fill="none" stroke="#0c0e36" stroke-width="2.6" stroke-dasharray="4 3"/><path d="M9 18v6" stroke="#0c0e36" stroke-width="2.6"/></svg>',
+  mic: '<svg viewBox="0 0 28 28" width="46" height="46"><rect x="10" y="3" width="8" height="14" rx="4" fill="#fff"/><path d="M6 13a8 8 0 0016 0M14 21v4" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>',
+};
+
+const jsonLines = [
+  '{',
+  '  <span class="k">"actions"</span>: [',
+  '    { <span class="k">"type"</span>: <span class="s">"circle"</span>,',
+  '      <span class="k">"box"</span>: [<span class="n">412</span>, <span class="n">268</span>, <span class="n">148</span>, <span class="n">96</span>] },',
+  '    { <span class="k">"type"</span>: <span class="s">"note"</span>,',
+  '      <span class="k">"text"</span>: <span class="s">"What happens to</span>',
+  '               <span class="s">the x in 2x?"</span> }',
+  '  ]',
+  '}',
+];
+const stnLab = ["You write", "Gemini reads the handwriting", "A real math engine checks each step", "The page writes back"];
+const ghosts = ["f(x) = 3x² + 2x", "f'(x) = 6x + 2", "x² − 5x + 6 = 0", "(x − 2)(x − 3) = 0", "y = x² − 3", "2x + 7 = 15"];
+
+stage.innerHTML = `
+<section class="scene gridbg" id="s1">
+  <div id="cards">${cards.map((c, i) => `<div class="acard" style="left:${cardPos[i][0]}px;top:${cardPos[i][1]}px"><small><i></i>${c[0]}</small>${c[1] ? `<b>${c[1]}</b>` : "<u></u><u style='width:82%'></u><u style='width:55%'></u>"}</div>`).join("")}</div>
+  <div class="hd" id="h1" style="left:${ML}px;top:${tall ? 230 : 110}px;font-size:${tall ? 172 : 200}px">${hdHTML(tall ? ["Other", "AI tutors", "finish your", "homework."] : ["Other AI tutors", "finish your homework."])}</div>
+  <svg class="fx" id="fx1"></svg>
+</section>
+
+<section class="scene" id="s2">
+  <svg class="fx" id="fx2"></svg>
+  <div class="hd" id="h2" style="left:${ML}px;top:${tall ? 640 : 360}px;font-size:${tall ? 300 : 250}px;font-weight:900">${hdHTML(tall ? ["This one", "won't."] : ["This one won't."])}</div>
+</section>
+
+<section class="scene" id="s3">
+  <div id="floor"></div>
+  <div class="hd cap" id="capA" style="left:${ML}px;top:${tall ? 190 : 400}px;font-size:${tall ? 108 : 92}px">${hdHTML(["Write math", "by hand."])}</div>
+  <div class="hd cap" id="capB" style="left:${ML}px;top:${tall ? 190 : 400}px;font-size:${tall ? 108 : 92}px">${hdHTML(tall ? ["Pause. It reads", "your work."] : ["Pause.", "It reads", "your work."])}</div>
+  <div id="cam"><div id="tab" style="width:${TW}px;height:${TH}px"><div id="screen">
+    <div id="bar">
+      <div class="tool on">${icon.pen}</div><div class="tool">${icon.era}</div><div class="tool">${icon.las}</div>
+      <div id="doc">Problem set 4</div>
+      <div id="chip"><i></i><span></span></div><div id="help">Help</div>
+    </div>
+    <div id="page" class="gridbg">
+      <div id="scan"></div>
+      <div class="hand st" id="l1" style="font-size:${HF}px"></div>
+      <div class="hand st" id="l2" style="font-size:${HF}px"></div>
+      <div class="hand tu" id="n1" style="font-size:70px"></div>
+      <div class="hand tu" id="n2" style="font-size:70px"></div>
+      <svg class="fx mk" id="marks"></svg>
+      <div class="tag mono" id="tg1">f(x) = 3x^2 + 2x</div><div class="tag mono" id="tg2">f'(x) = 6x + 1</div>
+      <div id="pen"><svg width="470" height="40" viewBox="0 -20 470 40"><path d="M0 0L40 -13V13Z" fill="#23264f"/><rect x="38" y="-14" width="430" height="28" rx="6" fill="#f7f8fc"/><rect x="38" y="-14" width="430" height="9" rx="4" fill="#fff"/><rect x="38" y="6" width="430" height="8" rx="4" fill="#d5d9ea"/><rect x="150" y="-14" width="5" height="28" fill="#c6cbe0"/></svg></div>
+    </div>
+  </div></div></div>
+  <svg class="fx" id="fx3"></svg>
+  <div class="call" id="c1"><i></i>The exact step that's wrong</div>
+  <div class="call" id="c3"><i></i>Now you fix it yourself</div>
+  <div class="call" id="c2"><i></i>A hint. Never the answer.</div>
+</section>
+
+<section class="scene gridbg" id="s5">
+  <div class="hd" id="h5" style="left:${ML}px;top:${tall ? 170 : 150}px;font-size:${tall ? 104 : 120}px">${hdHTML(tall ? ["What happens", "when you pause"] : ["What happens when you pause"])}</div>
+  <svg class="fx" id="fx5"></svg>
+  ${stnLab.map((l, i) => `<div class="stn" id="st${i}"><div class="num">${i + 1}</div><div class="lab">${l}</div><div class="viz"></div></div>`).join("")}
+</section>
+
+<section class="scene" id="s6">
+  <div class="hd" id="h6" style="left:${ML}px;top:${tall ? 170 : 110}px;font-size:${tall ? 78 : 88}px">${hdHTML(tall ? ["Gemini replies in a", "fixed format. The page", "only has to draw it."] : ["Gemini replies in a fixed format.", "The page only has to draw it."])}</div>
+  <div id="code" class="mono">${jsonLines.map((l) => `<div><i class="hl"></i><span>${l}</span></div>`).join("")}</div>
+  <svg class="fx" id="fx6"></svg>
+  <div id="jpage" class="gridbg"><div class="hand st" id="j1" style="left:44px;top:70px;font-size:84px"></div><div class="hand tu" id="j2" style="left:70px;top:236px;font-size:50px"></div><svg class="fx mk" id="jm"></svg></div>
+</section>
+
+<section class="scene" id="mont">
+  <div class="pan" id="pA"><div class="hd">${hdHTML(["Stuck? Tap Help.", "Hints come in", "three levels."])}</div>
+    <div class="vis"><div id="ripple"></div><div id="helpbig">Help<i></i><i></i><i></i></div>
+      ${[["1", "A nudge", "Look at the 2x again."], ["2", "A bigger push", "What is the slope of 2x?"], ["3", "The worked step", "d/dx (2x) = 2"]].map((s, i) => `<div class="slip" style="left:${20 + i * 50}px;top:${170 + i * 226}px"><b>${s[0]}</b><span>${s[1]}</span><em>${s[2]}</em></div>`).join("")}
+    </div></div>
+  <div class="pan gridbg" id="pB"><div class="hd">${hdHTML(["Write “graph this”.", "The plot lands", "on your page."])}</div>
+    <div class="vis"><div class="hand st" id="b1" style="left:20px;top:10px;font-size:92px"></div><div class="hand st" id="b2" style="left:420px;top:150px;font-size:92px"></div>
+      <svg class="fx mk" id="plot"></svg></div></div>
+  <div class="pan" id="pC"><div class="hd">${hdHTML(["Import a PDF", "worksheet. Work", "right on top of it."])}</div>
+    <div class="vis" style="perspective:1800px"><div id="sheet"><h4>Worksheet 4: Derivatives</h4><p>Find the derivative of each function.</p>
+      <ul><li>1.&nbsp; f(x) = 5x³ − x<q>f′(x) =</q><s></s></li><li>2.&nbsp; g(x) = 4x² + 7x<q>g′(x) =</q><s></s></li><li>3.&nbsp; h(x) = x⁴ − 2<q>h′(x) =</q><s></s></li></ul>
+      <div class="hand st" id="w1" style="left:215px;top:262px;font-size:62px"></div><div class="hand st" id="w2" style="left:215px;top:396px;font-size:62px"></div><svg class="fx mk" id="wm2"></svg>
+      </div><div id="pdfchip">PDF</div></div></div>
+  <div class="pan" id="pD"><div class="hd">${hdHTML(["Circle a problem.", "Ask out loud."])}</div>
+    <div class="vis"><div id="ptile" class="gridbg"><div class="hand st" id="d1" style="left:70px;top:112px;font-size:104px"></div><svg class="fx mk" id="lasso"></svg></div>
+      <div id="mic"><div class="mi">${icon.mic}</div>${Array.from({ length: 34 }, () => "<b></b>").join("")}</div>
+      <div id="said">“Where do I start?”</div></div></div>
+</section>
+
+<section class="scene gridbg" id="sl">
+  <div id="old" style="left:${ML + 4}px;font-size:${tall ? 47 : 54}px">Other AI tutors finish your homework.</div>
+  <div class="hd" id="hl" style="left:${ML}px;font-size:${tall ? 176 : 190}px">${hdHTML(tall ? ["Ours finds", "your <span id='mis'>mistake</span>", "and makes", "<span id='fixit'>you fix it.</span>"] : ["Ours finds your <span id='mis'>mistake</span>", "and makes <span id='fixit'>you fix it.</span>"])}</div>
+  <svg class="fx" id="fxl"></svg>
+</section>
+
+<section class="scene" id="se">
+  <div id="ghosts">${ghosts.map((g) => `<div class="ghost">${g}</div>`).join("")}</div>
+  <svg class="fx" id="fxe"></svg>
+  <div id="mark"><div>+ 1</div></div>
+  <div class="hd" id="wm" style="left:${ML}px;font-size:${tall ? 210 : 190}px">${hdHTML(placeholder ? (tall ? ["AI tutor", "notebook"] : [NAME_FALLBACK]) : [PROJECT_NAME])}</div>
+  <div id="tagl" style="left:${ML + 4}px;font-size:${tall ? 52 : 54}px">Finds your mistake. Makes you fix it.</div>
+  <div id="rule" style="left:${ML + 4}px;width:${W - 2 * ML - 8}px"></div>
+  <div class="cred" id="cr1" style="font-weight:500;font-size:${tall ? 40 : 38}px">Built at Google DevFest 2026 · UC Santa Cruz</div>
+  <div class="cred" id="cr2" style="font-weight:800;font-size:${tall ? 40 : 38}px">Preet + Parsh</div>
+</section>
+<div id="light"></div><div id="grain"></div>`;
+
+$$(".hd").forEach((h) => { h._in = [...h.querySelectorAll(".in")]; });
+const el = {};
+$$("[id]").forEach((n) => { el[n.id] = n; });
+
+// grain tile from a seeded PRNG so every frame is reproducible
+(function () {
+  const c = document.createElement("canvas"); c.width = c.height = 256;
+  const x = c.getContext("2d"), im = x.createImageData(256, 256); let s = 1234567;
+  const rnd = () => ((s = (s * 1664525 + 1013904223) >>> 0) / 4294967296);
+  for (let i = 0; i < im.data.length; i += 4) { const v = rnd() > .5 ? 255 : 0; im.data[i] = im.data[i + 1] = im.data[i + 2] = v; im.data[i + 3] = rnd() * 26; }
+  x.putImageData(im, 0, 0); el.grain.style.backgroundImage = `url(${c.toDataURL()})`;
+})();
+
+// handwriting content
+mkHand(el.l1, "f(x) = 3x² + 2x"); mkHand(el.l2, "f'(x) = 6x + 1");
+mkHand(el.n1, "What happens to"); mkHand(el.n2, "the x in 2x?");
+const two = document.createElement("span"); two.className = "g"; two.textContent = "2"; two.style.position = "absolute"; two.style.top = "0"; el.l2.appendChild(two);
+mkHand(el.j1, "f'(x) = 6x + 1"); mkHand(el.j2, "What happens to the x in 2x?");
+mkHand(el.b1, "f(x) = x² − 3"); mkHand(el.b2, "graph this");
+mkHand(el.w1, "15x² − 1"); mkHand(el.w2, "8x + 7");
+mkHand(el.d1, "x² − 5x + 6 = 0");
+
+// station visuals
+const sv = $$(".stn .viz");
+sv[0].innerHTML = `<div class="hand st" id="v0" style="position:relative;font-size:${tall ? 88 : 68}px"></div>`;
+sv[1].innerHTML = `<div class="codechip mono" id="v1" style="font-size:${tall ? 50 : 37}px"></div>`;
+sv[2].innerHTML = `<div class="codechip mono" id="v2" style="font-size:${tall ? 50 : 37}px">6x + 2 <em id="neq">≠</em> 6x + 1</div>`;
+sv[3].innerHTML = `<div class="tile" style="width:${tall ? 470 : 370}px;height:${tall ? 170 : 150}px"><div class="hand st" id="v3" style="left:${tall ? 44 : 36}px;top:${tall ? 40 : 40}px;font-size:${tall ? 88 : 68}px"></div><svg class="fx mk" id="v3m"></svg></div>`;
+["v0", "v1", "v2", "v3", "v3m", "neq"].forEach((k) => el[k] = $("#" + k));
+mkHand(el.v0, "f'(x) = 6x + 1"); mkHand(el.v3, "6x + 1");
+
+// ---------- layout that needs real glyph metrics ----------
+const L = {};
+function layout() {
+  // S1
+  fitHd(el.h1, W - 2 * ML);
+  const struck = el.h1._in.slice(tall ? 2 : 1);
+  el.fx1.innerHTML = struck.map((n, i) => {
+    const ln = n.parentNode, y = el.h1.offsetTop + ln.offsetTop + ln.offsetHeight * .5, a = ML - 18, b = ML + n.offsetWidth + 18;
+    return P("k" + i, "var(--red)", tall ? 20 : 18, `d="M${a} ${y + 8} Q${(a + b) / 2} ${y - 16 + i * 10} ${b} ${y - 6}"`);
+  }).join("");
+  L.strikes = $$("#fx1 path");
+  const last = struck[struck.length - 1], lln = last.parentNode;
+  L.wipe = [ML + last.offsetWidth, el.h1.offsetTop + lln.offsetTop + lln.offsetHeight * .5];
+
+  // S2
+  fitHd(el.h2, W - 2 * ML);
+  el.fx2.innerHTML = [0, 1, 2].map((i) => P("r" + i, "#fff", 7, `opacity="${.3 - i * .07}" d="${handEllipse(W * (tall ? .5 : .52), H * .5, W * (tall ? .62 : .44) + i * 90, H * (tall ? .3 : .4) + i * 80, 1.08, -.12 + i * .05, -2.4 - i)}"`)).join("");
+
+  // S3: tablet page
+  fitHd(el.capA, tall ? W - 2 * ML : 520); fitHd(el.capB, tall ? W - 2 * ML : 520);
+  const lx = tall ? 60 : 96;
+  el.l1.style.left = el.l2.style.left = lx + "px";
+  el.l1.style.top = (tall ? 120 : 50) + "px"; el.l2.style.top = (tall ? 290 : 200) + "px";
+  const g = el.l2._g, n = g.length;
+  two.style.left = g[n - 1].offsetLeft + "px";
+  const b = termBox(el.l2, n - 3, n - 1);
+  L.wrong = b; L.crx = b.rx + 30; L.cry = HF * .56;
+  L.fx = BZ + b.cx; L.fy = BZ + BAR + b.cy; // focal point in tablet coords
+  const nx = Math.max(40, b.cx - (tall ? 330 : 300)), ny = el.l2.offsetTop + HF * 1.5;
+  el.n1.style.left = nx + "px"; el.n1.style.top = ny + "px";
+  el.n2.style.left = (nx + 46) + "px"; el.n2.style.top = (ny + 74) + "px";
+  L.note = { x: nx, y: ny, b: ny + 150 };
+  const box = (ln, id) => {
+    const x = ln.offsetLeft - 18, y = ln.offsetTop - 4, w = ln.offsetWidth + 36, h = ln.offsetHeight + 16;
+    return P(id, "var(--blue)", 4, `d="M${x} ${y + 14}Q${x} ${y} ${x + 14} ${y}H${x + w - 14}Q${x + w} ${y} ${x + w} ${y + 14}V${y + h - 14}Q${x + w} ${y + h} ${x + w - 14} ${y + h}H${x + 14}Q${x} ${y + h} ${x} ${y + h - 14}Z"`);
+  };
+  el.marks.innerHTML = box(el.l1, "bx1") + box(el.l2, "bx2") + P("circ", "var(--red)", 8, `d="${handEllipse(b.cx + 4, b.cy + HF * .04, L.crx, L.cry)}"`);
+  [[el.tg1, el.l1], [el.tg2, el.l2]].forEach(([tg, ln]) => { tg.style.left = (ln.offsetLeft - 18) + "px"; tg.style.top = (ln.offsetTop - 38) + "px"; });
+  ["bx1", "bx2", "circ"].forEach((k) => el[k] = $("#" + k));
+
+  // S5 stations
+  fitHd(el.h5, W - 2 * ML);
+  L.stn = [0, 1, 2, 3].map((i) => tall ? [150, 540 + i * 360] : [170 + i * 445, 480]);
+  $$(".stn").forEach((s, i) => {
+    s.style.left = L.stn[i][0] + "px"; s.style.top = L.stn[i][1] + "px";
+    const lab = s.querySelector(".lab"), viz = s.querySelector(".viz");
+    if (tall) { lab.style.cssText += "left:80px;top:-30px;width:820px;font-size:56px"; viz.style.cssText += "left:80px;top:" + (lab.offsetHeight - 8) + "px"; }
+    else { lab.style.cssText += "left:-36px;top:76px;width:400px;font-size:50px"; viz.style.cssText += "left:-36px;top:" + (lab.offsetHeight + 104) + "px"; }
   });
-  $("#strike").innerHTML = sd;
+  const [a0, a3] = [L.stn[0], L.stn[3]];
+  el.fx5.innerHTML = `<path d="M${a0[0]} ${a0[1]}L${a3[0]} ${a3[1]}" stroke="#b9c5de" stroke-width="6" stroke-dasharray="2 16"/>` + P("rail", "var(--ink)", 6, `d="M${a0[0]} ${a0[1]}L${a3[0]} ${a3[1]}"`) + `<circle id="head" r="13" fill="var(--red)"/>`;
+  const vb = termBox(el.v3, 3, 5);
+  el.v3m.innerHTML = P("vc", "var(--red)", 6, `d="${handEllipse(vb.cx + 3, vb.cy + 4, vb.rx + 22, vb.ry * 1.1)}"`);
+  ["rail", "head", "vc"].forEach((k) => el[k] = $("#" + k));
 
-  // end card: shrink a long name to fit, then underline it
-  let fs = 150; nameEl.style.fontSize = fs + "px";
-  while (nameEl.offsetWidth > 800 && fs > 60) { fs -= 4; nameEl.style.fontSize = fs + "px"; }
-  const uy = nameEl.offsetTop + nameEl.offsetHeight + 14, ux = nameEl.offsetLeft, uw = nameEl.offsetWidth;
-  $("#under").setAttribute("d", `M${ux - 6} ${uy + 6} Q${ux + uw * .3} ${uy - 12} ${ux + uw * .55} ${uy + 2} T${ux + uw + 14} ${uy - 6}`);
+  // S6
+  fitHd(el.h6, W - 2 * ML);
+  const cw = tall ? 940 : 900;
+  el.code.style.cssText += `left:${tall ? 70 : ML}px;top:${tall ? 520 : 420}px;width:${cw}px;font-size:${tall ? 31 : 30}px`;
+  const jx = tall ? 220 : 1170, jy = tall ? 1260 : 500;
+  el.jpage.style.left = jx + "px"; el.jpage.style.top = jy + "px";
+  const jb = termBox(el.j1, el.j1._g.length - 3, el.j1._g.length - 1);
+  el.jm.innerHTML = P("jc", "var(--red)", 7, `d="${handEllipse(jb.cx + 3, jb.cy + 4, jb.rx + 26, jb.ry * 1.12)}"`);
+  const cb = el.code.offsetTop + el.code.offsetHeight;
+  el.fx6.innerHTML = tall
+    ? P("jl", "var(--red)", 6, `d="M${W / 2} ${cb + 14}V${jy - 34}"`) + `<path id="ja" d="M${W / 2 - 20} ${jy - 44}L${W / 2} ${jy - 16}L${W / 2 + 20} ${jy - 44}" stroke="var(--red)" stroke-width="6"/>`
+    : P("jl", "var(--red)", 6, `d="M${ML + cw + 16} ${jy + 200}H${jx - 34}"`) + `<path id="ja" d="M${jx - 44} ${jy + 180}L${jx - 16} ${jy + 200}L${jx - 44} ${jy + 220}" stroke="var(--red)" stroke-width="6"/>`;
+  ["jc", "jl", "ja"].forEach((k) => el[k] = $("#" + k));
 
-  penSegs = [
-    { line: l1, g: l1._g, a: T.l1[0], d: T.l1[1] },
-    { line: l2, g: l2._g, a: T.l2[0], d: T.l2[1] },
-    { line: l2, g: [one], a: T.erase[0], d: T.erase[1], scrub: true },
-    { line: l2, g: [two], a: T.fix[0], d: T.fix[1] },
-    { line: gt, g: gt._g, a: T.gt[0], d: T.gt[1] },
+  // montage panels
+  $$(".pan").forEach((p) => {
+    p.style.width = W + "px"; p.style.height = H + "px";
+    const h = p.querySelector(".hd"), v = p.querySelector(".vis");
+    if (tall) { h.style.cssText += `left:${ML}px;top:200px;font-size:104px`; v.style.cssText += "left:110px;top:760px"; }
+    else { h.style.cssText += `left:${ML}px;top:330px;font-size:92px`; v.style.cssText += "left:960px;top:110px"; }
+    fitHd(h, tall ? W - 2 * ML : 780);
+    if (!tall) h.style.top = ((H - h.offsetHeight) / 2 - 10) + "px";
+  });
+  // plot: y = x^2 - 3
+  const X = (x) => 430 + x * 135, Y = (y) => 560 - y * 62;
+  let grid = "", cur = "";
+  for (let i = -3; i <= 3; i++) grid += `M${X(i)} ${Y(-3.6)}V${Y(4.2)}`;
+  for (let j = -3; j <= 4; j++) grid += `M${X(-3.1)} ${Y(j)}H${X(3.1)}`;
+  for (let i = 0; i <= 80; i++) { const x = -2.65 + 5.3 * i / 80; cur += `${i ? "L" : "M"}${X(x).toFixed(1)} ${Y(x * x - 3).toFixed(1)}`; }
+  L.plotPt = (k) => { const x = -2.65 + 5.3 * k; return [X(x), Y(x * x - 3)]; };
+  el.plot.innerHTML = `<rect id="pbg" x="${X(-3.1) - 16}" y="${Y(4.2) - 16}" width="${X(3.1) - X(-3.1) + 32}" height="${Y(-3.6) - Y(4.2) + 32}" rx="22" fill="#fff" stroke="#dfe5f1" stroke-width="2"/><path id="pgrid" d="${grid}" stroke="#e3e9f4" stroke-width="2"/>`
+    + P("pax", "var(--ink)", 4, `d="M${X(-3.1)} ${Y(0)}H${X(3.1)}"`) + P("pay", "var(--ink)", 4, `d="M${X(0)} ${Y(-3.6)}V${Y(4.2)}"`)
+    + P("pcur", "var(--blue)", 9, `d="${cur}"`) + `<circle id="pdot" r="13" fill="var(--blue)" stroke="#fff" stroke-width="5"/>`
+    + P("pund", "var(--pen)", 5, `d="M418 252 Q560 238 760 250"`);
+  const db = termBox(el.d1, 0, el.d1._g.length - 1);
+  el.lasso.innerHTML = P("las", "#4d5bff", 8, `d="${handEllipse(db.cx, db.cy + 6, db.rx + 44, 108, 1.06, -.04, -2.9)}"`);
+  ["pbg", "pgrid", "pax", "pay", "pcur", "pdot", "pund", "las"].forEach((k) => el[k] = $("#" + k));
+
+  // the line
+  fitHd(el.hl, W - 2 * ML);
+  const hh = el.hl.offsetHeight, top = (H - hh) / 2 + (tall ? 20 : 50);
+  el.hl.style.top = top + "px"; el.old.style.top = (top - (tall ? 120 : 140)) + "px";
+  const inl = (sp) => { const n = sp.closest(".in"), ln = n.parentNode; return { x: ML + sp.offsetLeft, y: top + ln.offsetTop, w: sp.offsetWidth, h: ln.offsetHeight }; };
+  const m = inl(el.mis), f = inl(el.fixit), oy = el.old.offsetTop + el.old.offsetHeight * .56, ow = el.old.offsetWidth;
+  el.fxl.innerHTML = P("ok", "var(--red)", 7, `d="M${ML - 8} ${oy + 3} Q${ML + ow / 2} ${oy - 8} ${ML + ow + 16} ${oy - 1}"`)
+    + P("mc", "var(--red)", tall ? 14 : 13, `d="${handEllipse(m.x + m.w / 2, m.y + m.h * .5, m.w / 2 + 24, m.h * .5, 1.1, -.05)}"`)
+    + P("fu", "var(--red)", tall ? 14 : 13, `d="M${f.x - 6} ${f.y + m.h * .97} Q${f.x + f.w * .3} ${f.y + m.h * .9} ${f.x + f.w * .55} ${f.y + m.h * .98} T${f.x + f.w + 10} ${f.y + m.h * .93}"`);
+  ["ok", "mc", "fu"].forEach((k) => el[k] = $("#" + k));
+
+  // end card
+  fitHd(el.wm, W - 2 * ML);
+  const wh = el.wm.offsetHeight, wt = tall ? 640 : 330;
+  el.wm.style.top = wt + "px";
+  el.mark.style.left = (ML - 14) + "px"; el.mark.style.top = (wt - 215) + "px";
+  el.tagl.style.top = (wt + wh + (tall ? 50 : 36)) + "px";
+  const ry = tall ? 1500 : 890;
+  el.rule.style.top = ry + "px";
+  el.cr1.style.left = (ML + 4) + "px"; el.cr1.style.top = (ry + 38) + "px";
+  if (tall) { el.cr2.style.left = (ML + 4) + "px"; el.cr2.style.top = (ry + 104) + "px"; }
+  else { el.cr2.style.right = (ML + 4) + "px"; el.cr2.style.top = (ry + 38) + "px"; }
+  const gp = tall ? [[-40, 120, 150, -5], [330, 420, 120, 4], [-60, 1140, 170, 3], [240, 1330, 130, -4], [520, 1720, 150, 5], [60, 1790, 110, -3]]
+    : [[1180, 60, 150, -5], [1350, 300, 120, 4], [980, 560, 170, 3], [60, 60, 110, -4], [1420, 760, 140, 5], [700, 960, 110, -3]];
+  $$(".ghost").forEach((n, i) => { n.style.cssText += `left:${gp[i][0]}px;top:${gp[i][1]}px;font-size:${gp[i][2]}px`; n._r = gp[i][3]; });
+  el.fxe.innerHTML = P("ec", "var(--red)", 9, `d="${handEllipse(ML + 81, wt - 136, 96, 62, 1.12, -.1)}"`);
+  el.ec = $("#ec");
+}
+
+// ---------- camera for the tablet ----------
+let CAM, MAC;
+function buildCam() {
+  const cx = tall ? 540 : 1250, cy = tall ? 1200 : 545, f0 = { fx: TW / 2, fy: TH / 2 };
+  MAC = tall ? { cy: 900, s: 1.36 } : { cy: 595, s: 1.72 };
+  if (tall) MAC.cy = H / 2 + (L.fy - TH / 2) * MAC.s;
+  MAC.cx = W / 2 + (L.fx - TW / 2) * MAC.s; // keeps the page edge to edge
+  CAM = [
+    { t: 5.4, ...f0, cx, cy: cy + H * .95, s: .78, rx: 38, ry: -30, rz: 9 },
+    { t: 6.7, ...f0, cx, cy, s: tall ? .95 : .92, rx: 12, ry: -14, rz: 2.5, e: E.o5 },
+    { t: 10, ...f0, cx, cy, s: tall ? .99 : .96, rx: 7, ry: -7, rz: 1 },
+    { t: 10.5, fx: L.fx, fy: L.fy, cx: MAC.cx, cy: MAC.cy, s: MAC.s, rx: 0, ry: 0, rz: 0, e: E.io5 },
+    { t: 14, fx: L.fx, fy: L.fy, cx: MAC.cx, cy: MAC.cy, s: MAC.s * 1.045, rx: 0, ry: 0, rz: 0 },
+    { t: 14.6, fx: L.fx, fy: L.fy, cx: MAC.cx, cy: MAC.cy, s: MAC.s * 3.2, rx: 0, ry: 0, rz: 0, e: E.i3 },
   ];
+  el.floor.style.cssText += `left:${cx - TW * .5}px;top:${cy + TH * .36}px;width:${TW}px;height:${TH * .22}px`;
 }
-const CIRCLE_Y = .47;
 
-// ---- timeline (seconds) ----
-const T = {
-  s1out: 3.7, pageIn: 3.8,
-  l1: [4.5, 2.0], l2: [6.9, 1.8],
-  think: [8.8, 1.2],
-  circle: [10.0, .6], note: [10.7, 1.5],
-  erase: [12.9, .45], fix: [13.4, .5], clear: [14.0, .5],
-  gt: [14.7, 1.0], graph: [15.9, 1.6],
-  pageOut: 17.9, line: 18.3, strike: 19.5, ours: 20.2,
-  end: 22.6, name: [23.2, .9],
-};
-const CAPS = [[4.1, 8.7], [8.7, 10.0], [10.0, 12.8], [12.8, 14.6], [14.6, 17.9]];
-
-const el = {
-  s1: $("#s1"), lead: $("#s1 .lead"), steps: $$("#s1 .step"), bubble: $("#s1 .bubble"), after: $("#s1 .after"),
-  caps: $$(".cap"), page: $("#page"), scan: $("#scan"), dots: $$("#dots i"), circle: $("#circle"), note: $("#note"),
-  gx: $("#gx"), gy: $("#gy"), gticks: $("#gticks"), gcurve: $("#gcurve"), glabel: $("#glabel"),
-  pen: $("#pen"), s3: $("#s3"), a: $$("#s3 .a"), b: $$("#s3 .b"), s4: $("#s4"), endpage: $("#endpage"),
-  under: $("#under"), what: $("#what"), hints: $("#hints"), where: $("#where"), who: $("#who"),
-};
-const pop = (node, p, dy = 26) => { node.style.opacity = p; node.style.transform = `translateY(${(1 - eout(p)) * dy}px)`; };
-
+// ---------- render: a pure function of t ----------
 function render(t) {
-  // Beat 1
-  el.s1.style.opacity = 1 - prog(t, T.s1out, .35);
-  el.s1.style.visibility = t > T.s1out + .4 ? "hidden" : "visible";
-  el.lead.style.opacity = prog(t, .15, .3);
-  el.steps.forEach((s, i) => pop(s, prog(t, .45 + i * .45, .22)));
-  const bp = prog(t, 1.95, .3);
-  el.bubble.style.opacity = bp; el.bubble.style.transform = `scale(${.86 + .14 * eout(bp)})`;
-  pop(el.after, prog(t, 2.6, .3));
+  const fr = Math.round(t * FPS);
+  el.grain.style.backgroundPosition = `${(fr * 73) % 256}px ${(fr * 151) % 256}px`;
 
-  // Beat 2
-  const inP = eout(prog(t, T.pageIn, .7)), outP = eio(prog(t, T.pageOut, .6));
-  el.page.style.transform = `translateY(${(1 - inP) * 1600 + outP * 1700}px)`;
-  el.page.style.visibility = t < T.pageIn || t > T.pageOut + .7 ? "hidden" : "visible";
-  el.caps.forEach((c, i) => { c.style.opacity = win(t, CAPS[i][0], CAPS[i][1]); });
+  // ===== S1 cold open =====
+  if (show(el.s1, t < T.s2 + .1)) {
+    rev(el.h1, t, 0, { at: tall ? [.2, .5, 1, 1.5] : [.2, 1] });
+    $$(".acard").forEach((c, i) => {
+      const a = 1.6 + i * .22, k = E.o5(pr(t, a, a + .6)), [, , rot, sc] = cardPos[i];
+      const fall = E.i3(pr(t, 3.05 + i * .06, 3.75 + i * .06));
+      const y = (1 - k) * 260 - Math.max(0, t - a) * 16 * sc + fall * 900;
+      c.style.opacity = pr(t, a, a + .15) * (1 - pr(t, 3.5, 3.8));
+      c.style.transform = `perspective(1200px) translateY(${px(y)}) rotate(${rot + (1 - k) * 14 + fall * (i % 2 ? 24 : -24)}deg) rotateX(${(1 - k) * 50}deg) scale(${sc})`;
+    });
+    L.strikes.forEach((s, i) => draw(s, E.io3(pr(t, 3 + i * .22, 3.3 + i * .22))));
+    el.h1.style.opacity = 1 - .45 * pr(t, 3.1, 3.6);
+  }
 
-  write(l1._g, t, ...T.l1);
-  write(l2._g, t, ...T.l2);
-  // the fix: the wrong "1" is rubbed out, a "2" is written in its place
-  const er = prog(t, ...T.erase);
-  if (er > 0) { one.style.clipPath = "none"; one.style.opacity = 1 - er; } else one.style.opacity = 1;
-  write([two], t, ...T.fix);
+  // ===== S2 red =====
+  if (show(el.s2, t >= 3.7 && t < T.s3 + .2)) {
+    const k = E.io3(pr(t, 3.7, 4.1));
+    el.s2.style.clipPath = t >= 5.2 ? `inset(0 0 ${(E.io5(pr(t, 5.2, 5.65)) * 100).toFixed(2)}% 0)` : k < 1 ? `circle(${px(k * Math.hypot(W, H))} at ${L.wipe[0]}px ${L.wipe[1]}px)` : "none";
+    rev(el.h2, t, 0, { at: tall ? [4, 4.5] : [4, 4], d: .5 });
+    const wd = lerp(64, 96, E.o5(pr(t, tall ? 4.5 : 4, 5.3)));
+    el.h2.style.fontStretch = wd + "%";
+    el.h2.style.transform = `translateY(${px(-E.i3(pr(t, 5.15, 5.6)) * 260)}) scale(${1 + .04 * pr(t, 4, 5.5)})`;
+    el.h2.style.transformOrigin = "0 50%";
+    [0, 1, 2].forEach((i) => draw($("#r" + i), E.io3(pr(t, 3.85 + i * .25, 4.9 + i * .25))));
+  }
 
-  // thinking pulse while it reads
-  const th = win(t, T.think[0], T.think[0] + T.think[1], .2), sp = prog(t, ...T.think);
-  el.scan.style.opacity = th; el.scan.style.transform = `translateX(${-150 + sp * 1130}px)`;
-  el.dots.forEach((d, i) => { d.style.opacity = th * (.25 + .75 * Math.max(0, Math.sin((t - T.think[0]) * 9 - i * 1.1))); });
+  // ===== S3 device hero + macro =====
+  if (show(el.s3, t >= 5.2 && t < 14.62)) {
+    const c = kf(t, CAM);
+    const punch = t >= 10.5 ? .045 * (1 - E.o3(pr(t, 10.5, 11.1))) : 0, s = c.s * (1 + punch);
+    el.tab.style.transform = `translate3d(${px(c.cx)},${px(c.cy)},0) rotateX(${c.rx.toFixed(3)}deg) rotateY(${c.ry.toFixed(3)}deg) rotateZ(${c.rz.toFixed(3)}deg) scale(${s.toFixed(4)}) translate(${px(-c.fx)},${px(-c.fy)})`;
+    const out = pr(t, 14.15, 14.6);
+    el.s3.style.opacity = 1 - out; el.s3.style.filter = out > 0 ? `blur(${(out * 18).toFixed(1)}px)` : "none";
+    el.floor.style.opacity = E.o3(pr(t, 5.9, 6.7)) * (1 - pr(t, 10, 10.4));
+    rev(el.capA, t, 6.0, { out: 8.75 }); rev(el.capB, t, 9.0, { out: 10.0 });
+    show(el.capA, t < 9.2); show(el.capB, t >= 8.9 && t < 10.5);
 
-  // red circle + margin note, cleared once the step is fixed
-  const clear = 1 - prog(t, ...T.clear);
-  draw(el.circle, eio(prog(t, ...T.circle))); el.circle.style.opacity = clear;
-  const ng = [...n1._g, ...n2._g];
-  write(ng, t, ...T.note); el.note.style.opacity = clear;
+    // handwriting + stylus
+    const a = write(el.l1, t, 6.3, 7.5), b = write(el.l2, t, 7.75, 8.95);
+    const g = el.l2._g, one = g[g.length - 1];
+    one.style.opacity = t < 7.75 ? 0 : 1 - pr(t, 12.95, 13.15);
+    if (t >= 12.9) one.style.clipPath = "none";
+    const w2 = pr(t, 13.15, 13.45);
+    two.style.opacity = w2 > 0 ? 1 : 0; two.style.clipPath = w2 >= 1 ? "none" : `inset(-30% ${(1 - w2) * 100}% -30% -25%)`;
+    const ox = el.l2.offsetLeft + one.offsetLeft, oy = el.l2.offsetTop + HF * .6;
+    let p, po = 1;
+    if (t < 7.5) { p = a; po = pr(t, 6.1, 6.3); }
+    else if (t < 7.75) { const k = E.io3(pr(t, 7.5, 7.75)), s0 = write(el.l2, 0, 7.75, 8.95); p = { x: lerp(a.x, s0.x, k), y: lerp(a.y, s0.y, k) - Math.sin(k * Math.PI) * 30 }; }
+    else if (t < 12) { const k = E.o3(pr(t, 8.95, 9.4)); p = { x: b.x + k * 120, y: b.y + k * 150 }; po = 1 - pr(t, 9, 9.3); }
+    else { const k = E.o3(pr(t, 12.6, 12.95)), q = E.i3(pr(t, 13.5, 13.9)); p = { x: ox + one.offsetWidth * (.2 + .7 * (pr(t, 12.95, 13.15) * (1 - w2) + w2 * (.2 + .8 * w2))) + (1 - k) * 160 + q * 160, y: oy + Math.sin(t * 40) * 5 * (t > 12.95 && t < 13.45 ? 1 : 0) + (1 - k) * 200 + q * 200 }; po = k * (1 - q); }
+    el.pen.style.opacity = po; el.pen.style.transform = `translate(${px(p.x)},${px(p.y)}) rotate(52deg)`;
 
-  write(gt._g, t, ...T.gt);
-  const gp = prog(t, ...T.graph);
-  draw(el.gx, eio(clamp(gp / .28))); draw(el.gy, eio(clamp((gp - .12) / .28)));
-  el.gticks.style.opacity = clamp((gp - .35) / .1);
-  draw(el.gcurve, eio(clamp((gp - .4) / .6)));
-  el.glabel.style.opacity = clamp((gp - .85) / .15);
+    // reading pass: sweep, per-line boxes with their LaTeX, status chip
+    const sw = pr(t, 9.1, 9.95);
+    el.scan.style.opacity = sw > 0 && sw < 1 ? 1 : 0; el.scan.style.transform = `translateX(${px(lerp(-200, TW, E.io3(sw)))})`;
+    const bo = 1 - pr(t, 10.15, 10.45);
+    draw(el.bx1, E.io3(pr(t, 9.2, 9.55))); draw(el.bx2, E.io3(pr(t, 9.45, 9.8)));
+    el.bx1.style.opacity = el.bx2.style.opacity = bo;
+    el.bx2.style.stroke = t >= 9.95 ? "var(--red)" : "var(--blue)";
+    el.tg1.style.opacity = pr(t, 9.5, 9.6) * bo; el.tg2.style.opacity = pr(t, 9.75, 9.85) * bo;
+    el.tg2.style.background = t >= 9.95 ? "var(--red)" : "var(--blue)";
+    const chip = t < 9 ? null : t < 9.75 ? ["Reading your work", "var(--blue)"] : t < 10.5 ? ["Checking the math", "var(--blue)"] : t < 13.5 ? ["1 step to look at", "var(--red)"] : ["All steps check out", "#16a06a"];
+    el.chip.style.opacity = chip ? 1 : 0;
+    if (chip) { el.chip.lastChild.textContent = chip[0]; el.chip.firstChild.style.background = chip[1]; el.chip.firstChild.style.transform = `scale(${1 + .25 * Math.sin(t * 12)})`; }
 
-  // the pencil follows whatever the student is writing
-  let best = null, bd = 1e9;
-  for (const s of penSegs) { const d = t < s.a ? s.a - t : t > s.a + s.d ? t - s.a - s.d : 0; if (d < bd) { bd = d; best = s; } }
-  if (best && bd < .3) {
-    const q = clamp((t - best.a) / best.d) * best.g.length, i = Math.min(best.g.length - 1, Math.floor(q)), p = clamp(q - i), g = best.g[i];
-    const jig = best.scrub ? Math.sin(p * 18) * .5 + .5 : eio(p);
-    const x = 50 + best.line.offsetLeft + g.offsetLeft + g.offsetWidth * jig;
-    const y = 420 + best.line.offsetTop + g.offsetTop + g.offsetHeight * (.56 + .2 * Math.sin(p * 6.283 + i));
-    el.pen.style.transform = `translate(${x}px, ${y}px)`;
-    el.pen.style.opacity = 1 - bd / .3;
-  } else el.pen.style.opacity = 0;
+    // the circle lands, the hint writes itself
+    const gone = 1 - pr(t, 13.55, 13.9);
+    draw(el.circ, E.io3(pr(t, 10.5, 10.85))); el.circ.style.opacity = gone;
+    write(el.n1, t, 11.1, 11.65); write(el.n2, t, 11.7, 12.1);
+    el.n1.style.opacity = el.n2.style.opacity = gone; // write() set glyph opacity; this is the line's
+    el.n1.style.transform = el.n2.style.transform = "rotate(-3deg)";
 
-  // Beat 3
-  el.s3.style.visibility = t < T.line || t > T.end + .5 ? "hidden" : "visible";
-  el.s3.style.opacity = 1 - prog(t, T.end, .4);
-  const dim = 1 - .55 * prog(t, T.strike + .5, .4);
-  el.a.forEach((n, i) => { const p = prog(t, T.line + i * .12, .3); pop(n, p); n.style.opacity = p * dim; });
-  [...$("#strike").children].forEach((p, i) => draw(p, eio(prog(t, T.strike + i * .18, .28))));
-  el.b.forEach((n, i) => pop(n, prog(t, T.ours + i * .22, .3), 34));
+    // callouts (stage space, tracked to the camera)
+    const S = (x, y) => [c.cx + (BZ + x - c.fx) * s, c.cy + (BZ + BAR + y - c.fy) * s];
+    const w = L.wrong, [qx, qy] = S(w.cx + L.crx + 8, w.cy), ex = W - (tall ? 110 : 300), py = S(0, el.l1.offsetTop)[1] - (tall ? 150 : 128);
+    const CX = 1220; // wide: both callouts sit in a column to the right of the writing
+    const k1 = E.o5(pr(t, 11, 11.5)), k3 = E.o5(pr(t, 13.0, 13.45)), k2 = E.o5(pr(t, 12, 12.5));
+    const [nx, nb] = S(L.note.x + 50, L.note.b + 6), [nr, nm] = S(L.note.x + el.n1.offsetWidth + 24, L.note.y + 74);
+    const c2y = tall ? nb + 70 : nm - 43, c2x = tall ? nx - 30 : nr + 80;
+    el.fx3.innerHTML = `<path d="${tall ? `M${qx} ${qy}H${ex}V${py + 86}` : `M${qx} ${qy}H${CX}`}" stroke="var(--ink)" stroke-width="5" pathLength="1" stroke-dasharray="1 1" stroke-dashoffset="${1 - E.io3(pr(t, 10.9, 11.3))}" opacity="${t >= 10.9 ? 1 : 0}"/>`
+      + `<path d="${tall ? `M${nx + 30} ${nb}V${c2y}` : `M${nr} ${nm}H${c2x}`}" stroke="var(--ink)" stroke-width="5" pathLength="1" stroke-dasharray="1 1" stroke-dashoffset="${1 - E.io3(pr(t, 11.9, 12.2))}" opacity="${t >= 11.9 ? gone : 0}"/>`;
+    const pill = (n, k, x, y, right) => { n.style.opacity = k; n.style.top = px(y); n.style[right ? "right" : "left"] = px(x); n.style.transform = `translateY(${px((1 - k) * 40)}) scale(${.9 + .1 * k})`; };
+    pill(el.c1, k1 * (1 - pr(t, 12.9, 13.05)), tall ? W - ex - 60 : CX, tall ? py : qy - 43, tall);
+    pill(el.c3, k3, tall ? W - ex - 60 : CX, tall ? py : qy - 43, tall);
+    pill(el.c2, k2 * gone, c2x, c2y, false);
+  }
 
-  // End card
-  const ep = eout(prog(t, T.end + .1, .7));
-  el.endpage.style.transform = `translateY(${(1 - ep) * 1700}px)`;
-  el.s4.style.visibility = t < T.end ? "hidden" : "visible";
-  write(nameEl._g, t, ...T.name);
-  draw(el.under, eio(prog(t, T.name[0] + T.name[1] + .05, .35)));
-  el.what.style.opacity = prog(t, 23.7, .4);
-  el.hints.style.opacity = prog(t, 24.1, .4);
-  el.where.style.opacity = prog(t, 24.4, .4);
-  el.who.style.opacity = prog(t, 24.55, .4);
+  // ===== S5 how it works =====
+  if (show(el.s5, t >= 14.15 && t < T.s6)) {
+    const k0 = E.o5(pr(t, 14.2, 14.9));
+    el.s5.style.transform = `scale(${lerp(1.25, 1, k0)})`; el.s5.style.filter = k0 < 1 ? `blur(${((1 - k0) * 16).toFixed(1)}px)` : "none";
+    rev(el.h5, t, 14.5);
+    const beats = [15, 16, 17, 18];
+    let rp = 0;
+    for (let i = 0; i < 3; i++) rp += E.io3(pr(t, beats[i] + .45, beats[i + 1])) / 3;
+    draw(el.rail, rp);
+    const [a0, a3] = [L.stn[0], L.stn[3]];
+    el.head.setAttribute("cx", lerp(a0[0], a3[0], rp)); el.head.setAttribute("cy", lerp(a0[1], a3[1], rp));
+    el.head.style.opacity = pr(t, 15, 15.1);
+    $$(".stn").forEach((sn, i) => {
+      const k = pr(t, beats[i], beats[i] + .45);
+      sn.firstChild.style.transform = `scale(${E.back(k)})`;
+      const lab = sn.children[1], viz = sn.children[2], kk = E.o5(pr(t, beats[i] + .05, beats[i] + .5));
+      lab.style.opacity = kk; lab.style.transform = `translate${tall ? "X" : "Y"}(${px((1 - kk) * 40)})`;
+      viz.style.opacity = pr(t, beats[i] + .15, beats[i] + .3);
+    });
+    write(el.v0, t, 15.2, 15.8);
+    const s1 = "f'(x) = 6x + 1", n1 = Math.round(pr(t, 16.2, 16.75) * s1.length);
+    el.v1.textContent = s1.slice(0, n1) + (n1 < s1.length ? "▍" : "");
+    const ne = pr(t, 17.4, 17.7); el.neq.style.display = "inline-block"; el.neq.style.transform = `scale(${1 + 1.2 * (1 - E.o5(ne))})`; el.neq.style.opacity = ne > 0 ? 1 : .25;
+    el.v2.style.transform = `translateX(${px(ne > 0 ? Math.sin(ne * Math.PI * 4) * 8 * (1 - ne) : 0)})`;
+    draw(el.vc, E.io3(pr(t, 18.3, 18.65)));
+  }
+
+  // ===== S6 structured reply -> circle =====
+  if (show(el.s6, t >= T.s6 && t < T.m + .4)) {
+    rev(el.h6, t, 19.05, { st: .07, d: .45 });
+    const kin = E.o5(pr(t, 19, 19.5));
+    el.code.style.transform = `scale(${lerp(1.08, 1, kin)})`;
+    [...el.code.children].forEach((d, i) => {
+      const k = E.o3(pr(t, 19.1 + i * .06, 19.3 + i * .06));
+      d.style.opacity = k; d.lastChild.style.transform = `translateX(${px((1 - k) * 30)})`;
+      const hl = (i === 2 || i === 3) ? pr(t, 19.95, 20.05) * (1 - pr(t, 20.7, 20.8)) : (i >= 4 && i <= 6) ? pr(t, 20.75, 20.85) : 0;
+      d.firstChild.style.opacity = hl * .32;
+    });
+    const jk = E.o5(pr(t, 19.4, 20));
+    el.jpage.style.opacity = pr(t, 19.4, 19.6);
+    el.jpage.style.transform = `perspective(1400px) translateY(${px((1 - jk) * 120)}) rotateX(${lerp(40, tall ? 14 : 6, jk)}deg) rotateY(${tall ? 0 : lerp(-30, -10, jk)}deg) rotateZ(-2deg)`;
+    el.j1._g.forEach((g) => { g.style.opacity = 1; });
+    draw(el.jl, E.io3(pr(t, 19.9, 20.1))); el.ja.style.opacity = pr(t, 20.05, 20.1);
+    draw(el.jc, E.io3(pr(t, 20.05, 20.4)));
+    write(el.j2, t, 20.8, 21.3); el.j2.style.transform = "rotate(-3deg)";
+  }
+
+  // ===== feature montage -> grid =====
+  if (show(el.mont, t >= T.m && t < T.line + .4)) {
+    const wipes = [(k) => `inset(${k}% 0 0 0)`, (k) => `inset(0 0 0 ${k}%)`, (k) => `inset(0 0 ${k}% 0)`, (k) => `inset(0 ${k}% 0 0)`];
+    $$(".pan").forEach((p, i) => {
+      const lt = t - MP[i]; if (!show(p, lt >= 0)) return;
+      const k = E.io5(pr(lt, 0, .34)), gk = E.io5(pr(t, T.grid + i * .04, T.grid + .5 + i * .04));
+      const gs = lerp(1, .485, gk), gx = lerp(0, (i % 2) * W / 2 + W * .0075, gk), gy = lerp(0, (i >> 1) * H / 2 + H * .0075, gk);
+      p.style.clipPath = k < 1 ? wipes[i](((1 - k) * 100).toFixed(2)) : "none";
+      p.style.transform = `translate(${px(gx)},${px(gy)}) scale(${gs.toFixed(4)})`;
+      p.style.borderRadius = px(gk * 44);
+      const h = p.querySelector(".hd"); rev(h, lt, .12, { st: .07, d: .45 });
+      p.querySelector(".vis").style.transform = `translate${tall ? "Y" : "X"}(${px((1 - E.o5(pr(lt, 0, .6))) * 140)})`;
+    });
+    // A: hint ladder
+    let lt = t - MP[0];
+    const rip = pr(lt, .25, .65); el.ripple.style.opacity = rip > 0 ? 1 - rip : 0; el.ripple.style.width = px(lerp(280, 360, rip)); el.ripple.style.transform = `scale(${1 + .0 * rip})`;
+    el.helpbig.style.transform = `scale(${1 - .06 * Math.sin(pr(lt, .2, .45) * Math.PI)})`;
+    $$(".slip").forEach((sl, i) => {
+      const a = .32 + i * .24, k = E.o5(pr(lt, a, a + .45));
+      sl.style.opacity = pr(lt, a, a + .1); sl.style.transform = `translateX(${px((1 - k) * 500)}) rotate(${[-3, 2, -1.5][i] * k + (1 - k) * 12}deg)`;
+      el.helpbig.children[i].style.background = lt >= a + .1 ? "var(--red)" : "transparent";
+    });
+    // B: graph this
+    lt = t - MP[1];
+    write(el.b1, lt, -1, -.5); write(el.b2, lt, .15, .5); draw(el.pund, E.io3(pr(lt, .5, .62)));
+    const pk = E.o5(pr(lt, .5, .8)); el.pbg.style.opacity = el.pgrid.style.opacity = pk;
+    draw(el.pax, E.io3(pr(lt, .55, .8))); draw(el.pay, E.io3(pr(lt, .6, .85)));
+    const ck = E.io3(pr(lt, .7, 1.2)); draw(el.pcur, ck);
+    const [dx, dy] = L.plotPt(ck); el.pdot.setAttribute("cx", dx); el.pdot.setAttribute("cy", dy); el.pdot.style.opacity = ck > 0 ? 1 : 0;
+    // C: PDF worksheet
+    lt = t - MP[2];
+    const sk = E.o5(pr(lt, .05, .7));
+    el.sheet.style.transform = `translateX(${px((1 - sk) * 500)}) rotateY(${lerp(-62, -12, sk)}deg) rotateX(${lerp(14, 5, sk)}deg) rotateZ(${lerp(8, 2, sk)}deg)`;
+    const ch = E.back(pr(lt, .35, .7)); el.pdfchip.style.transform = `scale(${ch}) rotate(8deg)`;
+    write(el.w1, lt, .55, .85); write(el.w2, lt, .88, 1.15);
+    // D: circle + ask
+    lt = t - MP[3];
+    el.d1._g.forEach((g) => { g.style.opacity = 1; });
+    draw(el.las, E.io3(pr(lt, .2, .6)));
+    const mk = E.o5(pr(lt, .5, .9)); el.mic.style.opacity = pr(lt, .5, .6); el.mic.style.transform = `translateY(${px((1 - mk) * 60)})`;
+    $$("#mic b").forEach((bar, i) => {
+      const amp = pr(lt, .6, .8) * (1 - .75 * pr(t, T.grid - .15, T.grid));
+      bar.style.height = px(10 + amp * 90 * Math.abs(Math.sin(i * 1.7 + lt * 9) * Math.sin(i * .45 + lt * 5 + 1)));
+    });
+    const sd = E.o5(pr(lt, .75, 1.1)); el.said.style.opacity = pr(lt, .75, .9); el.said.style.transform = `translateY(${px((1 - sd) * 40)})`;
+  }
+
+  // ===== the line =====
+  if (show(el.sl, t >= T.line - .1 && t < T.end + .4)) {
+    const k = E.io3(pr(t, T.line - .1, T.line + .3));
+    el.sl.style.clipPath = k < 1 ? `circle(${px(k * Math.hypot(W, H) * .6)} at 50% 50%)` : "none";
+    el.old.style.opacity = pr(t, 27.7, 27.9);
+    draw(el.ok, E.io3(pr(t, 27.9, 28.2)));
+    rev(el.hl, t, 0, { at: tall ? [28, 28.35, 29.5, 29.85] : [28, 29.5], d: .5 });
+    draw(el.mc, E.io3(pr(t, 28.85, 29.25)));
+    draw(el.fu, E.io3(pr(t, 30.15, 30.45)));
+    const z = pr(t, 28, 31);
+    el.hl.style.transformOrigin = "0 50%"; el.hl.style.transform = `scale(${1 + .025 * z})`;
+    el.fxl.style.transformOrigin = `${ML}px ${el.hl.offsetTop + el.hl.offsetHeight / 2}px`; el.fxl.style.transform = `scale(${1 + .025 * z})`;
+  }
+
+  // ===== end card =====
+  if (show(el.se, t >= T.end - .1)) {
+    const k = E.io5(pr(t, T.end - .1, T.end + .35));
+    el.se.style.clipPath = k < 1 ? (tall ? `inset(${((1 - k) * 100).toFixed(2)}% 0 0 0)` : `inset(0 0 0 ${((1 - k) * 100).toFixed(2)}%)`) : "none";
+    $$(".ghost").forEach((g, i) => { g.style.transform = `translateY(${px(-(t - T.end) * (10 + i * 5))}) rotate(${g._r}deg)`; });
+    const mk = E.back(pr(t, 31.3, 31.7));
+    el.mark.firstChild.style.opacity = pr(t, 31.3, 31.45); el.mark.firstChild.style.transform = `scale(${.6 + .4 * mk})`;
+    draw(el.ec, E.io3(pr(t, 31.5, 31.9)));
+    rev(el.wm, t, 31.5, { st: .12, d: .6 });
+    el.wm.style.fontStretch = lerp(80, 108, E.o5(pr(t, 31.5, 32.6))) + "%";
+    const tk = E.o5(pr(t, 32.1, 32.6)); el.tagl.style.opacity = pr(t, 32.1, 32.3); el.tagl.style.transform = `translateY(${px((1 - tk) * 30)})`;
+    el.rule.style.transform = `scaleX(${E.io5(pr(t, 32.4, 33))})`;
+    [el.cr1, el.cr2].forEach((c, i) => { const a = 32.7 + i * .15, q = E.o5(pr(t, a, a + .5)); c.style.opacity = pr(t, a, a + .2); c.style.transform = `translateY(${px((1 - q) * 24)})`; });
+  }
 }
 
-// ---- playback: auto-play; R or click restarts; ?t=<seconds> jumps there and pauses ----
-let t0 = 0, playing = false;
+// ---------- player ----------
+function fitStage() {
+  const s = Math.min(innerWidth / W, innerHeight / H);
+  stage.style.transform = `scale(${s}) translate(-50%,-50%)`;
+}
+addEventListener("resize", fitStage); fitStage();
+
+let t0 = 0, paused = Q.has("t"), cur = paused ? Math.max(0, parseFloat(Q.get("t")) || 0) : 0, ready = false;
+function seek(t) { cur = clamp(t, 0, DURATION); if (ready) render(cur); }
 function tick(now) {
-  if (!playing) return;
-  const t = (now - t0) / 1000;
-  render(Math.min(t, DURATION));
-  if (t < DURATION) requestAnimationFrame(tick); else { playing = false; stage.classList.remove("playing"); }
+  if (!paused && ready) { cur = Math.min(DURATION, (now - t0) / 1000); render(cur); }
+  requestAnimationFrame(tick);
 }
-function play() { t0 = performance.now(); if (!playing) { playing = true; stage.classList.add("playing"); requestAnimationFrame(tick); } }
-function seek(t) { playing = false; stage.classList.remove("playing"); render(Math.max(0, Math.min(t, DURATION))); }
-addEventListener("keydown", (e) => { if (e.key === "r" || e.key === "R") play(); });
-addEventListener("click", play);
+function restart() { paused = false; t0 = performance.now(); }
+stage.addEventListener("click", restart);
+addEventListener("keydown", (e) => {
+  if (e.key === "r" || e.key === "R") restart();
+  else if (e.key === " ") { paused = !paused; t0 = performance.now() - cur * 1000; }
+  else if (e.key === "ArrowRight" || e.key === "ArrowLeft") { paused = true; seek(cur + (e.key === "ArrowRight" ? 1 : -1) / FPS); }
+});
+// used by export.mjs
+window.__film = { duration: DURATION, fps: FPS, width: W, height: H, seek: (t) => { paused = true; seek(t); } };
 
-const fonts = ['118px Kalam', '700 80px Caveat', '800 96px "Bricolage Grotesque"', '500 50px "Bricolage Grotesque"'];
-const ready = Promise.all(fonts.map((f) => document.fonts.load(f))).then(() => document.fonts.ready);
-Promise.race([ready, new Promise((r) => setTimeout(r, 4000))]).then(() => {
-  layout();
-  const q = new URLSearchParams(location.search).get("t");
-  if (q !== null && !isNaN(parseFloat(q))) seek(parseFloat(q)); else play();
-  document.documentElement.dataset.ready = "1";
+const fonts = ['800 100px Archivo', '900 100px Archivo', '500 100px Archivo', '700 100px Caveat', '400 100px Kalam', '500 30px "JetBrains Mono"', '700 30px "JetBrains Mono"'];
+Promise.all(fonts.map((f) => document.fonts.load(f, "Af(x)²′≠"))).catch(() => {}).then(() => document.fonts.ready).then(() => {
+  layout(); buildCam(); ready = true; t0 = performance.now(); render(cur);
+  window.__ready = true;
+  requestAnimationFrame(tick);
 });
 </script>
 </body>
