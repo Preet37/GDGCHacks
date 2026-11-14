@@ -4,10 +4,8 @@ import { aiMeta } from './actions'
 import { boxToPage, type PageRect } from './geometry'
 import { mathToPlain } from './text'
 
-const PRINTED = '\\text{[printed]}'
-
-export function isPrinted(line: ReadLine & { source?: string }): boolean {
-  return line.source === 'printed' || line.latex.trimStart().startsWith(PRINTED)
+export function isPrinted(line: ReadLine): boolean {
+  return line.source === 'printed'
 }
 
 /** Small gray text under each handwritten line showing what the tutor read. */

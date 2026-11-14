@@ -14,10 +14,10 @@ describe('readingShapes', () => {
     expect(JSON.stringify(shapes[1].props)).toContain("f'(x) = 6x + 1")
   })
 
-  it('skips printed worksheet lines (marker or source field)', () => {
-    const printed = { ...lines[0], latex: '\\text{[printed]} Find f\'(x)' }
+  it('skips printed worksheet lines', () => {
+    const printed = { ...lines[0], source: 'printed' as const }
     expect(isPrinted(printed)).toBe(true)
-    expect(isPrinted({ ...lines[0], source: 'printed' } as typeof lines[0])).toBe(true)
+    expect(isPrinted(lines[0])).toBe(false)
     expect(readingShapes([printed, lines[1]], bounds)).toHaveLength(1)
   })
 })

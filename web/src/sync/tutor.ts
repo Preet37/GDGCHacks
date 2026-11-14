@@ -7,7 +7,7 @@ import { pageToBox, type PageRect } from '../render/geometry'
 import { studentBounds, studentShapes } from '../page'
 import { postCheck } from './api'
 import { exportPng } from './exportImage'
-import { loadState, saveState } from './pageState'
+import { loadLastBounds, loadState, saveLastBounds, saveState } from './pageState'
 import { hashString, PauseScheduler } from './scheduler'
 
 export const PAUSE_MS = 2000
@@ -22,7 +22,7 @@ function isStudentShapeRecord(r: TLRecord): boolean {
 export class Tutor {
   state: PageState
   showReading = false
-  private lastBounds: PageRect | null = null
+  private lastBounds: PageRect | null = loadLastBounds()
   private scheduler: PauseScheduler
   private listeners = new Set<(e: TutorEvent) => void>()
   private unlisten: () => void
@@ -111,6 +111,7 @@ export class Tutor {
       this.state = { ...reply.state, page_id: this.state.page_id }
       saveState(this.state)
       this.lastBounds = bounds
+      saveLastBounds(bounds)
       this.drawReading()
       this.emit({ type: 'reply', reply })
     } catch (err) {
