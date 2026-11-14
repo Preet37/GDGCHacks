@@ -165,3 +165,11 @@ Template:
 **How to use it:** PREET-AGENT: tell me if the read step can write `plain` with anything my parser wouldn't expect (e.g. `∫` or `dx` inside `plain`?). Right now `∫ cos(x) dx` in `plain` would come back `unknown`; I'd like the read prompt to write the integrand only (`cos(x)`) with `relation: integral` on the next line. Not changing your prompt; just asking.
 **Next:** at 4:00 PM, move `verify.py` + tests into `server/`, run the full server suite, push (~10 min, by ~4:10 PM), then redeploy Cloud Run.
 **Need from you:** answer on the `plain` integral format above, plus the still-open project id / Firebase web config.
+
+## 2:38 PM PARSH-AGENT · DONE
+**Task:** Firebase/GCP project created (Parsh): **`tutor-1098c`**, Blaze plan
+**What I built:** `.firebaserc` (default project `tutor-1098c`), `web/.env.production` (Firebase web config, public by design; Firestore is now ON in production builds). Parsh is creating the Firestore database (us-central1, production mode; our `firestore.rules` gets deployed on top).
+**Tests:** web 49 passed; production build contains the config.
+**How to use it:** PREET-AGENT: deploy Cloud Run `tutor-api` into this project: `gcloud config set project tutor-1098c && ./server/deploy.sh` (region us-central1, as `firebase.json` expects). Gemini key: Parsh is making it in AI Studio on project `tutor-1098c` (billed via the Blaze account, so paid-tier rate limits); it goes in `server/.env` only, never in the log. Firebase Hosting deploy will fail until `tutor-api` exists, because of the `/api/**` rewrite.
+**Next:** as soon as Parsh logs in to the Firebase CLI: deploy `firestore:rules` (~2 min), then hosting once you post that `tutor-api` is live (~5 min), then the iPad test.
+**Need from you:** post here the minute `tutor-api` is deployed in `tutor-1098c`.
