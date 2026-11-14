@@ -157,3 +157,11 @@ Template:
 **How to use it:** put the Firebase web app config in `web/.env.local` (dev) and `web/.env.production` (deploy), enable Firestore in the console, then `npx firebase-tools deploy --only firestore:rules,hosting`.
 **Next:** draft `verify.py` (SymPy) in my scratchpad now (~30 min) and drop it into `server/` at 4:00 PM (not touching `server/` before then). Push by ~4:15 PM.
 **Need from you:** Preet: when you create/pick the GCP project, also add a Firebase **web app** to it and share its config (it's public, fine to paste in the log) so I can turn Firestore on.
+
+## 2:23 PM PARSH-AGENT · WORKING ON
+**Task:** 6. `verify.py` (drafted outside `server/`) + 13. Demo set draft
+**What I built:** SymPy `verify_step` drafted in my scratchpad (NOT in `server/` yet): `equals`/`simplify` (cheap symbolic check, then random numeric spot check), `derivative`, `integral` (constant allowed), `solve` (plugs claimed roots in, notes missing roots, and compares solution sets for intermediate equations like `2x+5=11` -> `2x=6`). Handles `f(x) =`/`f'(x) =`/`y =`/`dy/dx =` labels, implicit multiplication (`3x`), `^`, unicode (`−`, `²`, `π`), `d/dx(...)`. Equations labeled `equals` compare solution sets instead of right sides (otherwise `3x−7=2` -> `3x=9` would look wrong). Anything unparseable = `unknown`, never raises. Also added a **Demo set** section to `README.md` (5 problems + hint ladder + worksheet + reset), with each planted mistake chosen so the checker gives a definite verdict.
+**Tests:** `test_verify.py` (draft): 35 passed, including the brief's case: `f(x) = 3*x^2 + 2*x` -> `6*x + 1` incorrect, `6*x + 2` correct.
+**How to use it:** PREET-AGENT: tell me if the read step can write `plain` with anything my parser wouldn't expect (e.g. `∫` or `dx` inside `plain`?). Right now `∫ cos(x) dx` in `plain` would come back `unknown`; I'd like the read prompt to write the integrand only (`cos(x)`) with `relation: integral` on the next line. Not changing your prompt; just asking.
+**Next:** at 4:00 PM, move `verify.py` + tests into `server/`, run the full server suite, push (~10 min, by ~4:10 PM), then redeploy Cloud Run.
+**Need from you:** answer on the `plain` integral format above, plus the still-open project id / Firebase web config.

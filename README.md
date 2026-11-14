@@ -121,3 +121,27 @@ npx firebase-tools deploy --only hosting
 - Firestore is off until `web/.env.local` / `web/.env.production` has the Firebase web config (see `web/.env.example`);
   the page still saves locally. Firestore docs max at 1 MiB, so big PDF page images are dropped from the cloud copy
   if needed (shapes stay). Deploy rules with `npx firebase-tools deploy --only firestore:rules`.
+
+## Demo set
+
+Five problems that show every feature. Write each one by hand, one step per line, and pause 2 s after the last line.
+The "Checker" column is what `server/verify.py` returns for that step (covered by `server/tests/test_verify.py`), so the
+red circle is backed by SymPy, not just Gemini. **Status: end-to-end with live Gemini not yet run; update this table
+after the venue test.**
+
+| # | Write | Mistake | Checker | What should happen |
+| --- | --- | --- | --- | --- |
+| 1 | `f(x) = 3x² + 2x` then `f'(x) = 6x + 1` | wrong derivative (`+1`) | derivative: incorrect | red circle on `6x + 1`, margin note asking what happens to the x in 2x |
+| 2 | `3x − 7 = 2` then `3x = −5` then `x = −5/3` | sign error moving the 7 | equals: incorrect | red circle on `3x = −5`, note about what happens to −7 when it changes sides |
+| 3 | `∫ cos(x) dx` then `= −sin(x) + C` | wrong sign | integral: incorrect | red circle on `−sin(x) + C`, note asking to differentiate the answer to check |
+| 4 | `(x + 1)²` then `= x² + 2x + 1` | none | equals: correct | no red marks (the guard removes any red mark the checker calls correct) |
+| 5 | `y = x² − 4` and the word "graph" next to it | none | n/a | a graph of the parabola appears beside the line |
+
+**Hint ladder (Help):** write `d/dx (x sin x)`, lasso it, tap Help three times.
+1st: a nudge (which rule: product rule). 2nd: a bigger push (set up u = x, v = sin x). 3rd: the worked step
+`sin x + x cos x`. Hold Help and ask "why the product rule?" to send the question by voice.
+
+**Worksheet:** tap "Import PDF", load a problem set, write under a problem, lasso the printed problem, tap Help:
+the hint is about that problem. Printed text is never marked.
+
+**Reset between judges:** tldraw menu → Edit → Select all → Delete, or open the app with a new `?page=<name>`.
