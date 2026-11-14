@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Tldraw, type Editor } from 'tldraw'
 import 'tldraw/tldraw.css'
 import { DevPanel } from './DevPanel'
+import { HelpButton } from './HelpButton'
 import { Tutor } from './sync/tutor'
 import { TutorOverlay } from './TutorOverlay'
 
@@ -29,6 +30,7 @@ export default function App() {
         }}
       />
       {tutor && <TutorOverlay tutor={tutor} />}
+      {editor && tutor && <HelpButton editor={editor} tutor={tutor} />}
       {DEV && editor && <DevPanel editor={editor} />}
     </div>
   )

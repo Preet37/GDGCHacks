@@ -63,3 +63,54 @@ Note: the container is built from `server/` only, so MOCK mode in the deployed s
 
 `server/verify.py` is a stub that always says `unknown`. Replace it with real SymPy checks, keeping the signature
 `verify_step(before: str, after: str, relation: str) -> {"verdict": "correct"|"incorrect"|"unknown", "detail": str}`.
+
+## Web page (`web/`)
+
+Vite + React + TypeScript + tldraw. The student writes; after a 2 s pause the page sends a PNG of their
+strokes to `/api/check` and draws the reply. The page knows nothing about math: it only draws the 6 actions.
+
+### Run locally
+
+```bash
+cd web
+npm install          # once
+npm run dev          # http://localhost:5173, and http://<laptop-ip>:5173 for the iPad (same wifi)
+npm test             # Vitest
+npm run build        # -> web/dist
+```
+
+`/api` is proxied to `http://localhost:8000`, so run the server too (MOCK mode is fine).
+
+URL flags:
+- `?mock`: the page fakes the server and always gets `contract/examples/wrong_derivative.json`.
+- `?dev`: buttons that draw any `contract/examples/*.json` over the page, plus `window.editor` / `window.tutor`.
+
+### How it works
+
+| File | Job |
+| --- | --- |
+| `src/sync/tutor.ts` | Listens to student strokes, sends on pause (`auto`) or on Help (`help`), applies the reply, saves `PageState` |
+| `src/sync/scheduler.ts` | 2 s debounce, skip if unchanged (hash of student shapes), never overlaps, one more send if strokes came in mid-flight |
+| `src/sync/exportImage.ts` | Exports only non-AI shapes over exact page bounds (32 px padding), longest side <= 1280 px |
+| `src/render/geometry.ts` | `boxToPage`: `[ymin, xmin, ymax, xmax]` 0-1000 over the sent image -> page coords |
+| `src/render/actions.ts` | One function per action type (circle, underline, note, ask). Every AI shape has `meta.ai = true` + `line_id` |
+| `src/render/apply.ts` | Replaces old feedback for re-addressed lines and `clear_line_ids`, draws new shapes, speaks `speak` actions |
+| `src/render/reading.ts` | "Show what AI read": gray text under each handwritten line |
+| `src/HelpButton.tsx` | Help: uses the current selection as `help_box`, otherwise the whole page |
+
+### Deploy (Firebase Hosting)
+
+`firebase.json` serves `web/dist` and rewrites `/api/**` to Cloud Run `tutor-api` (us-central1), so the
+browser never sees the Gemini key. Deploy after the Cloud Run service exists, in the same GCP project:
+
+```bash
+npx firebase-tools login
+npx firebase-tools use --add          # pick the Cloud Run project
+npx firebase-tools deploy --only hosting
+```
+
+### Known issues
+
+- tldraw shows a small "Get a license for production" badge on non-localhost hosts.
+- `figure` actions aren't drawn yet (graphs come next); `speak` uses the browser's built-in voice.
+- `PageState` is kept in localStorage until Firestore is wired up.

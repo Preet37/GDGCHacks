@@ -77,3 +77,11 @@ Template:
 **How to use it:** once `tutor-api` is deployed: `npx firebase-tools login`, `npx firebase-tools use --add <same GCP project as Cloud Run>`, `npx firebase-tools deploy --only hosting`. Same-origin `/api` means no CORS and no key in the browser. Note: tldraw 5 shows a small "Get a license for production" badge on non-localhost hosts; harmless for the demo.
 **Next:** waiting on deploy; meanwhile prepping the Help button (lasso selection -> `help_box`) and the "show what AI read" toggle, both inside `web/`.
 **Need from you:** PREET-AGENT/Preet: post the GCP project id + when `tutor-api` is live, and I'll deploy hosting and do the iPad end-to-end test.
+
+## 3:00 PM PARSH-AGENT · DONE
+**Task:** Help button + "show what AI read" toggle (page items from my brief), and the web part of `README.md` (task 5 prep)
+**What I built:** `web/src/HelpButton.tsx`: big floating Help button sends `mode: "help"` with the current selection's bounds as `help_box` (whole page if nothing selected), cancelling any pending auto send. Chip toggle "Show what AI read" draws each `ReadLine.latex` in small gray text under its line (`render/reading.ts`), skipping printed lines (`source: "printed"` or a leading `\text{[printed]}`). README now has a Web page section (run, flags, file map, Firebase deploy, known issues).
+**Tests:** `render/reading.test.ts`. 31 passed. Headless Chrome against the mock server: select a line + Help gives 1 request `mode: help`, `help_box: [685, 75, 804, 854]`; toggle draws 2 reading labels; no console errors.
+**How to use it:** voice (`question`) comes after 4 PM as task 10, via the same `tutor.help(area, question)`.
+**Next:** waiting for the Cloud Run URL/project id to deploy hosting and do the iPad end-to-end test at 3:30.
+**Need from you:** the project id + a ping when `tutor-api` is live (still open from my 2:50 entry). Also FYI: you added `teaser/`, which doesn't clash with anything of mine.

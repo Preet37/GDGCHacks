@@ -2,6 +2,7 @@ import type { Editor, TLRecord } from 'tldraw'
 import type { CheckRequest, CheckResponse, PageState } from '../contract'
 import { isAiShape } from '../render/actions'
 import { applyResponse } from '../render/apply'
+import { readingShapes } from '../render/reading'
 import { pageToBox, type PageRect } from '../render/geometry'
 import { studentBounds, studentShapes } from '../page'
 import { postCheck } from './api'
@@ -20,6 +21,8 @@ function isStudentShapeRecord(r: TLRecord): boolean {
 /** Watches the student's strokes, sends the page after a pause, and draws the reply. */
 export class Tutor {
   state: PageState
+  showReading = false
+  private lastBounds: PageRect | null = null
   private scheduler: PauseScheduler
   private listeners = new Set<(e: TutorEvent) => void>()
   private unlisten: () => void
@@ -62,6 +65,24 @@ export class Tutor {
     return ok
   }
 
+  /** Toggle the gray "what the AI read" text under each line. */
+  setShowReading(on: boolean) {
+    this.showReading = on
+    this.drawReading()
+  }
+
+  private drawReading() {
+    const old = this.editor.getCurrentPageShapes().filter((s) => isAiShape(s) && s.meta.kind === 'reading')
+    const fresh = this.showReading && this.lastBounds ? readingShapes(this.state.lines, this.lastBounds) : []
+    this.editor.run(
+      () => {
+        if (old.length) this.editor.deleteShapes(old)
+        if (fresh.length) this.editor.createShapes(fresh)
+      },
+      { history: 'ignore', ignoreShapeLock: true },
+    )
+  }
+
   private emit(e: TutorEvent) {
     for (const fn of this.listeners) fn(e)
   }
@@ -89,6 +110,8 @@ export class Tutor {
       // the page owns its id; never let a reply (e.g. the mock) rename it
       this.state = { ...reply.state, page_id: this.state.page_id }
       saveState(this.state)
+      this.lastBounds = bounds
+      this.drawReading()
       this.emit({ type: 'reply', reply })
     } catch (err) {
       this.emit({ type: 'error', message: err instanceof Error ? err.message : 'Something went wrong' })
