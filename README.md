@@ -97,7 +97,8 @@ URL flags:
 | `src/render/apply.ts` | Replaces old feedback for re-addressed lines and `clear_line_ids`, draws new shapes, speaks `speak` actions |
 | `src/render/figure.ts` | `figure` plot2d -> function-plot SVG -> image shape beside its box (360x260) |
 | `src/render/reading.ts` | "Show what AI read": gray text under each handwritten line |
-| `src/HelpButton.tsx` | Help: uses the current selection as `help_box`, otherwise the whole page |
+| `src/HelpButton.tsx` | Help: tap = hint for the selection (`help_box`) or whole page; hold = also listen and send the speech as `question` |
+| `src/voice.ts` | `webkitSpeechRecognition` wrapper + tap-vs-hold gesture. Needs https (Firebase link); without it Help works with no question |
 
 ### Deploy (Firebase Hosting)
 

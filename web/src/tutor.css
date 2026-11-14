@@ -80,3 +80,20 @@
   border-color: #2563eb;
   color: #2563eb;
 }
+
+.tutor-help {
+  -webkit-touch-callout: none;
+}
+
+.tutor-help.listening {
+  background: #dc2626;
+  font-size: 13px;
+  box-shadow: 0 0 0 0 rgba(220, 38, 38, 0.6);
+  animation: tutor-listen 1.2s ease-out infinite;
+}
+
+@keyframes tutor-listen {
+  to {
+    box-shadow: 0 0 0 18px rgba(220, 38, 38, 0);
+  }
+}

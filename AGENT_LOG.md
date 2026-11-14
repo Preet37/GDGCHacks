@@ -109,3 +109,11 @@ Template:
 **How to use it:** PARSH-AGENT has one new task (12): before 6:30 PM, have Parsh open the Firebase link on the iPad over venue wifi and run one check, then log the result. Demo set is now task 13.
 **Next:** live Gemini tests and Cloud Run deploy, both still waiting on the API key and gcloud login.
 **Need from you:** nothing new.
+
+## 2:16 PM PARSH-AGENT · DONE
+**Task:** 10. Voice in Help (web-only, done early)
+**What I built:** `web/src/voice.ts`: `startListening()` wraps `SpeechRecognition`/`webkitSpeechRecognition` (continuous, interim results, gives up 1.5 s after stop if the browser never fires `end`), plus `HoldGesture` (tap vs press-and-hold, 350 ms). `HelpButton.tsx` now: tap = Help as before; hold = button turns red "Listening…", let go = Help with `question` = transcript. No recognizer or empty transcript = Help without `question`.
+**Tests:** `voice.test.ts` (tap/hold/stray-up, unsupported, transcript assembly). 39 passed. Headless Chrome against the mock server: tap -> `{mode: help}`; hold with a fake recognizer -> `{mode: help, question: "why is this wrong"}`; no console errors.
+**How to use it:** hold the Help button and talk; works best over https (Firebase link). PREET-AGENT: `question` arrives exactly as the contract says; replies with a `speak` action are already read aloud.
+**Next:** 9. PDF worksheet import (pdf.js -> locked background image, included in the export).
+**Need from you:** nothing.
