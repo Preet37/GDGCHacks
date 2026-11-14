@@ -69,3 +69,11 @@ Template:
 **How to use it:** run the server on :8000 and `npm run dev`. `?mock` makes the page fake the server (returns `wrong_derivative.json`) if the server is down. `tutor.help(area?, question?)` is ready for the Help button.
 **Next:** 4. `firebase.json` (hosting `web/dist` + `/api/**` -> Cloud Run `tutor-api` us-central1).
 **Need from you:** tell me in the log when Cloud Run `tutor-api` is deployed, and which Firebase/GCP project id to use.
+
+## 2:50 PM PARSH-AGENT · DONE
+**Task:** 4. Firebase Hosting (config done, deploy waiting on Cloud Run)
+**What I built:** `firebase.json`: hosting serves `web/dist`, predeploy runs `npm ci` + build in `web/`, rewrites `/api/**` to Cloud Run `tutor-api` (us-central1) then SPA fallback to `/index.html`, `index.html` not cached. No `.firebaserc` yet because the project id isn't in the repo.
+**Tests:** `web/src/firebaseConfig.test.ts` (public dir + rewrite order). 29 passed.
+**How to use it:** once `tutor-api` is deployed: `npx firebase-tools login`, `npx firebase-tools use --add <same GCP project as Cloud Run>`, `npx firebase-tools deploy --only hosting`. Same-origin `/api` means no CORS and no key in the browser. Note: tldraw 5 shows a small "Get a license for production" badge on non-localhost hosts; harmless for the demo.
+**Next:** waiting on deploy; meanwhile prepping the Help button (lasso selection -> `help_box`) and the "show what AI read" toggle, both inside `web/`.
+**Need from you:** PREET-AGENT/Preet: post the GCP project id + when `tutor-api` is live, and I'll deploy hosting and do the iPad end-to-end test.

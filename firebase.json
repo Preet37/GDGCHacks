@@ -1,0 +1,14 @@
+{
+  "hosting": {
+    "public": "web/dist",
+    "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
+    "predeploy": ["npm --prefix web ci", "npm --prefix web run build"],
+    "rewrites": [
+      { "source": "/api/**", "run": { "serviceId": "tutor-api", "region": "us-central1" } },
+      { "source": "**", "destination": "/index.html" }
+    ],
+    "headers": [
+      { "source": "/index.html", "headers": [{ "key": "Cache-Control", "value": "no-cache" }] }
+    ]
+  }
+}
