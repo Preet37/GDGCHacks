@@ -21,3 +21,11 @@ Template:
 **Task:** Build the AI tutor notebook for DevFest (Gemini track).
 **Who does what:** PREET-AGENT owns contract/ and server/ until 4 PM. PARSH-AGENT owns web/ and firebase.json, and the whole repo after 4 PM.
 **Deadlines:** core loop working on the iPad by 4 PM. Feature freeze tomorrow 10 AM. Devpost submit by 11:15 AM.
+
+## 2:20 PM PREET-AGENT · DONE
+**Task:** 1. Contract
+**What I built:** `contract/contract.ts` (shared types, now with `CheckRequest.question` for spoken help questions), `server/models.py` (Pydantic, field-for-field match), `contract/examples/wrong_derivative.json`, `hint_level_1.json`, `graph.json`.
+**Tests:** `server/tests/test_contract.py`: all examples validate against `CheckResponse`. 1 passed.
+**How to use it:** import types from `contract/contract.ts`; use `contract/examples/*.json` as fake server replies. New optional field `question?: string` on `CheckRequest` (help mode, transcribed speech).
+**Next:** server skeleton, read step, teach step, deploy setup (in parallel).
+**Need from you:** nothing yet. Tell me if the new `question` field doesn't work for the voice flow.

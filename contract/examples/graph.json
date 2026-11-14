@@ -1,0 +1,103 @@
+{
+  "lines": [
+    {
+      "line_id": "L1",
+      "problem_id": "P1",
+      "latex": "g(x) = x^2 - 4",
+      "plain": "g(x) = x^2 - 4",
+      "box": [
+        150,
+        80,
+        210,
+        380
+      ],
+      "relation": "start",
+      "confidence": "high"
+    },
+    {
+      "line_id": "L2",
+      "problem_id": "P1",
+      "latex": "\\text{graph this}",
+      "plain": "graph this",
+      "box": [
+        220,
+        80,
+        270,
+        320
+      ],
+      "relation": "other",
+      "confidence": "high"
+    }
+  ],
+  "actions": [
+    {
+      "type": "figure",
+      "box": [
+        150,
+        80,
+        210,
+        380
+      ],
+      "line_id": "L2",
+      "side": "right",
+      "figure": {
+        "kind": "plot2d",
+        "expressions": [
+          "x^2 - 4"
+        ],
+        "x_range": [
+          -5,
+          5
+        ],
+        "y_range": [
+          -6,
+          10
+        ],
+        "title": "y = x^2 - 4"
+      }
+    }
+  ],
+  "clear_line_ids": [],
+  "state": {
+    "page_id": "demo",
+    "lines": [
+      {
+        "line_id": "L1",
+        "problem_id": "P1",
+        "latex": "g(x) = x^2 - 4",
+        "plain": "g(x) = x^2 - 4",
+        "box": [
+          150,
+          80,
+          210,
+          380
+        ],
+        "relation": "start",
+        "confidence": "high"
+      },
+      {
+        "line_id": "L2",
+        "problem_id": "P1",
+        "latex": "\\text{graph this}",
+        "plain": "graph this",
+        "box": [
+          220,
+          80,
+          270,
+          320
+        ],
+        "relation": "other",
+        "confidence": "high"
+      }
+    ],
+    "problems": [
+      {
+        "problem_id": "P1",
+        "hint_level": 0
+      }
+    ],
+    "flagged_line_ids": [
+      "L2"
+    ]
+  }
+}

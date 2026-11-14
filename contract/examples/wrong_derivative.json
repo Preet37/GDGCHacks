@@ -1,0 +1,101 @@
+{
+  "lines": [
+    {
+      "line_id": "L1",
+      "problem_id": "P1",
+      "latex": "f(x) = 3x^2 + 2x",
+      "plain": "f(x) = 3*x^2 + 2*x",
+      "box": [
+        120,
+        80,
+        180,
+        420
+      ],
+      "relation": "start",
+      "confidence": "high"
+    },
+    {
+      "line_id": "L2",
+      "problem_id": "P1",
+      "latex": "f'(x) = 6x + 1",
+      "plain": "f'(x) = 6*x + 1",
+      "box": [
+        200,
+        80,
+        260,
+        400
+      ],
+      "relation": "derivative",
+      "confidence": "high"
+    }
+  ],
+  "actions": [
+    {
+      "type": "circle",
+      "box": [
+        200,
+        300,
+        260,
+        400
+      ],
+      "line_id": "L2",
+      "color": "red"
+    },
+    {
+      "type": "note",
+      "box": [
+        200,
+        300,
+        260,
+        400
+      ],
+      "line_id": "L2",
+      "color": "red",
+      "side": "right",
+      "text": "Check the derivative of $2x$. What happens to the $x$?"
+    }
+  ],
+  "clear_line_ids": [],
+  "state": {
+    "page_id": "demo",
+    "lines": [
+      {
+        "line_id": "L1",
+        "problem_id": "P1",
+        "latex": "f(x) = 3x^2 + 2x",
+        "plain": "f(x) = 3*x^2 + 2*x",
+        "box": [
+          120,
+          80,
+          180,
+          420
+        ],
+        "relation": "start",
+        "confidence": "high"
+      },
+      {
+        "line_id": "L2",
+        "problem_id": "P1",
+        "latex": "f'(x) = 6x + 1",
+        "plain": "f'(x) = 6*x + 1",
+        "box": [
+          200,
+          80,
+          260,
+          400
+        ],
+        "relation": "derivative",
+        "confidence": "high"
+      }
+    ],
+    "problems": [
+      {
+        "problem_id": "P1",
+        "hint_level": 0
+      }
+    ],
+    "flagged_line_ids": [
+      "L2"
+    ]
+  }
+}

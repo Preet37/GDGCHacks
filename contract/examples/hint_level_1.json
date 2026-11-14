@@ -1,0 +1,62 @@
+{
+  "lines": [
+    {
+      "line_id": "L1",
+      "problem_id": "P1",
+      "latex": "\\frac{d}{dx}\\left(x \\sin x\\right)",
+      "plain": "d/dx(x*sin(x))",
+      "box": [
+        100,
+        60,
+        170,
+        460
+      ],
+      "relation": "start",
+      "confidence": "high"
+    }
+  ],
+  "actions": [
+    {
+      "type": "note",
+      "box": [
+        100,
+        60,
+        170,
+        460
+      ],
+      "line_id": "L1",
+      "color": "blue",
+      "side": "below",
+      "text": "Which rule handles a product like $x \\sin x$?"
+    }
+  ],
+  "clear_line_ids": [],
+  "state": {
+    "page_id": "demo",
+    "lines": [
+      {
+        "line_id": "L1",
+        "problem_id": "P1",
+        "latex": "\\frac{d}{dx}\\left(x \\sin x\\right)",
+        "plain": "d/dx(x*sin(x))",
+        "box": [
+          100,
+          60,
+          170,
+          460
+        ],
+        "relation": "start",
+        "confidence": "high"
+      }
+    ],
+    "problems": [
+      {
+        "problem_id": "P1",
+        "hint_level": 1
+      }
+    ],
+    "flagged_line_ids": [
+      "L1"
+    ]
+  }
+}
