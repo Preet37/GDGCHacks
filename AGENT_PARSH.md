@@ -87,6 +87,7 @@ export interface ReadLine {
   relation: "start" | "equals" | "simplify" | "derivative" | "integral" | "solve" | "other";
                         // how this line follows from the previous line of the same problem
   confidence: "high" | "low";
+  source?: "handwriting" | "printed"; // printed = typed worksheet text (context only, never marked); missing = handwriting
 }
 
 export type ActionType = "circle" | "underline" | "note" | "figure" | "ask" | "speak";

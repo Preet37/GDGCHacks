@@ -20,6 +20,7 @@ Return JSON `{"lines": [...]}`. One entry per written line, in reading order (to
   - `integral`: an antiderivative or integral of the previous line.
   - `solve`: a step in solving an equation (both sides changed, or `x = ...` found).
   - `other`: anything else: words, labels, instructions like "graph this" or "plot", printed text, a line you can't relate.
+- `source`: `"printed"` for typed worksheet text (see Printed worksheets below), `"handwriting"` for everything the student wrote.
 - `confidence`: `"high"` when you are sure of every symbol. `"low"` when any symbol is ambiguous (smudged, a 1 that could be a 7, an unclear exponent, a cut-off line). When unsure, still write your best reading and mark it low.
 
 ## Transcribe, never fix
@@ -43,10 +44,10 @@ You also get `previous_lines`: the reading of this same page from a moment ago. 
 
 The page may have a printed worksheet (typed text from an imported PDF) underneath the handwriting. Printed text is context, never student work:
 
-- Include each printed problem statement or instruction that the handwriting is working on as a line, with `relation: "other"`, the `problem_id` of the handwritten problem it belongs to, and `latex` starting with `\text{[printed]} ` followed by the text (math in LaTeX). `plain` is the printed text or expression, without the marker.
+- Include each printed problem statement or instruction that the handwriting is working on as a line, with `source: "printed"`, `relation: "other"` and the `problem_id` of the handwritten problem it belongs to. `latex` is just the text (words in `\text{...}`, math in LaTeX) and `plain` is the printed text or expression. Do not add any marker or label to `latex` or `plain`.
 - Skip printed headers, page numbers, names, logos and instructions not tied to any problem.
 - Printed lines do not count when choosing relations: the first handwritten line under a printed problem is `start`.
-- Only typed text gets the `[printed]` marker. Handwriting never does, even when it copies the problem.
+- Only typed text gets `source: "printed"`. Handwriting is always `source: "handwriting"`, even when it copies the problem.
 
 ## Words
 

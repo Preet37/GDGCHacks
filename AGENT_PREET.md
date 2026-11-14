@@ -102,6 +102,7 @@ export interface ReadLine {
   relation: "start" | "equals" | "simplify" | "derivative" | "integral" | "solve" | "other";
                         // how this line follows from the previous line of the same problem
   confidence: "high" | "low";
+  source?: "handwriting" | "printed"; // printed = typed worksheet text (context only, never marked); missing = handwriting
 }
 
 export type ActionType = "circle" | "underline" | "note" | "figure" | "ask" | "speak";
@@ -239,7 +240,7 @@ export interface CheckResponse {
    *Done when:* the deployed `/api/health` responds.
 6. **Handoff (3:30 to 4:00).** Test end to end with Parsh's page on the iPad. Write the server part of `README.md`: how to run locally, how to deploy, where the prompts are, what works, known bugs, and that `verify.py` is the next thing to build.
 
-**Printed worksheets:** the page image may include an imported PDF worksheet under the handwriting. `prompts/read.md` must tell Gemini to read printed problem text as context (mark those lines `relation: "other"`, problem_id of the problem they belong to) and never grade printed text, only handwriting.
+**Printed worksheets:** the page image may include an imported PDF worksheet under the handwriting. `prompts/read.md` must tell Gemini to read printed problem text as context (mark those lines `source: "printed"`, `relation: "other"`, problem_id of the problem they belong to; `latex` holds just the text, no marker) and never grade printed text, only handwriting. `guard.py` drops any circle/underline/note aimed at a printed line.
 
 ## Things only Preet can do (ask him)
 

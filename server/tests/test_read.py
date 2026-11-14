@@ -6,7 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from models import ReadLine
-from read import read_page, parse_lines, RESPONSE_SCHEMA
+from read import is_printed, read_page, parse_lines, RESPONSE_SCHEMA
 
 
 def line(**kw):
@@ -69,8 +69,31 @@ def test_duplicate_ids_get_next_unused():
 
 
 def test_printed_lines_forced_to_other():
-    out = parse_lines(json.dumps({"lines": [line(latex="\\text{[printed]} Find f'(x)", relation="start")]}), [])
-    assert out[0].relation == "other"
+    out = parse_lines(json.dumps({"lines": [line(latex="\\text{Find } f'(x)", relation="start", source="printed"),
+                                            line(line_id="L2", source="handwriting"),
+                                            line(line_id="L3")]}), [])
+    assert out[0].relation == "other" and out[0].source == "printed" and is_printed(out[0])
+    assert out[0].latex == "\\text{Find } f'(x)"
+    assert out[1].relation == "start" and out[1].source == "handwriting" and not is_printed(out[1])
+    assert out[2].source is None and not is_printed(out[2])  # missing = handwriting
+
+
+def test_legacy_printed_marker_stripped():
+    out = parse_lines(json.dumps({"lines": [
+        line(latex="\\text{[printed]} Find f'(x)", plain="[printed] Find f'(x)", relation="start"),
+        line(line_id="L2", latex="\\text{[printed] Solve for x}", plain="Solve for x", source="handwriting"),
+    ]}), [])
+    assert out[0].latex == "Find f'(x)" and out[0].plain == "Find f'(x)"
+    assert out[1].latex == "\\text{Solve for x}"
+    for l in out:
+        assert l.source == "printed" and l.relation == "other" and is_printed(l)
+        assert "[printed]" not in l.latex
+
+
+def test_schema_has_optional_source():
+    item = RESPONSE_SCHEMA["properties"]["lines"]["items"]
+    assert item["properties"]["source"]["enum"] == ["handwriting", "printed"]
+    assert "source" not in item["required"]
 
 
 def test_passes_prev_lines_into_request():

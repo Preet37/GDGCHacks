@@ -3,10 +3,13 @@ from internal import TeachResult
 from models import Action, CheckResponse, PageState, ProblemState, ReadLine
 
 MARK_TYPES = {"circle", "underline"}
+PRINTED_BLOCKED_TYPES = {"circle", "underline", "note"}
 
 
-def _keep(action: Action, verdicts: dict) -> bool:
-    """Safety net: never mark a line red that verify_step called correct."""
+def _keep(action: Action, verdicts: dict, printed_ids: set[str]) -> bool:
+    """Safety net: never mark printed worksheet text, never mark a line red that verify_step called correct."""
+    if action.type in PRINTED_BLOCKED_TYPES and action.line_id in printed_ids:
+        return False
     if action.type in MARK_TYPES and action.color == "red" and action.line_id:
         return verdicts.get(action.line_id) != "correct"
     return True
@@ -23,7 +26,8 @@ def _ordered_unique(items):
 
 def merge(state: PageState, lines: list[ReadLine], result: TeachResult) -> CheckResponse:
     if result.finished:
-        actions = [a for a in result.actions if _keep(a, result.verdicts)]
+        printed_ids = {l.line_id for l in lines if l.source == "printed"}
+        actions = [a for a in result.actions if _keep(a, result.verdicts, printed_ids)]
         clear = list(result.clear_line_ids)
         hint_updates = result.hint_updates
     else:

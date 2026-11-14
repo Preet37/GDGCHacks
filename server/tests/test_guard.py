@@ -8,6 +8,21 @@ def line(i, p="P1"):
                     relation="other", confidence="high")
 
 
+def test_marks_on_printed_lines_dropped():
+    printed = line("L1").model_copy(update={"source": "printed"})
+    res = TeachResult(
+        actions=[Action(type="circle", line_id="L1", color="red"),
+                 Action(type="underline", line_id="L1", color="green"),
+                 Action(type="note", line_id="L1", text="hi"),
+                 Action(type="speak", line_id="L1", text="read the problem again"),
+                 Action(type="note", line_id="L2", text="check this")],
+        verdicts={"L2": "incorrect"})
+    out = merge(state(), [printed, line("L2")], res)
+    assert [(a.type, a.line_id) for a in out.actions] == [("speak", "L1"), ("note", "L2")]
+    assert out.state.flagged_line_ids == ["L1", "L2"]
+    assert out.lines[0].source == "printed"
+
+
 def state(**kw):
     return PageState(page_id="pg", **kw)
 

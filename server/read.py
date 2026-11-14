@@ -12,7 +12,8 @@ from models import ReadLine
 log = logging.getLogger(__name__)
 
 PROMPT_PATH = Path(__file__).parent / "prompts" / "read.md"
-PRINTED_PREFIX = "\\text{[printed]}"  # read.md tells Gemini to start printed worksheet lines with this
+# Old way of marking printed lines (a latex prefix). Still accepted from the model, then turned into source="printed".
+LEGACY_PRINTED_RE = re.compile(r"^\s*\\text\{\s*\[printed\]\s*(?P<rest>[^{}]*)\}\s*")
 
 RELATIONS = ["start", "equals", "simplify", "derivative", "integral", "solve", "other"]
 
@@ -36,6 +37,7 @@ RESPONSE_SCHEMA = {
                     },
                     "relation": {"type": "string", "enum": RELATIONS},
                     "confidence": {"type": "string", "enum": ["high", "low"]},
+                    "source": {"type": "string", "enum": ["handwriting", "printed"]},
                 },
                 "required": ["line_id", "problem_id", "latex", "plain", "box", "relation", "confidence"],
             },
@@ -46,7 +48,19 @@ RESPONSE_SCHEMA = {
 
 
 def is_printed(line: ReadLine) -> bool:
-    return line.latex.lstrip().startswith(PRINTED_PREFIX)
+    return line.source == "printed"
+
+
+def _strip_legacy_marker(line: ReadLine) -> None:
+    """If the model still used the old `\\text{[printed]} ` latex marker, remove it and set source instead."""
+    m = LEGACY_PRINTED_RE.match(line.latex)
+    if not m:
+        return
+    inner = m.group("rest").strip()  # covers `\text{[printed] words}` as well as `\text{[printed]} words`
+    rest = line.latex[m.end():]
+    line.latex = ((f"\\text{{{inner}}} " if inner else "") + rest).strip()
+    line.plain = re.sub(r"^\s*\[printed\]\s*", "", line.plain)
+    line.source = "printed"
 
 
 def _mime(image: bytes) -> str:
@@ -119,6 +133,7 @@ def parse_lines(text: str, prev_lines: list[ReadLine]) -> list[ReadLine]:
             continue
         if not line.line_id or not line.problem_id:
             continue
+        _strip_legacy_marker(line)
         if is_printed(line):
             line.relation = "other"
         out.append(line)

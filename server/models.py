@@ -16,6 +16,7 @@ class ReadLine(BaseModel):
     box: Box
     relation: Relation
     confidence: Literal["high", "low"]
+    source: Optional[Literal["handwriting", "printed"]] = None  # missing = handwriting
 
 
 class FigureSpec(BaseModel):
