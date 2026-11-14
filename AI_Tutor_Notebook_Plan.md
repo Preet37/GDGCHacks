@@ -89,7 +89,7 @@ The two that can sink the demo are speed and wrong feedback. Fix those before ad
 | **Circles land in the wrong spot** | Boxes from Gemini can drift on a crowded page. | Ask for boxes per line, not per symbol. Pad circles a little. Test on messy pages early. |
 | **Too pushy** | Interrupting mid-thought is annoying, real tutors wait. | Only check finished lines (a pause plus a new line started), and a toggle for "check as I go" vs "check when I tap". |
 | **Firing on every stroke** | Wastes calls, causes flicker and repeated notes. | Only send after a real pause, skip if nothing changed, and give each line an id so the same note isn't written twice. |
-| **Venue wifi** | The live demo is required to work at the table. | Phone hotspot as backup, plus the 2-minute video recorded early. |
+| **Venue wifi** | The live demo is required to work at the table. | Before leaving the venue today (hacking ends 6:30 PM, doors close 7:00 PM), load the Firebase link on the iPad over venue wifi once. Phone hotspot as backup, plus the 2-minute video recorded tonight. |
 | **Scope creep** | 3D and engineering mode are tempting and huge. | Nothing past the core loop until it works on the iPad end to end. |
 | **API key exposed** | A key in browser code can be copied and drained. | Calls go through a small server route, key stays on the server. |
 
@@ -115,6 +115,10 @@ Preet builds the brain (Gemini pipeline and the contract) before 4 PM, so Parsh 
 
 ### 4:00 PM to tonight (Parsh carries it)
 
+The venue closes at 7:00 PM (hacking ends 6:30), so work after that happens off-site.
+
+- [ ] Before 6:30 PM: open the Firebase link on the iPad over venue wifi and confirm one check works. If it doesn't, plan on a phone hotspot for judging.
+
 - [ ] Math checker: a small Python service with SymPy, `verify_step` endpoint, deployed on Cloud Run. Hook it up as a Gemini tool.
 - [ ] Hint ladder: the Help button, hint level saved per problem in Firestore, sent to Gemini with each request.
 - [ ] Import PDF worksheet: place problem-set pages on the canvas so students work on their real homework (the Zurich demo did this).
@@ -123,19 +127,24 @@ Preet builds the brain (Gemini pipeline and the contract) before 4 PM, so Parsh 
 - [ ] Save and reload notebook pages in Firestore.
 - [ ] Build a demo set: 5 problems with planted mistakes that work every time.
 
-### Tonight (Preet back, both)
+### Tonight (Preet back, both, off-site)
 
 - [ ] Preet: voice polish (answers read out loud, test the mic on the iPad at the venue).
 - [ ] Preet: 3D figure tool with Three.js, if the core is solid.
 - [ ] Both: fix whatever the demo set breaks, then polish the look and loading states.
+- [ ] Both: record the 2-minute demo video tonight, as soon as the demo set works. Sunday morning is too short to leave it.
 - [ ] Preet: draft the Devpost write-up.
 
 ### Tomorrow morning
 
+Only 2.5 hours at the venue: check-in is 9:00 AM and Devpost closes at 11:30 AM. Judging is in person at our table, 11:30 AM to 1:00 PM, and the Gemini feature has to work live.
+
 - [ ] 10:00 feature freeze, bug fixes only.
-- [ ] 10:45 record the 2-minute video.
+- [ ] 9:00 check in, set up the table, and test the live demo on venue wifi (hotspot if needed).
+- [ ] 10:45 re-record the video only if last night's take is broken.
 - [ ] 11:15 submit on Devpost (deadline 11:30).
 - [ ] Practice the 90-second table pitch.
+- [ ] Bring the iPad (charged) and the Pencil. It has to be at the table from 11:30 AM to 1:00 PM.
 
 ## 4 PM handoff and demo
 

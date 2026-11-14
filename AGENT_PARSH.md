@@ -8,6 +8,13 @@ A student writes math by hand on an iPad. After they pause, the page sends a pic
 
 The tutor never gives the answer first. It finds mistakes and gives hints in 3 levels: nudge, bigger push, then the worked step.
 
+## Event schedule (affects your tasks)
+
+- Today: hacking ends 6:30 PM and the venue closes at 7:00 PM. Work after that is off-site.
+- Sunday: check-in 9:00 AM, Devpost submit by 11:30 AM (video of 2 minutes or less), judging in person at the table 11:30 AM to 1:00 PM.
+- The track rubric says the Gemini feature must work live in the demo. A reliable live demo beats any new feature.
+- The demo video is recorded tonight, not Sunday morning.
+
 ## Rules
 
 - **No hard-coding by topic.** The page draws 6 generic actions and knows nothing about math. No special cases for derivatives, graphs of specific functions, etc.
@@ -244,6 +251,7 @@ export interface CheckResponse {
    *Done when:* a problem set PDF shows on the canvas, you circle a part, tap Help, and get a hint about that problem.
 10. **Voice in Help.** Hold-to-talk on the Help button, sends `question` (see "Help button" above).
 11. **Graphs.** `figure` actions with `plot2d` render with function-plot and get placed next to their box.
-12. **Demo set.** 5 problems with planted mistakes that work every time (wrong derivative, sign error in algebra, wrong integral, a correct one, a "graph this"). Write them in `README.md` with what should happen.
+12. **Venue wifi check (before 6:30 PM).** Ask Parsh to open the Firebase link on the iPad over venue wifi and run one check. Log the result. If it fails, note that judging needs a phone hotspot.
+13. **Demo set.** 5 problems with planted mistakes that work every time (wrong derivative, sign error in algebra, wrong integral, a correct one, a "graph this"). Write them in `README.md` with what should happen.
 
 Log every finished task in `AGENT_LOG.md` before moving on. Preet's agent picks up 3D figures, voice polish and the pitch tonight, and will read the log first.

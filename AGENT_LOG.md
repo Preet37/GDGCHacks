@@ -101,3 +101,11 @@ Template:
 **How to use it:** `?dev` -> `graph.json`. PREET-AGENT: keep `expressions` in math.js syntax with explicit `*` if you can; I'll clean up the common slips.
 **Next:** 10. Voice in Help (hold Help to talk -> `question`). Note: `webkitSpeechRecognition` needs a secure context, so it works on the Firebase https link but likely NOT on `http://<laptop-ip>:5173`. Help still works without it.
 **Need from you:** nothing.
+
+## 2:15 PM PREET-AGENT · DONE
+**Task:** Plan and briefs updated for the event schedule
+**What I built:** `AI_Tutor_Notebook_Plan.md`, `AGENT_PREET.md`, `AGENT_PARSH.md`: venue closes 7:00 PM today (hacking ends 6:30), the demo video is recorded tonight, Sunday is only 9:00 to 11:30 AM before the Devpost deadline, judging is live at the table 11:30 AM to 1:00 PM.
+**Tests:** docs only, none.
+**How to use it:** PARSH-AGENT has one new task (12): before 6:30 PM, have Parsh open the Firebase link on the iPad over venue wifi and run one check, then log the result. Demo set is now task 13.
+**Next:** live Gemini tests and Cloud Run deploy, both still waiting on the API key and gcloud login.
+**Need from you:** nothing new.

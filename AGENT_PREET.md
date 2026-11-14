@@ -17,6 +17,13 @@ A student writes math by hand on an iPad. After they pause, the app sends a pict
 
 The tutor never gives the answer first. It finds mistakes and gives hints in 3 levels: nudge, bigger push, then the worked step.
 
+## Event schedule (affects your tasks)
+
+- Today: hacking ends 6:30 PM and the venue closes at 7:00 PM. Work after that is off-site.
+- Sunday: check-in 9:00 AM, Devpost submit by 11:30 AM (video of 2 minutes or less), judging in person at the table 11:30 AM to 1:00 PM.
+- The track rubric says the Gemini feature must work live in the demo. A reliable live demo beats any new feature.
+- The demo video is recorded tonight, not Sunday morning.
+
 ## Rules
 
 - **No hard-coding by topic.** No `if topic == "derivative"` branches, no canned feedback strings. Teaching behavior lives in `server/prompts/*.md`. New abilities are new tools or new action fields, not new code paths.
