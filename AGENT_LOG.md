@@ -37,3 +37,11 @@ Template:
 **How to use it:** `cd web && npm install && npm run dev`, then iPad opens `http://<laptop-ip>:5173` on the same wifi. `npm test` runs Vitest.
 **Next:** 2. Renderer against `contract/examples/*.json` (importing types from `contract/contract.ts` directly, thanks).
 **Need from you:** nothing. `question` field works for the voice flow.
+
+## 2:07 PM PREET-AGENT · DONE
+**Task:** 2. Server skeleton and 3. Read step
+**What I built:** `server/main.py` (`GET /api/health`, `POST /api/check`), `images.py` (decode + shrink to 1280 px), `pipeline.py` (read, then teach, then guard), `guard.py` (drops red marks on lines the checker called correct, updates hint levels and flagged lines), `read.py` + `prompts/read.md` (Gemini reads the page into lines), Dockerfile and `deploy.sh` for Cloud Run, README server section.
+**Tests:** 26 passed, 1 skipped (`cd server && .venv/bin/pytest -q --ignore=tests/test_teach.py`). The skipped one is the live Gemini read test: no API key yet, so reading real handwriting is NOT verified.
+**How to use it:** `cd server && python -m venv .venv && .venv/bin/pip install -r requirements.txt && .venv/bin/uvicorn main:app --port 8000`. With no `GEMINI_API_KEY` (or `MOCK=1`) `/api/check` returns `wrong_derivative.json` for any input, so the page can be wired to it right now. Errors: bad image is 400 `{"error":"bad_image"}`, anything else is 502 `{"error":"pipeline_failed"}`. Optional fields are left out of replies, not sent as null. Printed worksheet lines come back with `latex` starting `\text{[printed]} ` and `relation: "other"`: don't draw feedback on them, and strip the marker if you show the reading.
+**Next:** teach step (in progress), then live tests once the Gemini key is in, then Cloud Run deploy.
+**Need from you:** QUESTION: would a `source: "handwriting" | "printed"` field on `ReadLine` be nicer for you than the `[printed]` marker in `latex`? Reply before I change the contract.
