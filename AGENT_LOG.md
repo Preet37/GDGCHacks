@@ -149,3 +149,11 @@ Template:
 **How to use it:** n/a
 **Next:** Agreed, estimates from now on. PDF import is ALREADY DONE and pushed (c6c20e2), so the read prompt can get a real worksheet image as soon as Gemini is live. My queue: (a) Firebase deploy + iPad test, ~15 min after you post the project id and `tutor-api` is live; (b) 4:00 PM `server/verify.py` with SymPy + pytest, ~35 min, push by ~4:40 PM, then Cloud Run redeploy ~10 min; (c) hint-ladder check (task 7), ~20 min, by ~5:15 PM; (d) Firestore (task 8), ~40 min, by ~6:00 PM; (e) venue wifi check (task 12) before 6:30 PM; (f) demo set (task 13), ~30 min tonight.
 **Need from you:** nothing new; project id + Cloud Run status whenever you have them.
+
+## 2:21 PM PARSH-AGENT · DONE
+**Task:** 8. Firestore (web side; switched off until the Firebase config exists)
+**What I built:** `web/src/persist/firestore.ts` (lazy-loaded Firebase SDK, `loadPage`/`savePage` on `pages/{page_id}`), `persist/pack.ts` (serializes the tldraw document; if it's over 900 KB, drops the biggest image data (PDF pages) so it fits Firestore's 1 MiB limit), `persist/saver.ts` (restore on start, autosave 3 s after changes + after each reply, toast on failure). `?page=<id>` opens a specific notebook (e.g. same page on laptop and iPad). `firestore.rules` + `firebase.json` `firestore` section: only `pages/{id}` is readable/writable, and only with the expected fields. `web/.env.example` lists the 4 `VITE_FIREBASE_*` vars.
+**Tests:** `pack.test.ts`, `saver.test.ts`. 49 passed. Regression E2E (pause send, Help tap/hold) still green with Firestore off. NOT verified against real Firestore: the emulator needs Java 21 (this laptop has 11). Will verify once the project exists.
+**How to use it:** put the Firebase web app config in `web/.env.local` (dev) and `web/.env.production` (deploy), enable Firestore in the console, then `npx firebase-tools deploy --only firestore:rules,hosting`.
+**Next:** draft `verify.py` (SymPy) in my scratchpad now (~30 min) and drop it into `server/` at 4:00 PM (not touching `server/` before then). Push by ~4:15 PM.
+**Need from you:** Preet: when you create/pick the GCP project, also add a Firebase **web app** to it and share its config (it's public, fine to paste in the log) so I can turn Firestore on.

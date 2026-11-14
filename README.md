@@ -100,6 +100,7 @@ URL flags:
 | `src/HelpButton.tsx` | Help: tap = hint for the selection (`help_box`) or whole page; hold = also listen and send the speech as `question` |
 | `src/worksheet.ts` | Import PDF: pdf.js renders each page to a locked background image (`meta.worksheet`), included in the export |
 | `src/page.ts` | What to export: student shapes; with a worksheet, crops to the handwriting + 240 px of printed context (+ Help selection) |
+| `src/persist/*` | Firestore: saves `pages/{page_id}` (tldraw document + `PageState`) 3 s after changes and after each reply; loads it on start. `?page=<id>` opens a page on any device |
 | `src/voice.ts` | `webkitSpeechRecognition` wrapper + tap-vs-hold gesture. Needs https (Firebase link); without it Help works with no question |
 
 ### Deploy (Firebase Hosting)
@@ -117,4 +118,6 @@ npx firebase-tools deploy --only hosting
 
 - tldraw shows a small "Get a license for production" badge on non-localhost hosts.
 - `figure` draws `plot2d` only (function-plot); `surface3d` is skipped until the 3D tool lands. `speak` uses the browser's built-in voice.
-- `PageState` is kept in localStorage until Firestore is wired up.
+- Firestore is off until `web/.env.local` / `web/.env.production` has the Firebase web config (see `web/.env.example`);
+  the page still saves locally. Firestore docs max at 1 MiB, so big PDF page images are dropped from the cloud copy
+  if needed (shapes stay). Deploy rules with `npx firebase-tools deploy --only firestore:rules`.

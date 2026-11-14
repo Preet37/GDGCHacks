@@ -3,6 +3,7 @@ import { Tldraw, type Editor } from 'tldraw'
 import 'tldraw/tldraw.css'
 import { DevPanel } from './DevPanel'
 import { HelpButton } from './HelpButton'
+import { pageIdFromUrl, restorePage, startAutosave } from './persist/saver'
 import { Tutor } from './sync/tutor'
 import { TutorOverlay } from './TutorOverlay'
 
@@ -14,10 +15,24 @@ export default function App() {
 
   useEffect(() => {
     if (!editor) return
-    const t = new Tutor(editor)
+    const t = new Tutor(editor, pageIdFromUrl())
     setTutor(t)
     if (DEV) Object.assign(window, { tutor: t })
-    return () => t.dispose()
+    let stopSave = () => {}
+    let disposed = false
+    restorePage(editor, t)
+      .catch((err) => {
+        console.warn('load failed', err)
+        t.notify("Couldn't load the saved page")
+      })
+      .finally(() => {
+        if (!disposed) stopSave = startAutosave(editor, t, (m) => t.notify(m))
+      })
+    return () => {
+      disposed = true
+      stopSave()
+      t.dispose()
+    }
   }, [editor])
 
   return (

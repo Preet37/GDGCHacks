@@ -7,7 +7,7 @@ import { pageToBox, type PageRect } from '../render/geometry'
 import { studentBounds, studentShapes } from '../page'
 import { postCheck } from './api'
 import { exportPng } from './exportImage'
-import { loadLastBounds, loadState, saveLastBounds, saveState } from './pageState'
+import { emptyState, loadLastBounds, loadState, saveLastBounds, saveState } from './pageState'
 import { hashString, PauseScheduler } from './scheduler'
 
 export const PAUSE_MS = 2000
@@ -28,9 +28,10 @@ export class Tutor {
   private unlisten: () => void
   private editor: Editor
 
-  constructor(editor: Editor) {
+  constructor(editor: Editor, pageId?: string | null) {
     this.editor = editor
     this.state = loadState()
+    if (pageId && pageId !== this.state.page_id) this.state = emptyState(pageId)
     this.scheduler = new PauseScheduler({
       delayMs: PAUSE_MS,
       key: () => this.fingerprint(),
@@ -48,6 +49,11 @@ export class Tutor {
     )
   }
 
+  /** Show a quiet toast from outside the tutor (e.g. save errors). */
+  notify(message: string) {
+    this.emit({ type: 'error', message })
+  }
+
   on(fn: (e: TutorEvent) => void) {
     this.listeners.add(fn)
     return () => this.listeners.delete(fn)
@@ -63,6 +69,13 @@ export class Tutor {
     const ok = await this.scheduler.exclusive(() => this.send({ mode: 'help', area, question }).catch(() => {}))
     if (!ok) this.emit({ type: 'error', message: 'Still thinking about the last one…' })
     return ok
+  }
+
+  /** Replace the page state (e.g. loaded from Firestore). */
+  adoptState(state: PageState) {
+    this.state = state
+    saveState(state)
+    this.drawReading()
   }
 
   /** Toggle the gray "what the AI read" text under each line. */
