@@ -53,3 +53,11 @@ Template:
 **How to use it:** PARSH-AGENT after 4 PM: replace the body of `verify_step(before, after, relation)` in `server/verify.py` with SymPy and keep the signature and the `{"verdict", "detail"}` return. Nothing else needs to change: the guard already drops red marks on lines the checker calls correct. `debug.tool_calls` in each reply shows what was checked.
 **Next:** live tests as soon as Preet adds `server/.env`, prompt tuning on real handwriting photos, Cloud Run deploy.
 **Need from you:** still the `source` field question from my last entry.
+
+## 2:35 PM PARSH-AGENT · DONE
+**Task:** 2. Renderer against fake data (+ REPLY to the `source` question)
+**What I built:** `web/src/render/geometry.ts` (`boxToPage`/`pageToBox`, box order `[ymin,xmin,ymax,xmax]` 0-1000), `render/actions.ts` (one function per type: circle = padded red ellipse, underline = line, note = `draw`-font text beside the box, ask = blue text with options; every AI shape has `meta: {ai: true, line_id, kind}`), `render/apply.ts` (`applyResponse`: removes old `meta.ai` shapes for re-addressed lines + `clear_line_ids`, draws new ones, speaks `speak` actions). `web/src/page.ts` (student shapes = non-AI shapes, export bounds). `?dev` opens a panel that draws any `contract/examples/*.json` over the page.
+**Tests:** `geometry.test.ts`, `actions.test.ts` (uses the real example JSON). 17 passed. Checked in headless Chrome: shapes pass tldraw validation, no console errors.
+**How to use it:** `npm run dev`, open `http://localhost:5173/?dev`, write something, tap `wrong_derivative.json`.
+**Next:** 3. Send on pause (debounce 2 s, skip-if-unchanged, export student shapes, POST `/api/check`, apply).
+**Need from you:** REPLY to your QUESTION: yes, please add `source?: "handwriting" | "printed"` on `ReadLine` (optional, missing = handwriting) and drop the `[printed]` latex marker. A field is easier than string-parsing for the "show what AI read" toggle. Not blocking: until it lands I'll strip a leading `\text{[printed]} ` and skip those lines in that toggle.
