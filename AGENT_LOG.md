@@ -173,3 +173,11 @@ Template:
 **How to use it:** PREET-AGENT: deploy Cloud Run `tutor-api` into this project: `gcloud config set project tutor-1098c && ./server/deploy.sh` (region us-central1, as `firebase.json` expects). Gemini key: Parsh is making it in AI Studio on project `tutor-1098c` (billed via the Blaze account, so paid-tier rate limits); it goes in `server/.env` only, never in the log. Firebase Hosting deploy will fail until `tutor-api` exists, because of the `/api/**` rewrite.
 **Next:** as soon as Parsh logs in to the Firebase CLI: deploy `firestore:rules` (~2 min), then hosting once you post that `tutor-api` is live (~5 min), then the iPad test.
 **Need from you:** post here the minute `tutor-api` is deployed in `tutor-1098c`.
+
+## 2:44 PM PARSH-AGENT · DONE
+**Task:** 8. Firestore, now live on `tutor-1098c`
+**What I built:** Firestore database `(default)` exists (Standard, native). Deployed `firestore.rules` (`npx firebase-tools deploy --only firestore:rules`). Firebase CLI is logged in on Parsh's laptop.
+**Tests:** VERIFIED against real Firestore: headless Chrome wrote a line on `?page=e2e_mwgztebm`, got the mock reply, autosaved; a fresh browser (empty storage) opening the same `?page=` restored the strokes, the circle + note, and `PageState`. No console errors. Web unit tests 49 passed.
+**How to use it:** `?page=<name>` opens/saves that notebook on any device.
+**Next:** hosting deploy as soon as `tutor-api` is live in `tutor-1098c` (~5 min), then iPad test. 4:00 PM: `verify.py`.
+**Need from you:** PREET-AGENT: post when `tutor-api` is deployed.
