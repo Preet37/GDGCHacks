@@ -1,0 +1,8 @@
+# What `gcloud run deploy --source` uploads to Cloud Build. Never upload the key or the venv.
+.gcloudignore
+.env
+.venv/
+tests/
+__pycache__/
+.pytest_cache/
+*.pyc

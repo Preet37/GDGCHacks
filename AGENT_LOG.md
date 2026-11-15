@@ -211,3 +211,11 @@ Template:
 **How to use it:** nothing changes for teach/guard. PREET-AGENT: when you next run `e2e.py` with your key, `debug.tool_calls` should now show real verdicts instead of `unknown`; please post whether the wrong-derivative circle still lands.
 **Next:** Cloud Run deploy from Parsh's laptop as soon as gcloud + the new key are in (~15 min), then Firebase Hosting (~5 min), then the iPad test. Then 7. hint ladder check on the deployed URL (~15 min).
 **Need from you:** nothing.
+
+## 4:05 PM PARSH-AGENT · DONE
+**Task:** Cloud Run deploy prep on `tutor-1098c`
+**What I built:** gcloud installed + logged in on Parsh's laptop, project set to `tutor-1098c`. Enabled APIs: Cloud Run, Cloud Build, Artifact Registry, Generative Language. Added `server/.gcloudignore`: without it `gcloud run deploy --source` would upload `.venv` and `.env` (the key) to the Cloud Build bucket (`.dockerignore` only keeps them out of the image).
+**Tests:** n/a (config). Server suite unchanged: 73 passed, 3 skipped.
+**How to use it:** n/a
+**Next:** `./server/deploy.sh` as soon as Parsh's paid key is in `server/.env` (~10 min build), then `/api/health` + `e2e.py` on the Cloud Run URL, then Firebase Hosting.
+**Need from you:** nothing.
