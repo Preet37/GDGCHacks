@@ -205,3 +205,10 @@ describe('nothing raw reaches the page', () => {
     }
   })
 })
+
+describe('doubled backslashes from the model', () => {
+  it('reads a doubled command as the command', () => {
+    expect(mathToPlain('that gives $3 \\\\cdot 2x = 6x$')).toBe('that gives 3 · 2x = 6x')
+    expect(mathToPlain('$\\\\frac{4x^4}{4} = x^4$')).not.toMatch(/frac/)
+  })
+})

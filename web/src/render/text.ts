@@ -70,6 +70,8 @@ function fractionsAndRoots(text: string): string {
 
 /** Drop LaTeX markup, keep the words and symbols. Carets and underscores are left alone. */
 function stripLatex(text: string, spoken = false): string {
+  // models sometimes double the backslash of a command ("\\\\cdot", "\\\\frac"): one is meant
+  text = text.replace(/\\{2,}(?=[A-Za-z]{2,})/g, '\\')
   return fractionsAndRoots(
     text
       // degrees: 30^\circ, 30^{\circ}, 30\circ (and a doubled backslash, which a model sometimes sends)

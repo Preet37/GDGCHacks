@@ -13,7 +13,7 @@ export type Intent = 'help' | 'teach'
 // what the recognizer writes for "I'm": I'm, I’m, Im, I am
 const IM = "i(?:['’]| a)?m"
 const TEACH = new RegExp(
-  `\\b(teach me|walk me through|explain (this|that|it)|can you explain|show me how|i (don['’]?t|do not) (understand|get)|i have no idea)\\b`,
+  `\\b(teach me|walk me through|explain (this|that|it)|can you explain|show me how|i (don['’]?t|do not) (understand|get)|i have no idea|(make|create|give|build|start) (me )?an? (course|lesson|class)|an? (course|lesson) (on|about|for))\\b`,
   'i',
 )
 const HELP = new RegExp(

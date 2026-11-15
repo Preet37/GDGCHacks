@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { Action, Model3dFigure, ModelPart } from '../contract'
 import example from '../../../contract/examples/model3d_bridge.json'
 import { ASSET3D_MIN_H, ASSET3D_MIN_W, ASSET3D_TYPE, drawModel3d, MODEL3D_MIN_H, MODEL3D_MIN_W, MODEL3D_TYPE } from './figure'
-import { loadsUsed, memberAxis, memberRadius, modelBounds, partGroups, partPoints, thinStroke, TL_COLORS } from './model3d/geometry'
+import { loadsUsed, memberAxis, memberRadius, model3dScale, modelBounds, partGroups, partPoints, thinStroke, TL_COLORS } from './model3d/geometry'
 
 const figureAction = example.actions.find((a) => a.type === 'figure') as unknown as Action
 const bridge = figureAction.figure!.model3d as Model3dFigure
@@ -120,5 +120,23 @@ describe('marks drawn on the model', () => {
 
   it('every tldraw colour has a hex', () => {
     for (const c of ['black', 'blue', 'red', 'green', 'violet', 'orange']) expect(TL_COLORS[c]).toMatch(/^#[0-9a-f]{6}$/)
+  })
+})
+
+describe('model3dScale', () => {
+  it('is 1 for a card of the usual size, so it looks as designed', () => {
+    expect(model3dScale(MODEL3D_MIN_W, MODEL3D_MIN_H)).toBe(1)
+    expect(model3dScale(560, 460)).toBeCloseTo(560 / 520)
+  })
+
+  it('grows with a card made while zoomed out', () => {
+    expect(model3dScale(2103, 1519)).toBeCloseTo(1519 / 400) // the height caps it
+    expect(model3dScale(1040, 1200)).toBe(2) // the width sets it
+  })
+
+  it('never shrinks the card, and survives a bad size', () => {
+    expect(model3dScale(300, 200)).toBe(1)
+    expect(model3dScale(0, 0)).toBe(1)
+    expect(model3dScale(NaN, 500)).toBe(1)
   })
 })

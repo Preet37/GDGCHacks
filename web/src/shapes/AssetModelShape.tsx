@@ -2,7 +2,7 @@ import { useEffect, useRef, useState, type ComponentType } from 'react'
 import { BaseBoxShapeUtil, HTMLContainer, T, useEditor, useValue, type RecordProps, type TLShape } from 'tldraw'
 import { assetById, assetParams, type AssetEntry, type AssetSlider } from '../assets3d/catalog'
 import type { AssetStageProps, Orbit } from '../assets3d/AssetStage'
-import { isFresh } from './fresh3d'
+import { claimLive, isFresh } from './fresh3d'
 
 /**
  * A hand-built, animated 3D model from the asset library (../assets3d): a bridge, a Formula One car, a wind
@@ -12,8 +12,13 @@ import { isFresh } from './fresh3d'
 
 export const ASSET3D_TYPE = 'asset3d' as const
 export const ASSET3D_TITLE_H = 32
-/** At most this many asset cards run WebGL at once; the oldest goes back to "Tap to show" (iPad memory). */
-const MAX_LIVE = 2
+/**
+ * The card's title, sliders and caption are designed at this width and grow with the card. A card made
+ * while the student is zoomed out is larger on the page, so its labels stay readable at that zoom.
+ */
+const ASSET3D_BASE_W = 560
+/** ...but never so large that they take much more than half of the card's height from the 3D view. */
+const ASSET3D_BASE_H = 400
 
 interface Asset3dProps {
   w: number
@@ -32,9 +37,6 @@ declare module 'tldraw' {
 }
 
 export type Asset3dShape = TLShape<typeof ASSET3D_TYPE>
-
-/** Cards that are running WebGL now, oldest first, each with the way to put it back to sleep. */
-const liveCards = new Map<string, () => void>()
 
 const cardStyle: React.CSSProperties = {
   width: '100%',
@@ -93,11 +95,14 @@ function show(sl: AssetSlider, v: number) {
 function Slider({
   sl,
   value,
+  k,
   onChange,
   onCommit,
 }: {
   sl: AssetSlider
   value: number
+  /** the card's scale (its width over the design width) */
+  k: number
   onChange: (v: number) => void
   onCommit: () => void
 }) {
@@ -117,8 +122,8 @@ function Slider({
   }
   const frac = clamp((value - sl.min) / (sl.max - sl.min), 0, 1)
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 10, height: 36 }} data-slider={sl.key}>
-      <span style={{ width: 132, flex: 'none', fontSize: 14, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+    <div style={{ display: 'flex', alignItems: 'center', gap: 10 * k, height: 36 * k }} data-slider={sl.key}>
+      <span style={{ width: 132 * k, flex: 'none', fontSize: 14 * k, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
         {sl.label}
       </span>
       <div
@@ -128,7 +133,7 @@ function Slider({
         aria-valuemin={sl.min}
         aria-valuemax={sl.max}
         aria-valuenow={value}
-        style={{ flex: 1, height: 36, position: 'relative', cursor: 'pointer', touchAction: 'none', pointerEvents: 'all' }}
+        style={{ flex: 1, height: 36 * k, position: 'relative', cursor: 'pointer', touchAction: 'none', pointerEvents: 'all' }}
         onPointerDown={(e) => {
           claim(e)
           if (dragging.current !== null) return
@@ -163,24 +168,24 @@ function Slider({
         onClick={claim}
         onDoubleClick={claim}
       >
-        <div style={{ position: 'absolute', left: 0, right: 0, top: 15, height: 6, borderRadius: 3, background: '#dfe3ea' }} />
-        <div style={{ position: 'absolute', left: 0, width: `${frac * 100}%`, top: 15, height: 6, borderRadius: 3, background: '#2563eb' }} />
+        <div style={{ position: 'absolute', left: 0, right: 0, top: 15 * k, height: 6 * k, borderRadius: 3 * k, background: '#dfe3ea' }} />
+        <div style={{ position: 'absolute', left: 0, width: `${frac * 100}%`, top: 15 * k, height: 6 * k, borderRadius: 3 * k, background: '#2563eb' }} />
         <div
           style={{
             position: 'absolute',
-            left: `calc(${frac * 100}% - 11px)`,
-            top: 7,
-            width: 22,
-            height: 22,
-            borderRadius: 11,
+            left: `calc(${frac * 100}% - ${11 * k}px)`,
+            top: 7 * k,
+            width: 22 * k,
+            height: 22 * k,
+            borderRadius: 11 * k,
             background: '#fff',
-            border: '2px solid #2563eb',
+            border: `${2 * k}px solid #2563eb`,
             boxSizing: 'border-box',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.25)',
+            boxShadow: `0 ${k}px ${3 * k}px rgba(0,0,0,0.25)`,
           }}
         />
       </div>
-      <span style={{ width: 84, flex: 'none', fontSize: 14, textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
+      <span style={{ width: 84 * k, flex: 'none', fontSize: 14 * k, textAlign: 'right', fontVariantNumeric: 'tabular-nums', whiteSpace: 'nowrap' }}>
         {show(sl, value)}
       </span>
     </div>
@@ -203,7 +208,9 @@ function Asset3dCard({ shape }: { shape: Asset3dShape }) {
   const liveRef = useRef(live)
   liveRef.current = live
   const zoom = useValue('zoom', () => editor.getZoomLevel(), [editor])
-  const hintScale = Math.min(2.5, Math.max(1, 0.8 / zoom))
+  // everything on the card but the 3D view is sized by this (see ASSET3D_BASE_W)
+  const k = Math.max(1, Math.min(shape.props.w / ASSET3D_BASE_W, shape.props.h / ASSET3D_BASE_H))
+  const hintScale = Math.max(k, Math.min(2.5, Math.max(1, 0.8 / zoom)))
 
   // Slider values: live here while a slider moves, stored in the shape when it is let go.
   const storedKey = JSON.stringify(shape.props.params)
@@ -243,17 +250,11 @@ function Asset3dCard({ shape }: { shape: Asset3dShape }) {
         console.warn('asset3d: 3D view failed to load', err)
         if (!cancelled) setFailed(true)
       })
-    // keep the number of WebGL views small: the oldest live card goes back to sleep
-    liveCards.delete(shape.id)
-    liveCards.set(shape.id, () => setLive(false))
-    while (liveCards.size > MAX_LIVE) {
-      const [oldest, sleep] = liveCards.entries().next().value as [string, () => void]
-      liveCards.delete(oldest)
-      sleep()
-    }
+    // keep the number of WebGL views small: the oldest live 3D card goes back to "Tap to show"
+    const unclaim = claimLive(shape.id, () => setLive(false))
     return () => {
       cancelled = true
-      liveCards.delete(shape.id)
+      unclaim()
     }
   }, [live, entry, shape.id])
 
@@ -393,14 +394,14 @@ function Asset3dCard({ shape }: { shape: Asset3dShape }) {
       <div style={cardStyle} data-asset3d={state} data-asset={shape.props.asset}>
         <div
           style={{
-            height: ASSET3D_TITLE_H,
+            height: ASSET3D_TITLE_H * k,
             flex: 'none',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: 16,
+            fontSize: 16 * k,
             fontWeight: 600,
-            padding: '0 10px',
+            padding: `0 ${10 * k}px`,
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -443,15 +444,15 @@ function Asset3dCard({ shape }: { shape: Asset3dShape }) {
               }}
             />
           )}
-          {broken && <div style={{ ...overlay, color: '#c9d1e0', fontWeight: 400, fontSize: 14 }}>Couldn't draw this</div>}
-          {!broken && !live && <div style={{ ...overlay, color: '#8fb4ff' }}>Tap to show the 3D model</div>}
-          {!broken && live && !ready && <div style={{ ...overlay, color: '#c9d1e0', fontWeight: 400 }}>Loading the model…</div>}
+          {broken && <div style={{ ...overlay, color: '#c9d1e0', fontWeight: 400, fontSize: 14 * k }}>Couldn't draw this</div>}
+          {!broken && !live && <div style={{ ...overlay, color: '#8fb4ff', fontSize: 16 * k }}>Tap to show the 3D model</div>}
+          {!broken && live && !ready && <div style={{ ...overlay, color: '#c9d1e0', fontWeight: 400, fontSize: 16 * k }}>Loading the model…</div>}
           {!broken && live && ready && (
-            <div style={{ position: 'absolute', right: 8, top: 8, display: 'flex', flexDirection: 'column', gap: 6 }}>
-              <button style={zoomBtn} aria-label="Zoom in" {...press(() => zoomBy(1.25))}>
+            <div style={{ position: 'absolute', right: 8 * k, top: 8 * k, display: 'flex', flexDirection: 'column', gap: 6 * k }}>
+              <button style={{ ...zoomBtn, width: 36 * k, height: 36 * k, borderRadius: 8 * k, fontSize: 20 * k }} aria-label="Zoom in" {...press(() => zoomBy(1.25))}>
                 +
               </button>
-              <button style={zoomBtn} aria-label="Zoom out" {...press(() => zoomBy(0.8))}>
+              <button style={{ ...zoomBtn, width: 36 * k, height: 36 * k, borderRadius: 8 * k, fontSize: 20 * k }} aria-label="Zoom out" {...press(() => zoomBy(0.8))}>
                 −
               </button>
             </div>
@@ -481,18 +482,19 @@ function Asset3dCard({ shape }: { shape: Asset3dShape }) {
         </div>
         {entry && (
           <>
-            <div style={{ flex: 'none', padding: '6px 14px 2px' }}>
+            <div style={{ flex: 'none', padding: `${6 * k}px ${14 * k}px ${2 * k}px` }}>
               {entry.sliders.map((sl) => (
                 <Slider
                   key={sl.key}
                   sl={sl}
                   value={vals[sl.key] ?? sl.def}
+                  k={k}
                   onChange={(v) => setVals((old) => (old[sl.key] === v ? old : { ...old, [sl.key]: v }))}
                   onCommit={commit}
                 />
               ))}
             </div>
-            <div style={{ flex: 'none', padding: '4px 14px 10px', fontSize: 13.5, lineHeight: 1.35, color: '#333' }}>{entry.caption}</div>
+            <div style={{ flex: 'none', padding: `${4 * k}px ${14 * k}px ${10 * k}px`, fontSize: 13.5 * k, lineHeight: 1.35, color: '#333' }}>{entry.caption}</div>
           </>
         )}
       </div>

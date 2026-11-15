@@ -1,5 +1,6 @@
 import * as THREE from 'three'
 import type { Model3dFigure, ModelPart } from '../../contract'
+import { glQuality } from '../gl'
 import { hasLooks, LOAD_ARROW_COLOR, LOAD_COLORS, memberAxis, memberRadius, modelBounds, pickRadius, realLook, type ModelMark } from './geometry'
 
 /**
@@ -111,9 +112,10 @@ function partGeometry(p: ModelPart, radius: number, pickSleeve = false): { geome
 
 /** Mount a view of `model` inside `host`. Throws if WebGL isn't available. Call dispose() to free the GL context. */
 export function createModelView(host: HTMLElement, model: Model3dFigure, w: number, h: number): ModelView {
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'low-power' })
+  const quality = glQuality() // lighter on a touch device (iPad memory)
+  const renderer = new THREE.WebGLRenderer({ antialias: quality.antialias, alpha: false, powerPreference: 'low-power' })
   const disposables: { dispose(): void }[] = []
-  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1))
+  renderer.setPixelRatio(quality.pixelRatio)
   renderer.setClearColor(0xf7f9fc, 1)
   renderer.setSize(w, h, false)
   const canvas = renderer.domElement

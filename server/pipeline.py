@@ -181,6 +181,7 @@ def _run_check(req: CheckRequest, entry: dict) -> CheckResponse:
 
     resp = merge(req.state, lines, result, req.mode, req.question, memory.marked(page_id), memory.solved(page_id))
     memory.remember(page_id, req.mode, lines, resp.actions, resp.clear_line_ids)
+    memory.remember_turn(page_id, req.mode, req.question, resp.actions)
     # Your turn: the practice problem a lesson just set, and how the ones on the page stand after this check.
     for a in resp.actions:
         if a.lesson is not None and a.lesson.practice is not None:
