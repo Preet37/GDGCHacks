@@ -131,10 +131,12 @@ const SCENES = {
   }],
 
   // 3. Teach me, then "Your turn"
-  3: [{ blockSpeak: true }, async (s) => {
+  // (the narration is real, so the lesson plays as it does for a student; it costs one voice clip per step shown)
+  3: [{}, async (s) => {
     await caption(s, 'Made a mistake you do not understand?')
-    await write(s, 'f(x) = 3x^2 + 2x', X0, 250, XH)
-    await write(s, "f'(x) = 6x + 1", X0, 250 + LINE, XH)
+    // written a little smaller, so the work and the tutor's question both fit beside the lesson panel
+    await write(s, 'f(x) = 3x^2 + 2x', 60, 250, 20)
+    await write(s, "f'(x) = 6x + 1", 60, 250 + 72, 20)
     await L.waitCheck(s, { mode: 'auto', from: 0, timeout: 50000 })
     await L.sleep(2000)
     await caption(s, 'Tap Teach me: Gemini writes a short lesson about this exact mistake and narrates it.')
@@ -152,7 +154,7 @@ const SCENES = {
       await next.click()
       await L.sleep(i < 3 ? 3800 : 1700)
     }
-    for (let i = 0; i < 40; i++) {
+    for (let i = 0; i < 60; i++) {
       const state = await s.page.evaluate(() => document.querySelector('.lesson-panel')?.dataset.lesson)
       if (state === 'ended') break
       await L.sleep(500)
@@ -164,7 +166,7 @@ const SCENES = {
     const ask = practice.at(-1)
     if (m && ask && ask.screen.y > 60 && ask.screen.y + ask.screen.h < VIEW.height - 150) {
       const from2 = s.api.length
-      await write(s, `${2 * Number(m[1])}x + ${m[2]}`, ask.screen.x + ask.screen.w + 24, ask.screen.y + ask.screen.h * 0.74, XH)
+      await write(s, `${2 * Number(m[1])}x + ${m[2]}`, ask.screen.x + ask.screen.w + 20, ask.screen.y + ask.screen.h * 0.74, Math.max(16, ask.screen.h * 0.36))
       await L.waitCheck(s, { mode: 'auto', from: from2, timeout: 50000 })
       await L.sleep(4500)
     } else {
@@ -204,10 +206,15 @@ const SCENES = {
     await L.waitCheck(s, { mode: 'auto', from, timeout: 60000 })
     await L.sleep(4500)
     await caption(s, 'Surfaces come out in 3D. Drag to spin.')
+    // down to problem 4
+    const dy2 = Math.round(sheet.y + ((150 + 3 * 226) / 1056) * sheet.h - VIEW.height * 0.14)
+    await s.cdp.send('Input.dispatchMouseEvent', { type: 'mouseWheel', x: VIEW.width / 2, y: VIEW.height / 2, deltaX: 0, deltaY: dy2, pointerType: 'mouse' })
+    await L.sleep(900)
+    sheet = (await L.shapes(s)).find((x) => x.meta?.worksheet).screen
     from = s.api.length
     await write(s, 'z = x^2 + y^2', sheet.x + 90 * k, rowY(3) + 70 * k, 20 * k)
     await write(s, 'graph', sheet.x + 330 * k, rowY(3) + 76 * k, 20 * k)
-    await L.waitCheck(s, { mode: 'auto', from, timeout: 60000 })
+    await L.waitCheck(s, { mode: 'auto', from, timeout: 30000 })
     await L.sleep(4000)
     const surf = (await L.shapes(s)).filter((x) => x.type === 'surface3d').at(-1)
     if (surf) {

@@ -179,7 +179,37 @@ function drawSurface3d(editor: Editor, action: Action, rect: PageRect) {
   }
   load()
     .then((m) => m.renderSurface3d(editor, action, rect))
-    .catch((err) => console.warn('figure skipped', action.figure, err))
+    .catch((err) => {
+      console.warn('figure skipped', action.figure, err)
+      // most often: the site was redeployed while this page was open, and the old 3D code is gone
+      notice("Couldn't load the 3D view. Reload the page and ask again.")
+    })
+}
+
+/** Tell the student something from the drawing code (shown by TutorOverlay). `reload` offers a Reload button. */
+export function notice(message: string, reload = true) {
+  try {
+    window.dispatchEvent(new CustomEvent('tutor-notice', { detail: { message, reload } }))
+  } catch {
+    // no window (tests)
+  }
+}
+
+/** A figure drawn where the student isn't looking is no use: bring it into view if most of it is off screen. */
+function bringIntoView(editor: Editor, r: PageRect) {
+  try {
+    const v = editor.getViewportPageBounds()
+    const w = Math.max(0, Math.min(r.x + r.w, v.x + v.w) - Math.max(r.x, v.x))
+    const h = Math.max(0, Math.min(r.y + r.h, v.y + v.h) - Math.max(r.y, v.y))
+    if (w * h >= 0.6 * r.w * r.h) return
+    const zoom = editor.getZoomLevel()
+    const pad = 24 / zoom
+    const x = r.x + r.w + pad > v.x + v.w ? r.x + r.w + pad - v.w : r.x - pad < v.x ? r.x - pad : v.x
+    const y = r.y + r.h + pad > v.y + v.h ? r.y + r.h + pad - v.h : r.y - pad < v.y ? r.y - pad : v.y
+    editor.setCamera({ x: -x, y: -y, z: zoom }, { animation: { duration: 300 } })
+  } catch (err) {
+    console.warn('could not bring the figure into view', err)
+  }
 }
 
 /**
@@ -193,7 +223,9 @@ export function drawFigures(editor: Editor, actions: Action[], bounds: PageRect,
   for (const action of actions) {
     if (action.type !== 'figure' || !action.figure) continue
     if (action.figure.kind === 'surface3d') {
-      drawSurface3d(editor, action, figureRect(action, bounds, ctx))
+      const r3 = figureRect(action, bounds, ctx)
+      drawSurface3d(editor, action, r3)
+      bringIntoView(editor, r3)
       handed++
       continue
     }
@@ -235,6 +267,7 @@ export function drawFigures(editor: Editor, actions: Action[], bounds: PageRect,
       meta: aiMeta('figure', action.line_id, lineRect(action, bounds, ctx)),
       props: { assetId, w: r.w, h: r.h },
     })
+    bringIntoView(editor, r)
   }
   if (!shapes.length) return handed
   editor.run(
