@@ -105,3 +105,22 @@ def test_a_wrong_direction_for_the_missing_force_is_corrected_by_physics():
     resp = merge(state, [FBD, AT_REST], result, "help")
     (fig,) = fbd_figs(resp)
     assert abs(next(x for x in fig.figure.fbd.expected if x.label == "f").angle_deg - 30) < 1
+
+
+def test_hint_one_that_names_the_missing_force_is_sent_back():
+    import json as _json
+    from internal import TeachResult
+    from models import Action, ReadLine
+    from teach import named_too_soon
+    fbd = {"fbd": {"bodies": [{"id": "B", "shape": "box"}], "surfaces": [{"id": "S", "angle_deg": 30}],
+                   "forces": [{"id": "F1", "label": "mg", "angle_deg": 270}, {"id": "F2", "label": "N", "angle_deg": 120}]}}
+    line = ReadLine(line_id="L1", problem_id="P1", box=[100, 100, 400, 400], latex="", plain=_json.dumps(fbd),
+                    relation="other", source="handwriting", confidence="high")
+    res = TeachResult()
+    res.fbd["L1"] = {"expected": [{"label": "mg", "angle_deg": 270}, {"label": "N", "angle_deg": 120},
+                                  {"label": "f", "angle_deg": 30}], "check": {"verdict": "incorrect"}}
+    named = [Action(type="note", color="blue", line_id="L1", text="Friction acts along the ramp surface. Which way?")]
+    hinted = [Action(type="note", color="blue", line_id="L1", text="What keeps the block from sliding down the ramp?")]
+    assert "friction" in named_too_soon(named, [line], res, {"P1": 1})
+    assert named_too_soon(hinted, [line], res, {"P1": 1}) is None
+    assert named_too_soon(named, [line], res, {"P1": 2}) is None  # level 2 may name it

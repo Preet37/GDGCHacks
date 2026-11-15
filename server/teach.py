@@ -638,6 +638,35 @@ def _explains(text: str) -> bool:
     return any(not t.rstrip().endswith("?") and len(t.split()) >= 3 for t in sentences)
 
 
+FORCE_NAMES = {"f": "friction", "fr": "friction", "ff": "friction", "friction": "friction", "t": "tension",
+               "tension": "tension", "n": "normal", "normal": "normal", "fn": "normal", "fa": "applied",
+               "applied": "applied", "w": "weight", "mg": "weight", "weight": "weight"}
+
+
+def named_too_soon(actions: list[Action], lines: list[ReadLine], result: TeachResult, levels: dict) -> str | None:
+    """Hint level 1 on a force diagram asks about the missing force without naming it (naming it is level 2). A note
+    that names it anyway is sent back once. `levels`: problem_id -> the hint level this reply sets."""
+    by_id = {l.line_id: l for l in lines}
+    for line_id, fbd in result.fbd.items():
+        line = by_id.get(line_id)
+        if line is None or levels.get(line.problem_id) != 1:
+            continue
+        drawn = engineering.parse_fbd(line.plain)
+        if not drawn:
+            continue
+        words = {FORCE_NAMES.get(e["label"].strip().lower(), e["label"].strip().lower())
+                 for e in engineering.missing_from(drawn, fbd.get("expected") or [])}
+        words = {w for w in words if len(w) > 2}
+        for a in actions:
+            text = (a.text or "").lower() if a.type == "note" else ""
+            hit = next((w for w in words if re.search(rf"\b{re.escape(w)}", text)), None)
+            if hit:
+                return (f"This is hint level 1: the note names the missing force (\"{hit}\"). Level 1 must not name "
+                        "it: describe what it has to do instead (what keeps the block from sliding, what the surface "
+                        "does), so the student finds it. Keep everything else and submit again.")
+    return None
+
+
 def help_gap(actions: list[Action], req: CheckRequest) -> str | None:
     """What is missing from a reply to a Help tap, or None. Help must tell the student something: an empty
     reply, or one made only of questions, is sent back once to be fixed."""
@@ -689,7 +718,7 @@ def teach(client, model: str, lines: list[ReadLine], req: CheckRequest) -> Teach
     set_work = practice.line_ids(lines)
     hands_off = set_work if req.mode != "help" else frozenset()
     pending: tuple | None = None  # the last reply that was sent back to be fixed, kept in case nothing better comes
-    help_sent = steps_sent = False
+    help_sent = steps_sent = named_sent = False
     contents: list = [
         types.Content(role="user", parts=[types.Part.from_text(text=_page_json(lines, req, practice_checks))])
     ]
@@ -760,6 +789,12 @@ def teach(client, model: str, lines: list[ReadLine], req: CheckRequest) -> Teach
                 gap = help_gap(_parse_actions(fixed.get("actions"), lines), req)
                 if gap is not None:
                     help_sent, why = True, "Help must explain, not only ask"
+            if gap is None and not named_sent and req.mode == "help" and result.fbd:
+                levels = {h.get("problem_id"): h.get("hint_level") for h in fixed.get("hint_updates") or []
+                          if isinstance(h, dict)}
+                gap = named_too_soon(_parse_actions(fixed.get("actions"), lines), lines, result, levels)
+                if gap is not None:
+                    named_sent, why = True, "hint 1 named the missing force"
             if gap is None:
                 return apply(fixed, notes)
             pending = (fixed, notes)

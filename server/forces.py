@@ -39,6 +39,8 @@ def _givens(raw: dict | None) -> dict:
         m = re.match(r"\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)", str(v))
         if m:
             out[sp.Symbol(name)] = sp.nsimplify(m.group(1), rational=True)
+    if sp.Symbol("m") in out and sp.Symbol("g") not in out:
+        out[sp.Symbol("g")] = sp.Rational(49, 5)  # a mass was given and g wasn't: students rarely write g = 9.8
     return out
 
 
@@ -80,6 +82,17 @@ def _label_magnitude(label: str, givens: dict):
 
 
 GRAVITY_LABELS = {"mg", "w", "weight", "fg", "g", "gravity", "f_g", "fw"}
+
+
+def _plain_label(f: dict) -> dict:
+    """A magnitude that only repeats the arrow's label ("mg" on the arrow labelled mg, "N" on N) wasn't written:
+    the label is read as the size elsewhere. Without this a ramp labelled mg / N with no g given was "unreadable"."""
+    if not isinstance(f, dict):
+        return f
+    mag, label = f.get("magnitude"), f.get("label")
+    if isinstance(mag, str) and isinstance(label, str) and mag.replace(" ", "").lower() == label.replace(" ", "").lower():
+        return {k: v for k, v in f.items() if k != "magnitude"}
+    return f
 
 
 def reference_force(forces: list[dict]) -> dict | None:
@@ -194,6 +207,8 @@ def check_forces(forces: list[dict], givens: dict | None = None, accel=None, exp
     `forces`: as drawn (label, angle_deg, magnitude?). `givens`: {"m": "2 kg", "g": 9.8, ...}. `accel`: None = at rest.
     `expected`: the tutor's full list of forces that should be there; checked the same way, its solved magnitudes
     are what hint 3 can show. Verdict: correct = the drawn forces balance; incorrect = they can't; unknown = unreadable."""
+    forces = [_plain_label(f) for f in forces or []]
+    expected = [_plain_label(f) for f in expected] if expected else expected
     try:
         g = _givens(givens)
         mass = g.get(sp.Symbol("m"), sp.Integer(1))

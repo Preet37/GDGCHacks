@@ -93,3 +93,12 @@ def test_no_givens_ramp_is_still_checked_relative_to_the_weight():
 def test_no_givens_flat_floor_balances():
     out = check_forces([{"label": "W", "angle_deg": 270}, {"label": "N", "angle_deg": 90}], {})
     assert out["verdict"] == "correct" and out["solved"]["N"] == pytest.approx(1.0)
+
+
+def test_magnitude_that_only_repeats_the_label_is_not_a_size():
+    # the reader sometimes copies the label into magnitude; with m given but no g, "mg" alone can't be computed
+    drawn = [{"label": "mg", "angle_deg": 270, "magnitude": "mg"}, {"label": "N", "angle_deg": 120, "magnitude": "N"}]
+    exp = [{"label": "mg", "angle_deg": 270}, {"label": "N", "angle_deg": 120}, {"label": "f", "angle_deg": 30}]
+    out = check_forces(drawn, {"m": "2 kg"}, expected=exp)
+    assert out["verdict"] == "incorrect" and out["missing_angle_deg"] == pytest.approx(30.0)
+    assert out["expected"]["solved"]["f"] == pytest.approx(9.8)  # g = 9.8 assumed when only m is given
