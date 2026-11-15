@@ -17,6 +17,7 @@ from pydantic import ValidationError
 import circuits
 import compute
 import memory
+import practice
 import solution
 import verify
 from figures import fix_figure
@@ -222,8 +223,36 @@ def _build_config(thinking=None) -> types.GenerateContentConfig:
     )
 
 
-def _page_json(lines: list[ReadLine], req: CheckRequest) -> str:
+def _check_practice(lines: list[ReadLine], result: TeachResult) -> list[dict]:
+    """Your turn: the student's work under each tutor-written problem line, checked here against that line
+    (first line against the given line, then each line against the one before), so it does not depend on the
+    model remembering to. A first line whose relation is not known is left for the model to check."""
+    out = []
+    for pid, given in practice.problems(lines).items():
+        mine = practice.work(lines, given)
+        checks, prev = [], given
+        for l in mine:
+            if is_open(l.plain) or not practice._is_math(l):
+                continue
+            if l.relation not in ("start", "other"):
+                v = _run_verify({"before": practice.math_text(prev.plain), "after": l.plain,
+                                 "relation": l.relation, "before_line_id": prev.line_id,
+                                 "after_line_id": l.line_id}, lines, result)
+                checks.append({"line_id": l.line_id, "follows_from": prev.line_id, "relation": l.relation, **v})
+            prev = l
+        finished = practice.done(lines, result.verdicts).get(pid)
+        out.append({"problem_id": pid, "given_line_id": given.line_id, "work_line_ids": [l.line_id for l in mine],
+                    "checks": checks,
+                    "last_line": ("no work yet" if not mine else "left open: the student is still working"
+                                  if is_open(mine[-1].plain) else f"{finished} checked correct: if it is the final "
+                                  "answer, send the green note" if finished else "not confirmed as a correct final answer")})
+    return out
+
+
+def _page_json(lines: list[ReadLine], req: CheckRequest, practice_checks: list[dict] | None = None) -> str:
     extra = {}
+    if practice_checks:
+        extra["practice"] = practice_checks
     if req.mode == "help":
         # What the student is pointing at (their selection, or their latest ink), and what Help already told them.
         target = pick_line(lines, req.help_box)
@@ -235,7 +264,7 @@ def _page_json(lines: list[ReadLine], req: CheckRequest) -> str:
             "help_box": list(req.help_box) if req.help_box else None,
             "question": req.question,
             **extra,
-            "lines": [l.model_dump() for l in lines],
+            "lines": [dict(l.model_dump(), given=True) if practice.is_given(l) else l.model_dump() for l in lines],
             "previous_lines": [l.model_dump() for l in req.state.lines],
             "problems": [p.model_dump() for p in req.state.problems],
             "flagged_line_ids": req.state.flagged_line_ids,
@@ -272,6 +301,9 @@ def _run_verify(args: dict, lines: list[ReadLine], result: TeachResult) -> dict:
     after_line = next((l for l in lines if l.line_id == after_id), None)
     if is_open(after) or (after_line is not None and is_open(after_line.plain)):
         result.tool_calls.append(f"verify_step({before_id}->{after_id}, {relation}) = skipped (open line)")
+        if after_id in practice.line_ids(lines):
+            return {"verdict": "unknown", "detail": "this line is unfinished (nothing after '='). It is practice "
+                                                    "the student is still doing: do not mark it and do not finish it."}
         return {"verdict": "unknown", "detail": "this line is unfinished (nothing after '='). That is not a "
                                                 "mistake: do not mark it. Use compute_step to finish it."}
     # A line that names its own operation ('int(2*x, x)', 'd/dx(x^3)') is checked as that operation on what is inside it.
@@ -296,9 +328,14 @@ def _run_verify(args: dict, lines: list[ReadLine], result: TeachResult) -> dict:
     return out
 
 
-def _run_compute(args: dict, lines: list[ReadLine], result: TeachResult) -> dict:
+def _run_compute(args: dict, lines: list[ReadLine], result: TeachResult, hands_off: frozenset = frozenset()) -> dict:
+    """`hands_off`: ids of lines that must not be worked out for the student (practice, outside Help)."""
     relation = str(args.get("relation", ""))
     before_id, after_id = _resolve_ids(args, lines)
+    if after_id in hands_off or before_id in hands_off:
+        result.tool_calls.append(f"compute_step({before_id}->{after_id}, {relation}) = refused (practice)")
+        return {"result": "", "latex": "", "detail": "this is a practice problem the tutor set: the student works "
+                                                     "it out. Do not finish the line or write its answer."}
     before = str(args.get("before") or "")
     if not before.strip():  # the model gave only the id: use that line's text
         before = next((l.plain for l in lines if l.line_id == before_id), "")
@@ -509,17 +546,35 @@ def _settled(submit: dict, reports: list[dict], req: CheckRequest, result: Teach
     return {**submit, "actions": actions}, notes
 
 
+def _own_work(submit: dict, set_work: frozenset, result: TeachResult) -> dict:
+    """A submit without anything that does a practice problem for the student: no solution under it, no
+    line of it finished. (The guard drops these too; taking them out here lets Help be asked for a hint instead.)"""
+    actions = submit.get("actions")
+    if not set_work or not isinstance(actions, list):
+        return submit
+    kept = [a for a in actions if not (isinstance(a, dict) and a.get("line_id") in set_work and (
+        a.get("type") == "solution" or (a.get("type") == "note" and (a.get("color") == "black" or a.get("side") == "inline"))))]
+    if len(kept) != len(actions):
+        result.tool_calls.append(f"practice: {len(actions) - len(kept)} action(s) that did the student's practice dropped")
+    return {**submit, "actions": kept}
+
+
 def teach(client, model: str, lines: list[ReadLine], req: CheckRequest) -> TeachResult:
     result = TeachResult()
+    practice_checks = _check_practice(lines, result)
+    checked = {i: v for i, v in result.verdicts.items() if v != "unknown"}  # these stand, whatever is re-checked later
+    set_work = practice.line_ids(lines)
+    hands_off = set_work if req.mode != "help" else frozenset()
     pending: tuple | None = None  # the last reply that was sent back to be fixed, kept in case nothing better comes
     help_sent = steps_sent = False
     contents: list = [
-        types.Content(role="user", parts=[types.Part.from_text(text=_page_json(lines, req))])
+        types.Content(role="user", parts=[types.Part.from_text(text=_page_json(lines, req, practice_checks))])
     ]
 
     def apply(submit: dict, notes: list[str]) -> TeachResult:
         result.tool_calls.extend(notes)
         _apply_submit(submit, result, lines)
+        result.verdicts.update(checked)
         result.finished = True
         return result
 
@@ -546,7 +601,7 @@ def teach(client, model: str, lines: list[ReadLine], req: CheckRequest) -> Teach
             if call.name == "verify_step":
                 out = _run_verify(args, lines, result)
             elif call.name == "compute_step":
-                out = _run_compute(args, lines, result)
+                out = _run_compute(args, lines, result, hands_off)
             elif call.name == "solve_circuit":
                 out = _run_circuit(args, lines, result)
             elif call.name == "submit_feedback":
@@ -558,6 +613,7 @@ def teach(client, model: str, lines: list[ReadLine], req: CheckRequest) -> Teach
                 id=call.id, name=call.name, response=out)))
 
         if submit is not None:
+            submit = _own_work(submit, set_work, result)
             # A full solution is checked step by step here, whatever the model checked itself.
             reports = solution.review(submit.get("actions"), lines, result.verdicts)
             spoken = req.mode == "help" and bool((req.question or "").strip())

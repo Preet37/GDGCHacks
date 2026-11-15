@@ -1,7 +1,7 @@
 """What this server process remembers about a page between requests. Best effort, in memory only.
 
-The contract's PageState has no room for the words of earlier hints or for what kind of feedback a line
-has, so the server keeps them here, keyed by page_id. After a restart (or on another instance) the memory
+The contract's PageState has no room for the words of earlier hints, for what kind of feedback a line
+has, or for which practice problems were set and how they went, so the server keeps them here, keyed by page_id. After a restart (or on another instance) the memory
 is empty and everything still works: hints may repeat an idea, and a mistake mark may be sent once more.
 """
 import threading
@@ -9,6 +9,7 @@ from collections import OrderedDict
 
 MAX_PAGES = 300
 MAX_HINTS = 3   # per problem
+MAX_PRACTICE = 20  # practice problems remembered per page
 
 _lock = threading.Lock()
 _pages: "OrderedDict[str, dict]" = OrderedDict()
@@ -22,7 +23,7 @@ def reset() -> None:
 def _page(page_id: str) -> dict:
     page = _pages.get(page_id)
     if page is None:
-        page = _pages[page_id] = {"hints": {}, "marked": {}, "solved": {}}
+        page = _pages[page_id] = {"hints": {}, "marked": {}, "solved": {}, "practice": {}}
         while len(_pages) > MAX_PAGES:
             _pages.popitem(last=False)
     _pages.move_to_end(page_id)
@@ -74,3 +75,57 @@ def remember(page_id: str, mode: str, lines, actions, clear_line_ids) -> None:
                 if a.text not in texts:
                     texts.append(a.text)
                 del texts[:-MAX_HINTS]
+
+
+# ---- practice problems ("Your turn"): which were set on a page, and whether each was answered correctly ----
+
+def _key(plain: str) -> str:
+    return "".join((plain or "").split()).lower()
+
+
+def _practice(page: dict, plain: str, latex: str = "") -> dict:
+    items = page["practice"]
+    item = items.get(_key(plain))
+    if item is None:
+        item = items[_key(plain)] = {"problem": plain, "latex": latex, "relation": None, "status": "set",
+                                     "lines": 0, "checks": 0}
+        while len(items) > MAX_PRACTICE:
+            del items[next(iter(items))]
+    return item
+
+
+def practice_set(page_id: str, plain: str, latex: str = "", relation: str | None = None) -> None:
+    """A lesson just set this practice problem. `relation` is what the student is asked to do to it."""
+    if not (plain or "").strip():
+        return
+    with _lock:
+        item = _practice(_page(page_id), plain, latex)
+        item.update(latex=latex or item["latex"], relation=relation or item["relation"])
+
+
+def practice_tasks(page_id: str) -> dict[str, str]:
+    """problem text (spacing and case removed) -> the relation it was set with, where known."""
+    with _lock:
+        items = _pages.get(page_id, {}).get("practice", {})
+        return {k: v["relation"] for k, v in items.items() if v["relation"]}
+
+
+def practice_seen(page_id: str, statuses) -> None:
+    """Record how each practice problem in view stands after a check: no work yet ("set"), work that is
+    not finished or not right ("attempted"), or a correct final answer ("correct")."""
+    if not statuses:
+        return
+    with _lock:
+        page = _page(page_id)
+        for s in statuses:
+            item = _practice(page, s["problem"], s.get("latex", ""))
+            item["lines"] = s["lines"]
+            item["checks"] += 1
+            item["status"] = "correct" if s["correct"] else "attempted" if s["lines"] else "set"
+
+
+def practice(page_id: str) -> list[dict]:
+    """The page's practice problems, oldest first, each with `status` and `answered_correctly`."""
+    with _lock:
+        items = _pages.get(page_id, {}).get("practice", {})
+        return [dict(v, answered_correctly=v["status"] == "correct") for v in items.values()]

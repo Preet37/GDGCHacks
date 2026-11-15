@@ -25,6 +25,7 @@ def begin(req: CheckRequest) -> dict:
         "page_id": req.state.page_id,
         "help_box": list(req.help_box) if req.help_box else None,
         "question": req.question,
+        "given": [{"plain": g.plain, "box": list(g.box)} for g in req.given or []],
         "state_in": {"lines": len(req.state.lines), "flagged_line_ids": list(req.state.flagged_line_ids),
                      "problems": [p.model_dump() for p in req.state.problems]},
     }
@@ -58,6 +59,8 @@ def _action_summary(a) -> dict:
         out["lesson"] = {"title": a.lesson.title, "steps": [
             {"say": s.say, "write": s.write, "caption": s.caption,
              "visual": s.visual.model_dump(exclude_none=True) if s.visual else None} for s in a.lesson.steps]}
+        if a.lesson.practice is not None:
+            out["lesson"]["practice"] = a.lesson.practice.model_dump(exclude_none=True)
     return out
 
 
@@ -127,6 +130,7 @@ def _run_check(req: CheckRequest, entry: dict) -> CheckResponse:
     # Lazy imports so this module imports before read.py / teach.py exist.
     from google import genai
     import memory
+    import practice
     import read
     import teach
     from guard import merge
@@ -138,7 +142,11 @@ def _run_check(req: CheckRequest, entry: dict) -> CheckResponse:
     client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=45000 if explaining else 15000))
 
     t0 = time.perf_counter()
-    lines = read.read_page(client, model, image_png, req.state.lines)
+    page_id = req.state.page_id
+    # The reader is not shown the tutor-written problem lines of last time: they come from the page (`given`),
+    # and are put in place of whatever the reader read at that spot.
+    lines = read.read_page(client, model, image_png, [l for l in req.state.lines if not practice.is_given(l)])
+    lines = practice.merge_given(lines, req.given, memory.practice_tasks(page_id))
     read_ms = _ms(t0)
     entry.update(model=model, read_ms=read_ms, lines=[_line_summary(l) for l in lines])
 
@@ -155,13 +163,19 @@ def _run_check(req: CheckRequest, entry: dict) -> CheckResponse:
                  clear_from_model=list(result.clear_line_ids),
                  hint_updates_from_model=[h.model_dump() for h in result.hint_updates])
 
-    page_id = req.state.page_id
     resp = merge(req.state, lines, result, req.mode, req.question, memory.marked(page_id), memory.solved(page_id))
     memory.remember(page_id, req.mode, lines, resp.actions, resp.clear_line_ids)
+    # Your turn: the practice problem a lesson just set, and how the ones on the page stand after this check.
+    for a in resp.actions:
+        if a.lesson is not None and a.lesson.practice is not None:
+            memory.practice_set(page_id, a.lesson.practice.plain, a.lesson.practice.problem, result.practice_relation)
+    if not explaining and result.finished:
+        memory.practice_seen(page_id, practice.status(lines, result.verdicts))
     resp.debug = Debug(model=model, read_ms=read_ms, teach_ms=teach_ms, tool_calls=list(result.tool_calls))
     entry.update(actions_sent=[_action_summary(a) for a in resp.actions], clear_line_ids=list(resp.clear_line_ids),
                  flagged_line_ids=list(resp.state.flagged_line_ids),
-                 problems=[p.model_dump() for p in resp.state.problems])
+                 problems=[p.model_dump() for p in resp.state.problems],
+                 practice=memory.practice(page_id))
     _trace(req, image_png, lines, result, resp)
     log.info("read_ms=%d %s=%d lines=%d actions=%d finished=%s",
              read_ms, "explain_ms" if explaining else "teach_ms", teach_ms, len(lines), len(resp.actions),

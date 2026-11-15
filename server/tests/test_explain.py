@@ -61,7 +61,10 @@ STEPS = [
     {"say": "Your line kept the two. The area grows like x squared, not two x squared."},
     {"say": "Now you try. What is the integral of 6x?", "caption": "Try it: $\\int 6x\\,dx$"},
 ]
-SUBMIT = ("submit_lesson", {"title": "Why the integral of 2x is x²", "steps": STEPS, "line_id": "L2"})
+PRACTICE = {"prompt": "Your turn: find the integral.", "problem": "\\int 6x\\,dx", "plain": "int(6*x, x)",
+            "relation": "integral"}
+SUBMIT = ("submit_lesson", {"title": "Why the integral of 2x is x²", "steps": STEPS, "line_id": "L2",
+                            "practice": PRACTICE})
 
 
 def test_tool_call_then_submit():

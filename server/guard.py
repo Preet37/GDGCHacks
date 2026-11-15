@@ -1,4 +1,5 @@
 """Guard and merge: plain code, no topic-specific logic."""
+import practice
 import solution
 from internal import TeachResult
 from models import Action, CheckResponse, PageState, ProblemState, ReadLine
@@ -23,14 +24,24 @@ def _stray_ask(action: Action, line: ReadLine | None) -> bool:
     return action.type == "ask" and (line is None or line.confidence != "low")
 
 
+def _well_done(action: Action, line: ReadLine | None, verdicts: dict, finished: frozenset) -> bool:
+    """The one green note an automatic check may send: beside the final line of a practice problem the tutor
+    set, when that line was checked `correct` and finishes the work (`finished`: practice.done)."""
+    return (action.type == "note" and action.color == "green" and line is not None
+            and line.line_id in finished and verdicts.get(line.line_id) == "correct")
+
+
 def _unrequested(action: Action, line: ReadLine | None, result: TeachResult, kept: list[Action],
-                 wanted: frozenset = frozenset()) -> bool:
+                 wanted: frozenset = frozenset(), finished: frozenset = frozenset()) -> bool:
     """On an automatic check the tutor only points out mistakes. True for a note that does anything else:
     a hint, a nudge or praise nobody asked for. Notes that stay: red ones (a mistake), an answer on an open
     line, anything on an open line (the student asked for it to be finished), and a note that goes with a
     figure, a question (ask) or a solution that is itself being sent for the same line. A note in a problem
-    the student wrote "solve" by (`wanted`) also stays: they asked, so they are told if it could not be done."""
+    the student wrote "solve" by (`wanted`) also stays: they asked, so they are told if it could not be done.
+    So does the green note for a practice problem answered correctly (`finished`, see _well_done)."""
     if action.type != "note" or action.color == "red" or _answer(action) or _open(line):
+        return False
+    if _well_done(action, line, result.verdicts, finished):
         return False
     if action.line_id and any(a.type in ("figure", "ask", "solution") and a.line_id == action.line_id for a in kept):
         return False
@@ -43,7 +54,8 @@ def _unrequested(action: Action, line: ReadLine | None, result: TeachResult, kep
 
 
 def _keep(action: Action, verdicts: dict, by_id: dict, state: PageState, mode: str, question: str | None = None,
-          wanted: frozenset = frozenset(), spoken: bool = False, solved: dict | None = None) -> bool:
+          wanted: frozenset = frozenset(), spoken: bool = False, solved: dict | None = None,
+          set_work: frozenset = frozenset()) -> bool:
     """Safety net, the same for any subject:
     - a lesson is only sent when the student tapped Teach me;
     - a line is only finished for the student (a black or inline note) if they left it open, ending in '=',
@@ -57,13 +69,17 @@ def _keep(action: Action, verdicts: dict, by_id: dict, state: PageState, mode: s
     - a full worked solution is only sent when the student asked for one: they wrote "solve" (or the like) by
       that problem (`wanted`), or asked out loud in help mode (`spoken`). On an automatic check it is not
       written again under a line that already has one and has not changed (`solved`);
-    - the word "solve" itself is a request, not work: it is never marked.
+    - the word "solve" itself is a request, not work: it is never marked;
+    - a practice problem the tutor set is the student's to do (`set_work`: the ids of its lines): no line of
+      it is finished for them and no solution is written under it, however they asked. Help still hints.
     """
     line = by_id.get(action.line_id)
     if action.type == "lesson":
         return False  # explain mode never reaches here
     if solution.is_request(line):
         return action.type not in MARK_TYPES | {"note", "solution"}
+    if action.line_id in set_work and (action.type == "solution" or _answer(action)):
+        return False
     if action.type == "solution":
         if line is None or not action.steps or not (spoken or line.problem_id in wanted):
             return False
@@ -80,6 +96,25 @@ def _keep(action: Action, verdicts: dict, by_id: dict, state: PageState, mode: s
         before = next((l for l in state.lines if l.line_id == action.line_id), None)
         return before is None or before.plain.replace(" ", "") != line.plain.replace(" ", "")
     return True
+
+
+def _try_first(lines: list[ReadLine], actions: list[Action], by_line: dict, set_work: frozenset,
+               settled: set) -> list[Action]:
+    """A written "solve" under a practice problem is turned down with one short blue note beside the word,
+    unless the tutor already said something in blue about that problem or the note is already there."""
+    out = []
+    for l in lines:
+        if not solution.is_request(l) or l.line_id in settled:
+            continue
+        pid = solution._request_problem(l, lines)
+        if pid is None or not any(o.problem_id == pid and o.line_id in set_work for o in lines):
+            continue
+        said = any(a.type == "note" and a.color in ("blue", None) and a.line_id in by_line
+                   and by_line[a.line_id].problem_id == pid for a in actions + out)
+        if not said:
+            out.append(Action(type="note", line_id=l.line_id, box=l.box, color="blue", side="right",
+                              text=practice.TRY_FIRST))
+    return out
 
 
 def _ordered_unique(items):
@@ -124,21 +159,24 @@ def merge(state: PageState, lines: list[ReadLine], result: TeachResult, mode: st
         wanted = frozenset(solution.requested_problems(lines))
         asked = (question or "").strip()
         spoken = mode == "help" and bool(asked) and (result.solution_requested or solution.asks_aloud(asked))
+        set_work = practice.line_ids(lines)
+        finished = frozenset(practice.done(lines, result.verdicts).values())
         actions = [a for a in result.actions
-                   if _keep(a, result.verdicts, by_line, state, mode, question, wanted, spoken, solved)]
+                   if _keep(a, result.verdicts, by_line, state, mode, question, wanted, spoken, solved, set_work)]
+        before = {l.line_id: l.plain for l in state.lines}
+        settled = {i for i in state.flagged_line_ids if i in by_line and before.get(i) == by_line[i].plain}
         if mode == "auto":
             # Nobody asked: nothing is read aloud, and a question only goes to a line that was hard to read.
             actions = [a for a in actions if a.type != "speak" and not _stray_ask(a, by_line.get(a.line_id))]
-            actions = [a for a in actions if not _unrequested(a, by_line.get(a.line_id), result, actions, wanted)]
+            actions = [a for a in actions
+                       if not _unrequested(a, by_line.get(a.line_id), result, actions, wanted, finished)]
             # No repeats: a line that already has feedback on the page and reads exactly as it did last
             # time gets nothing new from an automatic check. (Help may add to it: that's the hint ladder.)
             # The one thing that still goes through is a mistake mark the line does not have yet.
-            before = {l.line_id: l.plain for l in state.lines}
-            settled = {i for i in state.flagged_line_ids
-                       if i in by_line and before.get(i) == by_line[i].plain}
             actions = [a for a in actions if a.line_id not in settled
                        or _new_mistake(a, by_line[a.line_id], result.verdicts, marked)
                        or _new_solution(a, by_line[a.line_id], solved)]
+        actions += _try_first(lines, actions, by_line, set_work, settled if mode == "auto" else set())
         clear = list(result.clear_line_ids)
         hint_updates = result.hint_updates if mode == "help" else []  # the hint ladder only moves when Help is tapped
     else:

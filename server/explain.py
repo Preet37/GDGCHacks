@@ -17,12 +17,14 @@ from google.genai import types
 from pydantic import ValidationError
 
 import compute
+import practice as practice_mod
+import solution
 import teach
 from figures import _function, fix_figure
 from internal import TeachResult
 from target import pick_line
-from models import Action, CheckRequest, Lesson, LessonStep, LessonVisual, ReadLine
-from verify import LABEL, split_line
+from models import Action, CheckRequest, Lesson, LessonStep, LessonVisual, Practice, ReadLine
+from verify import LABEL, ParseError, equation, is_equation, is_zero, split_line, value
 
 log = logging.getLogger(__name__)
 
@@ -84,6 +86,23 @@ _STEP = {
     "required": ["say"],
 }
 
+PRACTICE_RELATIONS = compute.RELATIONS + ("other",)
+
+_PRACTICE = {
+    "type": "object",
+    "description": "Your turn: one fresh problem of the same kind as the one just taught, for the student to "
+                   "solve by hand under their work. Not their own problem, not the lesson's worked example",
+    "properties": {
+        "prompt": {"type": "string", "description": "what to do, plain words, no math: 'Your turn: find the derivative.'"},
+        "problem": {"type": "string", "description": "the problem as one line of LaTeX, no $ and no words: 'g(x) = x^3 - 5x'"},
+        "plain": {"type": "string", "description": "the same line in calculator syntax: 'g(x) = x^3 - 5*x'"},
+        "relation": {"type": "string", "enum": list(PRACTICE_RELATIONS),
+                     "description": "what the student must do to it; `other` only if it is none of the rest"},
+        "ask": {"type": "string", "description": "optional: the line the student completes, LaTeX, ending in '=': \"g'(x) =\""},
+    },
+    "required": ["prompt", "problem", "plain", "relation"],
+}
+
 VERIFY_DECL = types.FunctionDeclaration(
     name="verify_step",
     description="Check with real math whether line `after` follows from line `before` by `relation`. Use it to "
@@ -122,9 +141,10 @@ SUBMIT_DECL = types.FunctionDeclaration(
         "properties": {
             "title": {"type": "string", "description": "short, says what the lesson shows"},
             "steps": {"type": "array", "items": _STEP, "minItems": MIN_STEPS, "maxItems": MAX_STEPS},
+            "practice": _PRACTICE,
             "line_id": {"type": "string", "description": "the line of the student's problem to place the lesson beside"},
         },
-        "required": ["title", "steps"],
+        "required": ["title", "steps", "practice"],
     },
 )
 
@@ -164,7 +184,7 @@ def pick_problem(lines: list[ReadLine], help_box=None) -> tuple[list[ReadLine], 
 def _check_problem(problem: list[ReadLine], lines: list[ReadLine], result: TeachResult) -> list[dict]:
     """verify_step on each line of the student's work, so the lesson knows where it went wrong."""
     checks = []
-    own = [l for l in problem if l.source != "printed"]
+    own = [l for l in problem if l.source != "printed" or practice_mod.is_given(l)]  # a practice problem's work starts from its given line
     for before, after in zip(own, own[1:]):
         if after.relation in ("start", "other") or teach.is_open(after.plain):
             continue
@@ -427,6 +447,97 @@ def build_lesson(args: dict) -> tuple[Lesson | None, list[str]]:
     return Lesson(title=_text(args.get("title")) or "Step by step", steps=steps), problems
 
 
+# ---- Your turn: the practice problem that ends the lesson ----
+
+def _math_text(plain: str) -> str:
+    """The math of a problem line as text. A line that names its own operation ('int(6*x, x)') is math too."""
+    plain = (plain or "").strip()
+    return plain if compute.operation(plain) is not None else solution.math_part(plain)
+
+
+def _math(plain: str):
+    """The math of a problem line as SymPy (an equation as lhs - rhs), or None if it does not parse."""
+    text = _math_text(plain)
+    if not text:
+        return None
+    try:
+        op = compute.operation(text)
+        if op is not None:
+            return value(op["expr"])
+        return equation(text) if is_equation(text) else value(text)
+    except ParseError:
+        return None
+    except Exception:  # SymPy raises many kinds
+        return None
+
+
+def _same_problem(a: str, b: str) -> bool:
+    """True if two problem lines are the same problem: the same text, or the same math under another name
+    ('g(x) = x^2' and 'f(x) = x^2')."""
+    if practice_mod.key(a) == practice_mod.key(b):
+        return True
+    ta, tb = _math_text(a), _math_text(b)
+    if not ta or not tb or is_equation(ta) != is_equation(tb):
+        return False
+    oa, ob = compute.operation(ta), compute.operation(tb)
+    if (oa is None) != (ob is None) or (oa is not None and oa["kind"] != ob["kind"]):
+        return False
+    ma, mb = _math(a), _math(b)
+    if ma is None or mb is None or ma.free_symbols != mb.free_symbols:
+        return False
+    try:
+        return is_zero(ma - mb) is True
+    except Exception:
+        return False
+
+
+def check_practice(raw: Any, problem: list[ReadLine], target: ReadLine | None = None,
+                   lesson: Lesson | None = None) -> tuple[Practice | None, str | None, list[str]]:
+    """(the practice problem if it can be set, what it asks the student to do, what is wrong with it).
+
+    It can be set when its `plain` parses as math, it is not the student's own problem (nor the line the
+    lesson's worked example starts from), and, when it names something compute.py does (derivative, integral,
+    solve, simplify), compute_step works it out: then the checker can grade the student's answer."""
+    if not isinstance(raw, dict):
+        return None, None, ["`practice` is missing: every lesson ends with a practice problem (prompt, problem, plain, relation)"]
+    prompt = teach.plain_note(_text(raw.get("prompt")) or "").replace("$", "").strip() or "Your turn."
+    problem_latex = solution.clean_latex(_text(raw.get("problem")) or "")
+    plain = (_text(raw.get("plain")) or "").replace("$", "").strip() or solution.to_plain(problem_latex)
+    relation = raw.get("relation") if raw.get("relation") in compute.RELATIONS else None
+    ask = solution.clean_latex(_text(raw.get("ask")) or "") or None
+    if not problem_latex or not plain:
+        return None, None, ["`practice` needs `problem` (LaTeX) and `plain` (calculator syntax)"]
+    if _math(plain) is None:
+        return None, None, [f"practice `plain` does not parse as math: `{plain}`. One expression or equation in "
+                            "calculator syntax, `*` for every product, no words"]
+    theirs = [l.plain for l in problem if l.relation == "start" or l.source == "printed"]
+    theirs += [l.plain for l in (target, problem[0] if problem else None) if l is not None]
+    if lesson is not None:  # the line the worked example starts from
+        theirs += [solution.to_plain(s.write) for s in lesson.steps[:-1] if s.write][:1]
+    if any(t and _same_problem(plain, t) for t in theirs):
+        return None, None, [f"practice `{plain}` is the problem the lesson already worked. Give a fresh one of "
+                            "the same kind: change the numbers"]
+    if relation is not None or compute.operation(plain) is not None:
+        out = compute.compute_step(plain, relation or "simplify")
+        if not out.get("result"):
+            return None, None, [f"compute_step could not work out the practice problem `{plain}` by `{relation}` "
+                                f"({out.get('detail', '')}), so the student's answer could not be checked. Pick a "
+                                "simpler one that compute_step can do"]
+    try:
+        return Practice(prompt=prompt, problem=problem_latex, plain=plain, ask=ask), relation, []
+    except ValidationError as e:
+        return None, None, [f"practice is not valid: {e.errors()[0].get('msg', '')}"]
+
+
+def _hand_over(lesson: Lesson) -> Lesson:
+    """The last step puts the practice problem on screen, so what is said, shown and written on the page match."""
+    p, last = lesson.practice, lesson.steps[-1]
+    if p is None or practice_mod.key(p.problem) in practice_mod.key(last.caption or ""):
+        return lesson
+    last = last.model_copy(update={"caption": f"{p.prompt} ${p.problem}$"})
+    return lesson.model_copy(update={"steps": lesson.steps[:-1] + [last]})
+
+
 def _moves(lesson: Lesson) -> bool:
     """True if any mark in the lesson is animated."""
     return any(m.to_x is not None or m.to_x2 is not None
@@ -449,11 +560,12 @@ def explain(client, model: str, lines: list[ReadLine], req: CheckRequest) -> Tea
     result.tool_calls.append(f"target({target.line_id}, problem {target.problem_id})")
     contents: list = [types.Content(role="user", parts=[types.Part.from_text(
         text=_page_json(lines, req, problem, anchor, checks, target))])]
-    fallback: tuple[Lesson, Any] | None = None  # a short or picture-less lesson, used if nothing better comes
-    asked_for_motion = asked_for_length = False
+    fallback: tuple | None = None  # a short or picture-less lesson, used if nothing better comes
+    asked_for_motion = asked_for_length = asked_for_practice = False
 
-    def done(lesson: Lesson, line_id: Any) -> TeachResult:
-        result.actions = [_action(lesson, line_id, problem, anchor)]
+    def done(lesson: Lesson, line_id: Any, relation: str | None = None) -> TeachResult:
+        result.actions = [_action(_hand_over(lesson), line_id, problem, anchor)]
+        result.practice_relation = relation if lesson.practice is not None else None
         result.finished = True
         return result
 
@@ -482,22 +594,38 @@ def explain(client, model: str, lines: list[ReadLine], req: CheckRequest) -> Tea
             elif call.name == "submit_lesson":
                 lesson, problems = build_lesson(args)
                 n = len(lesson.steps) if lesson else 0
+                relation, practice_problems = None, []
+                if lesson is not None:
+                    lesson.practice, relation, practice_problems = check_practice(args.get("practice"), problem, target, lesson)
+                    result.tool_calls.append(f"practice({lesson.practice.plain}, {relation or 'unchecked'})" if lesson.practice
+                                             else f"practice dropped: {practice_problems[0]}")
                 result.tool_calls.append(f"submit_lesson({n} steps" + (f"; {'; '.join(problems)}" if problems else "") + ")")
                 enough = n >= MIN_STEPS or (asked_for_length and n >= PLAYABLE_STEPS)
                 asked_for_length = asked_for_length or (lesson is not None and PLAYABLE_STEPS <= n < MIN_STEPS)
                 good = lesson is not None and enough and any(s.visual for s in lesson.steps)
+                again = []
                 if good and not _moves(lesson) and not asked_for_motion:
                     # Asked once only: a still lesson is better than a slow one.
                     asked_for_motion = True
-                    fallback = (lesson, args.get("line_id"))
-                    problems = problems + [
+                    again.append(
                         "nothing moves: give one or two steps a mark with to_x or to_x2 (a tangent or point sliding "
-                        "along the curve, a secant closing in, an area growing) and tell the student to watch it"]
+                        "along the curve, a secant closing in, an area growing) and tell the student to watch it")
+                if good and lesson.practice is None and not asked_for_practice:
+                    # Sent back once; after that the lesson goes out without a practice problem.
+                    asked_for_practice = True
+                    again += practice_problems + ["keep the lesson as it is, fix `practice`, and make the last step's "
+                                                  "`say` and `caption` state that same problem"]
+                if again:
+                    fallback = (lesson, args.get("line_id"), relation)
+                    problems = problems + again
                     good = False
                 if good:
-                    return done(lesson, args.get("line_id"))
+                    return done(lesson, args.get("line_id"), relation)
                 if lesson is not None and n >= 2 and (fallback is None or n > len(fallback[0].steps)):
-                    fallback = (lesson, args.get("line_id"))
+                    fallback = (lesson, args.get("line_id"), relation)
+                if lesson is not None and lesson.practice is None and not asked_for_practice:
+                    asked_for_practice = True  # whatever else is being fixed, the practice problem is asked for with it
+                    problems = problems + practice_problems
                 out = {"ok": False, "fix_and_submit_again": problems}
             else:
                 out = {"error": f"unknown function {call.name}"}
