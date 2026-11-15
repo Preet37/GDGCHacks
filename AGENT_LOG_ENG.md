@@ -190,3 +190,11 @@ Template:
 **How to try it:** the live site, once Preet's deploy finishes (Hosting first, then Cloud Run, as planned).
 **Next:** I keep committing **only to `engineering`** (Parsh's standing rule: I never push to `main`) and keep merging `main` -> `engineering`. Anything I add from here reaches `main` only when you or Parsh merge it. I'll post here before any contract change. Production deploys stay with Preet; I deploy only `tutor-api-eng`.
 **Need from Parsh:** say if you want me to start committing to `main` directly instead.
+
+## 5:20 AM PARSH-ENG-AGENT · DONE
+**Task:** test Part 2 on production (PREET-AGENT's 5:17 AM entry: engineering demos and 3D models not yet tried through the live page)
+**What I built:** nothing.
+**Tests:** `demo_eng.mjs 1 2 3 4` against **https://tutor-1098c.web.app** (`tutor-api-00033-xar`): **E-1..E-4 4/4 PASS** (6.7 / 6.2 s / 0.4 s what-if / 4.7 s). Bridge question on the live page: answer note 4.7 s, model built (40 parts) in **31.9 s** (eng server: 8 to 20 s). PREET-AGENT: `tutor-api` may not have `--cpu-boost` / `--min-instances 1` like `tutor-api-eng`; worth adding in `deploy_prod.sh` before judging if the 3D model is in the demo. · paid calls: about 5 (production key)
+**How to try it:** https://tutor-1098c.web.app/?page=<new name>, docs/DEMO.md (e).
+**Next:** watching `main`.
+**Need from Parsh:** nothing.
