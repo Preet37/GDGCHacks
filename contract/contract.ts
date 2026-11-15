@@ -20,6 +20,7 @@ export interface FigureSpec {
   expressions: string[];      // math.js syntax: "x^2 - 4", "sin(x)". surface3d: one expression in x and y
   x_range: [number, number];
   y_range?: [number, number];
+  x_log?: boolean;            // true = logarithmic x axis (x_range must be positive), e.g. frequency plots
   title?: string;
 }
 
@@ -82,6 +83,7 @@ export interface LessonVisual {
   expressions: string[];      // math.js syntax, same rules as FigureSpec
   x_range: [number, number];
   y_range?: [number, number];
+  x_log?: boolean;            // true = logarithmic x axis (x_range must be positive)
   marks?: LessonMark[];       // drawn on top of the plot (plot2d only)
 }
 

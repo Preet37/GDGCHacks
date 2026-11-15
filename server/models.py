@@ -24,6 +24,7 @@ class FigureSpec(BaseModel):
     expressions: list[str]
     x_range: tuple[float, float]
     y_range: Optional[tuple[float, float]] = None
+    x_log: Optional[bool] = None
     title: Optional[str] = None
 
 
@@ -47,6 +48,7 @@ class LessonVisual(BaseModel):
     expressions: list[str]
     x_range: tuple[float, float]
     y_range: Optional[tuple[float, float]] = None
+    x_log: Optional[bool] = None
     marks: Optional[list[LessonMark]] = None
 
 
