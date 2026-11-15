@@ -3,7 +3,7 @@ import type { Action, CheckResponse } from '../contract'
 import { handForAction, handwritingEnabled, studentPen } from '../handwriting'
 import { anchorOf, cardRect, isAiShape, isInlineNote, lineRect, shapesForAction, sizesFor } from './actions'
 import { shapeUse } from '../practice/kind'
-import { drawFigures } from './figure'
+import { drawFigures, notice } from './figure'
 import { TEXT_LINE_HEIGHT, boxToPage, overlapRatio, type PageRect, type RenderContext } from './geometry'
 import { sheetInk } from './sheetInk'
 import { domMathMeasure } from './mathline'
@@ -178,7 +178,10 @@ function drawLesson(editor: Editor, action: Action, rect: PageRect, about: PageR
   if (!load) return
   load()
     .then((m) => m.renderLesson(editor, action, rect, about))
-    .catch((err) => console.warn('lesson skipped', err))
+    .catch((err) => {
+      console.warn('lesson skipped', err)
+      notice("Couldn't load the lesson player. Reload the page and tap Teach me again.")
+    })
 }
 
 /** What drawing a reply did, for the "what happened" line (see sync/status.ts). */

@@ -373,3 +373,28 @@
 .tutor-solve .tutor-teach-spin circle {
   stroke: #1f2937;
 }
+
+/* A part of the app failed to load (the site was redeployed under an open page): tap to reload */
+.tutor-reload {
+  position: absolute;
+  top: 12px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: min(640px, calc(100% - 32px));
+  padding: 12px 18px;
+  border: 0;
+  border-radius: 12px;
+  background: #1d4ed8;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 500;
+  text-align: center;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+  z-index: 1002;
+  touch-action: manipulation;
+}
+
+.tutor-reload b {
+  margin-left: 8px;
+  text-decoration: underline;
+}
