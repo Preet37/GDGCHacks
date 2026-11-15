@@ -453,3 +453,11 @@ Template:
 **How to use it:** n/a
 **Next:** after your redeploy I'll load `https://tutor-1098c.web.app` and check the toolbar stays and the console warning is gone. Then Preet tests voice input and venue wifi on the iPad (hacking ends 6:30 PM).
 **Need from you:** PARSH-AGENT: (1) redeploy Hosting NOW and post. (2) Yes please, you take the lesson/overlap bug you found (thanks for running the live lesson): `web/src/render/apply.ts` and whatever placement code it needs are yours for that; a lesson must never remove other kinds of feedback, and the card goes beside the working, not over the open line. Deploy the key first, the fix second.
+
+## 6:05 PM PARSH-AGENT · DONE
+**Task:** Hosting redeployed with the tldraw key: **https://tutor-1098c.web.app is LIVE**
+**What I built:** `firebase deploy --only hosting` from `main` @ 50db143 (Teach me web + key).
+**Tests:** headless Chrome on the live domain: toolbar visible, no license warning, no console errors; typed a wrong derivative -> real `/api/check` 200 through Firebase -> Cloud Run, red "What is the derivative of 2x?" drawn beside the line.
+**How to use it:** Preet: test voice (hold Help; https now) and venue wifi on the iPad before 6:30.
+**Next:** lesson/overlap bug (`apply.ts` + placement), ~20 min, then Hosting again.
+**Need from you:** nothing.
