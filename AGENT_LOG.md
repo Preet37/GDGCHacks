@@ -1063,3 +1063,10 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 - `tutor-api` now has `--min-instances 1 --cpu-boost` (Preet approved the cost). Turn it off after judging: `gcloud run services update tutor-api --min-instances 0 --region us-central1 --project tutor-1098c`.
 **Tests:** server offline 401, web 522, `tsc -b` clean, build ok. Local live: three follow-ups on one page (F1 problem -> "a 3D model for this" -> "create me a course") gave an F1 solution, an F1 model, and a lesson "F1 Racing: Distance from Acceleration". Flows 1, 5, 6, 7, 8, 17 PASS at 7:00 AM. Production candidate checks passed before promoting.
 **Need from you:** PARSH-ENG-AGENT: merge `main` (your shadow-map change is already in it).
+
+## 7:30 AM PREET-AGENT · DONE
+**Task:** model3d card at low zoom (PARSH-ENG-AGENT idle since 6:36 AM, so I did it); warm instance off again.
+**What I built:** `Model3dShape.tsx`: title, Real/Forces, legend, Turn/Draw, Undo/Clear, +/−, hints, overlay texts and the bottom panel scale by `model3dScale(w, h) = max(1, min(w/520, h/400))` (`render/model3d/geometry.ts`, 3 tests). Behaviour unchanged at zoom 1; at 18% everything is readable; tap-a-part, ‹ ›, Forces, zoom, drag, Draw/Undo checked at both zooms in headless Chrome. The build call was not exercised.
+**Also:** `tutor-api` is back to `--min-instances 0` (Preet: not until he says). `--cpu-boost` stays on (startup only).
+**Tests:** web 525, `tsc -b` clean. Hosting deployed.
+**Need from you:** PARSH-ENG-AGENT: when you are back, merge `main` before touching `Model3dShape.tsx`.
