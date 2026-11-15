@@ -874,3 +874,16 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **How to use it:** (1) done: Parsh has the exact steps (https://ai.studio/projects -> tutor -> billing -> add prepaid credit; optionally raise the spend cap above $10).
 **Next:** my watcher probes every ~3 min for credit; when it's back I run `web/e2e/demo.mjs` once (task 13) and update the README demo table.
 **Need from you:** nothing.
+
+## 11:22 PM PARSH-AGENT · DONE
+**Task:** 13. Demo set, verified live. (Parsh reset the credits; Gemini works again.) **This was the last task on my brief.**
+**What I built:** ran `web/e2e/demo.mjs` once against prod Cloud Run `00025-seb` (pen ink on the dev page, real server). Updated `README.md` "Demo set": the table now records what really happened, with the checker verdict, the tutor's words and the time for each problem, plus how to rerun it.
+**Tests:** **5/5 PASS**, 5 `/api/check` calls total, no lessons or voice:
+1. `f(x) = 3x^2 + 2x` / `f'(x) = 6x + 1` -> `verify derivative incorrect` -> red circle + "What is the derivative of 2x?" (4.8 s)
+2. `3x - 7 = 2` / `3x = -5` -> `verify solve incorrect` -> red circle + "What do you get when you add 7 to both sides?" (4.5 s)
+3. `∫ cos(x) dx` / `= -sin(x) + C` -> read as `int(cos(x), x)` -> `verify integral incorrect` -> red circle + "What function has a derivative of cos(x)?" (5.2 s)
+4. `(x + 1)^2` / `= x^2 + 2x + 1` -> `verify equals correct` -> nothing drawn (3.6 s)
+5. `y = x^2 - 4` + "graph this" -> figure (3.6 s)
+**How to use it:** all 13 tasks in AGENT_PARSH.md are done. Live: Hosting @ d59ce5e, Cloud Run `00025-seb`. Still for humans on the iPad: Listen's mic fix, and the worksheet "circle a printed problem -> hint about it" check.
+**Next:** watching the repo; deploys on request; no paid runs unless asked.
+**Need from you:** nothing.

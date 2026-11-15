@@ -128,17 +128,24 @@ npx firebase-tools deploy --only hosting
 ## Demo set
 
 Five problems that show every feature. Write each one by hand, one step per line, and pause 2 s after the last line.
-The "Checker" column is what `server/verify.py` returns for that step (covered by `server/tests/test_verify.py`), so the
-red circle is backed by SymPy, not just Gemini. **Status: end-to-end with live Gemini not yet run; update this table
-after the venue test.**
+The "Checker" column is what `server/verify.py` returned for that step on the live server, so every red circle is
+backed by SymPy, not just Gemini.
 
-| # | Write | Mistake | Checker | What should happen |
-| --- | --- | --- | --- | --- |
-| 1 | `f(x) = 3x² + 2x` then `f'(x) = 6x + 1` | wrong derivative (`+1`) | derivative: incorrect | red circle on `6x + 1`, margin note asking what happens to the x in 2x |
-| 2 | `3x − 7 = 2` then `3x = −5` then `x = −5/3` | sign error moving the 7 | equals: incorrect | red circle on `3x = −5`, note about what happens to −7 when it changes sides |
-| 3 | `∫ cos(x) dx` then `= −sin(x) + C` | wrong sign | integral: incorrect | red circle on `−sin(x) + C`, note asking to differentiate the answer to check |
-| 4 | `(x + 1)²` then `= x² + 2x + 1` | none | equals: correct | no red marks (the guard removes any red mark the checker calls correct) |
-| 5 | `y = x² − 4` and the word "graph" next to it | none | n/a | a graph of the parabola appears beside the line |
+**Status: all 5 verified live on 2026-11-14, 11:22 PM** (Cloud Run `tutor-api-00025-seb`, `gemini-3.5-flash`), written
+as real pen strokes by `web/e2e/demo.mjs`. Rerun any time with
+`cd web && API_TARGET=https://tutor-api-191803288552.us-central1.run.app npm run dev -- --port 5174`, then
+`node web/e2e/demo.mjs` (5 `/api/check` calls, no lessons or voice).
+
+| # | Write | Mistake | Checker (live) | What happened live | Time |
+| --- | --- | --- | --- | --- | --- |
+| 1 | `f(x) = 3x² + 2x` then `f'(x) = 6x + 1` | wrong derivative (`+1`) | derivative: incorrect | red circle + "What is the derivative of 2x?" | 4.8 s |
+| 2 | `3x − 7 = 2` then `3x = −5` | sign error moving the 7 | solve: incorrect | red circle + "What do you get when you add 7 to both sides?" | 4.5 s |
+| 3 | `∫ cos(x) dx` then `= −sin(x) + C` | wrong sign | integral: incorrect | red circle + "What function has a derivative of cos(x)?" | 5.2 s |
+| 4 | `(x + 1)²` then `= x² + 2x + 1` | none | equals: correct | nothing drawn | 3.6 s |
+| 5 | `y = x² − 4` and "graph this" next to it | none | n/a | a graph of the parabola beside the line | 3.6 s |
+
+Times are from the end of writing to the reply. The first check after the server has been idle can take a few
+seconds longer (cold start).
 
 **Hint ladder (Help):** write `d/dx (x sin x)`, lasso it, tap Help three times.
 1st: a nudge (which rule: product rule). 2nd: a bigger push (set up u = x, v = sin x). 3rd: the worked step
