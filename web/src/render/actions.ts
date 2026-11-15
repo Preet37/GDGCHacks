@@ -9,10 +9,14 @@ import {
   MIN_SCREEN_FONT,
   TEXT_LINE_HEIGHT,
   boxToPage,
+  clamp,
   estimateText,
   expand,
   feedbackSizes,
+  gapBetween,
   inlineAt,
+  leaderEnds,
+  letterHeight,
   overlapRatio,
   placeBeside,
   strokesIn,
@@ -185,26 +189,60 @@ function textShape(kind: string, action: Action, bounds: PageRect, ctx: RenderCo
   const longest = Math.max(...text.split('\n').map((l) => l.length))
   const full = Math.min(sz.noteWidth, (longest + 1) * sz.noteFont * CHAR_EM)
   const widths = NARROWER.map((f) => Math.max(full * f, Math.min(full, sz.noteFont * 6)))
+  const anchor = inkedRect(anchorRect(action, bounds), ctx)
   const r = placeBeside(
-    inkedRect(anchorRect(action, bounds), ctx),
+    anchor,
     widths.filter((w, i) => widths.indexOf(w) === i).map((w) => estimateText(text, sz.noteFont, w)),
     preferredSide(action),
     sz.gap,
     ctx,
   )
   claim(ctx, r)
-  return [
+  const about = lineRect(action, bounds, ctx)
+  const shapes: Shape[] = [
     {
       id: createShapeId(),
       type: 'text',
       x: r.x,
       y: r.y,
-      meta: aiMeta(kind, action.line_id, lineRect(action, bounds, ctx)),
+      meta: aiMeta(kind, action.line_id, about),
       // `w` is in unscaled units: the shape is laid out at size 's' and then scaled up.
       props: { richText: toRichText(text), font: 'draw', size: 's', scale, color, textAlign: 'start', autoSize: false, w: r.w / scale },
     },
   ]
+  // no room beside the line, so the note is somewhere else: a thin line says what it is about
+  if (anchor.w > 0 && anchor.h > 0 && gapBetween(r, anchor) > sz.gap * LEADER_BEYOND) shapes.push(leaderShape(r, anchor, action, about, color, sz))
+  return shapes
 }
+
+/** A note further from its line than this many gaps gets a leader line. */
+export const LEADER_BEYOND = 2
+
+function leaderShape(from: PageRect, to: PageRect, action: Action, about: PageRect | null, color: TLDefaultColorStyle, sz: FeedbackSizes): Shape {
+  const { a, b } = leaderEnds(from, to)
+  const [i, j] = getIndices(2)
+  return {
+    id: createShapeId(),
+    type: 'line',
+    x: a.x,
+    y: a.y,
+    opacity: 0.6,
+    meta: aiMeta('leader', action.line_id, about),
+    props: {
+      color,
+      dash: 'solid',
+      size: 's',
+      scale: (sz.stroke / BASE_STROKE) * 0.6,
+      points: {
+        [i]: { id: i, index: i, x: 0, y: 0 },
+        [j]: { id: j, index: j, x: b.x - a.x, y: b.y - a.y },
+      },
+    },
+  }
+}
+
+/** Font size of an inline answer over the height of a typical handwritten letter on the line. */
+export const INLINE_LETTER_EM = 1.3
 
 /** The tutor finishing the student's line: one line of text straight after the box, at the handwriting's size. */
 function inlineShape(action: Action, bounds: PageRect, ctx: RenderContext, text: string): Shape[] {
@@ -212,7 +250,11 @@ function inlineShape(action: Action, bounds: PageRect, ctx: RenderContext, text:
   const box = anchorRect(action, bounds)
   const line = lineRect(action, bounds, ctx)
   const anchor = line ? unionRect(box, line) : box
-  let font = sz.inlineFont
+  // as tall as the student's own letters: the font's digits and capitals are ~0.75 em, so 1.3 x a
+  // typical letter. The box-based size is the floor (and stands in when the strokes are unknown);
+  // a tight box around a short line ("x =") must not make the answer smaller than the writing.
+  const letters = letterHeight(anchor, ctx.ink)
+  let font = letters === null ? sz.inlineFont : clamp(letters * INLINE_LETTER_EM, sz.inlineFont, sz.inlineFont * 1.5)
   let at = inlineAt(anchor, font, sz.inlineGap, ctx.ink)
   // an answer that would run off the screen is written smaller (never below readable) so it fits
   const room = ctx.view ? ctx.view.x + ctx.view.w - sz.inlineGap - at.x : Infinity

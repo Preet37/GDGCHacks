@@ -4,28 +4,25 @@
  * that way (x², x₁, −, no `*`). Anything that can't be converted safely is left as it was.
  */
 const SYMBOLS: Record<string, string> = {
-  cdot: '·',
-  times: '×',
-  div: '÷',
-  pm: '±',
-  le: '≤',
-  leq: '≤',
-  ge: '≥',
-  geq: '≥',
-  ne: '≠',
-  neq: '≠',
-  approx: '≈',
-  to: '→',
-  rightarrow: '→',
-  infty: '∞',
-  pi: 'π',
-  theta: 'θ',
-  alpha: 'α',
-  beta: 'β',
-  Delta: 'Δ',
-  int: '∫',
-  sum: 'Σ',
-  prime: '′',
+  // operators and relations
+  cdot: '·', times: '×', div: '÷', pm: '±', mp: '∓', ast: '*', star: '*', circ: '∘', bullet: '•',
+  le: '≤', leq: '≤', ge: '≥', geq: '≥', ne: '≠', neq: '≠', ll: '≪', gg: '≫',
+  approx: '≈', sim: '~', simeq: '≃', cong: '≅', equiv: '≡', propto: '∝',
+  to: '→', rightarrow: '→', longrightarrow: '→', leftarrow: '←', leftrightarrow: '↔', mapsto: '↦',
+  Rightarrow: '⇒', implies: '⇒', Leftarrow: '⇐', Leftrightarrow: '⇔', iff: '⇔',
+  infty: '∞', partial: '∂', nabla: '∇', angle: '∠', degree: '°', perp: '⊥', parallel: '∥',
+  int: '∫', iint: '∬', oint: '∮', sum: 'Σ', prod: 'Π', prime: '′',
+  in: '∈', notin: '∉', subset: '⊂', subseteq: '⊆', cup: '∪', cap: '∩', emptyset: '∅',
+  forall: '∀', exists: '∃', neg: '¬', land: '∧', lor: '∨', therefore: '∴', because: '∵',
+  dots: '…', ldots: '…', cdots: '…', vdots: '⋮', ell: 'ℓ', hbar: 'ħ', Re: 'Re', Im: 'Im',
+  langle: '⟨', rangle: '⟩', lfloor: '⌊', rfloor: '⌋', lceil: '⌈', rceil: '⌉', mid: '|', vert: '|',
+  // Greek
+  alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', varepsilon: 'ε', zeta: 'ζ', eta: 'η',
+  theta: 'θ', vartheta: 'θ', iota: 'ι', kappa: 'κ', lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', pi: 'π',
+  rho: 'ρ', varrho: 'ρ', sigma: 'σ', varsigma: 'ς', tau: 'τ', upsilon: 'υ', phi: 'φ', varphi: 'φ',
+  chi: 'χ', psi: 'ψ', omega: 'ω',
+  Gamma: 'Γ', Delta: 'Δ', Theta: 'Θ', Lambda: 'Λ', Xi: 'Ξ', Pi: 'Π', Sigma: 'Σ', Upsilon: 'Υ',
+  Phi: 'Φ', Psi: 'Ψ', Omega: 'Ω',
 }
 const SYMBOL_RE = new RegExp(`\\\\(${Object.keys(SYMBOLS).join('|')})(?![a-zA-Z])`, 'g')
 
@@ -34,21 +31,41 @@ const SUB: Record<string, string> = { '0': '₀', '1': '₁', '2': '₂', '3': '
 
 const map = (s: string, table: Record<string, string>) => [...s].map((c) => table[c]).join('')
 
-/** A fraction part needs brackets unless it is a single number or name. */
-const fracPart = (s: string) => (/^[\w.]+$/.test(s.trim()) ? s.trim() : `(${s.trim()})`)
+/** A fraction part needs brackets unless it is a single number or name (`5s` is a product: 1/(5s)). */
+const fracPart = (s: string) => (/^[\w.]+$/.test(s.trim()) && !/\d[a-zA-Z]/.test(s) ? s.trim() : `(${s.trim()})`)
+
+/** `\\frac{a}{b}` -> `a/b` and `\\sqrt{x}` -> `√(x)`, innermost first so nested ones come out whole. */
+function fractionsAndRoots(text: string): string {
+  let out = text
+  for (let i = 0; i < 8; i++) {
+    const next = out
+      .replace(/\\[dtc]?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}(\s*[\w(\\])?/g, (_, a: string, b: string, after?: string) => {
+        const frac = `${fracPart(a)}/${fracPart(b)}`
+        return after ? `(${frac})${after}` : frac // (1/2)x, not 1/2x
+      })
+      .replace(/\\[dtc]?frac\s*(\d)\s*(\d)/g, '$1/$2') // \frac12
+      .replace(/\\sqrt\s*\[([^\][{}]*)\]\s*\{([^{}]*)\}/g, (_, n: string, body: string) => `${n === '3' ? '∛' : n === '4' ? '∜' : `${n}√`}(${body})`)
+      .replace(/\\sqrt\s*\{([^{}]*)\}/g, '√($1)')
+      .replace(/\\sqrt\s*(\w)/g, '√$1')
+    if (next === out) break
+    out = next
+  }
+  return out
+}
 
 /** Drop LaTeX markup, keep the words and symbols. Carets and underscores are left alone. */
-function stripLatex(text: string): string {
-  return text
-    .replace(/\\(?:left|right)(?![a-zA-Z])/g, '')
-    .replace(/\\[dt]?frac\{([^{}]*)\}\{([^{}]*)\}(\s*[\w(\\])?/g, (_, a: string, b: string, next?: string) => {
-      const frac = `${fracPart(a)}/${fracPart(b)}`
-      return next ? `(${frac})${next}` : frac // (1/2)x, not 1/2x
-    })
-    .replace(/\\(?:text|mathrm|operatorname)\{([^{}]*)\}/g, '$1')
-    .replace(/\\sqrt\{([^{}]*)\}/g, '√($1)')
-    .replace(SYMBOL_RE, (_, name: string) => SYMBOLS[name])
+function stripLatex(text: string, spoken = false): string {
+  return fractionsAndRoots(
+    text
+      .replace(/\\(?:left|right|big|Big|bigg|Bigg)(?![a-zA-Z])\.?/g, '')
+      .replace(/\\(?:text|textbf|textit|mathrm|mathbf|mathit|mathsf|mathcal|mathbb|boldsymbol|operatorname|bar|overline|vec|hat|tilde|underline)\s*\{([^{}]*)\}/g, '$1')
+      .replace(/\^\s*\{?\s*\\circ\s*\}?/g, '°'),
+  )
+    // read aloud, a Greek letter is its name ("omega"), which is what is left when the backslash goes
+    .replace(SYMBOL_RE, (all: string, name: string) => (spoken && /^[α-ωΑ-Ω]$/.test(SYMBOLS[name]) ? all : SYMBOLS[name]))
     .replace(/\\(?:,|;|!|:| |quad|qquad)/g, ' ')
+    .replace(/\\\\/g, ' ')
+    .replace(/\\([%$#&_{}])/g, '$1')
     .replace(/\\([a-zA-Z]+)/g, '$1')
 }
 
@@ -56,7 +73,7 @@ function stripLatex(text: string): string {
 function scripts(text: string): string {
   return text
     .replace(/\^\{([-+]?\d+|n)\}|\^([-+]?\d+)(?!\d|\.\d|\^)|\^n(?![\w(^])/g, (_, braced?: string, bare?: string) => map(braced ?? bare ?? 'n', SUPER))
-    .replace(/(?<=[A-Za-z)])_\{(\d+)\}|(?<=[A-Za-z)])_(\d+)/g, (_, braced?: string, bare?: string) => map(braced ?? bare ?? '', SUB))
+    .replace(/(?<=[A-Za-zα-ωΑ-Ω)])_\{(\d+)\}|(?<=[A-Za-zα-ωΑ-Ω)])_(\d+)/g, (_, braced?: string, bare?: string) => map(braced ?? bare ?? '', SUB))
     // a longer exponent or index keeps its grouping once the braces go: x^{n+1} -> x^(n+1)
     .replace(/([\^_])\{([^{}]*)\}/g, (_, op: string, body: string) => (/^[\w.]$/.test(body) ? op + body : `${op}(${body})`))
 }
@@ -69,6 +86,7 @@ function tidyMath(math: string): string {
     .replace(/\s*\*\s*/g, '') // 3*x, x*y, 2*(x+1): written side by side
     .replace(/(\d)\s+(?=[a-zA-Z(√π](?![a-zA-Z]))/g, '$1') // "12 x" -> "12x", but not "2 apples"
     .replace(/(^|[\s(=+×·/,])-(?=\s*[\w(√π])/g, '$1−') // leading / unary minus
+    .replace(/(^|[(=,]\s*)([±∓])\s+(?=[\w(√π])/g, '$1$2') // a sign, not an operator: x = ±1
     .replace(/(?<=[\w)⁰¹²³⁴⁵⁶⁷⁸⁹ⁿ₀-₉′'π]\s*)-(?=\s*[\w(√π−])/g, '−') // binary minus
 }
 
@@ -79,7 +97,7 @@ function looksLikeProse(text: string): boolean {
 
 /** LaTeX / inline `$math$` -> plain words, for reading aloud: no Unicode tricks. */
 export function mathToSpeech(text: string): string {
-  return stripLatex(text.replace(/\$/g, ''))
+  return stripLatex(text.replace(/\\[([]|\\[)\]]|\$/g, ''), true)
     .replace(/[{}]/g, '')
     .replace(/ {2,}/g, ' ')
     .trim()
@@ -87,6 +105,7 @@ export function mathToSpeech(text: string): string {
 
 /** LaTeX / calculator notation / inline `$math$` -> text that reads naturally in the handwriting font. */
 export function mathToPlain(text: string): string {
+  text = text.replace(/\\[([]|\\[)\]]/g, '$') // \( ... \) and \[ ... \] mark math just as $ ... $ does
   let out: string
   if (text.includes('$')) {
     // math is marked: tidy inside the dollars, only make safe changes to the words around it

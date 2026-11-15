@@ -189,12 +189,16 @@ export function withContext(working: PageRect, sheets: PageRect[], view: PageRec
 /**
  * Auto check: the working around the strokes that changed since the last send.
  * `changed` oldest first; `ink` = every handwriting shape; `sheets` = worksheet pages.
+ * `feedback` = what the tutor has written on the page (notes, graphs). It is not sent, but it
+ * joins the working like ink does: a hint under a line pushes the student's next line further
+ * down, and without the hint as a stepping stone that line would be sent on its own, where a
+ * wrong step can't be told from a new problem.
  */
-export function autoWindow(changed: PageRect[], ink: PageRect[], sheets: PageRect[], view: PageRect): PageRect | null {
+export function autoWindow(changed: PageRect[], ink: PageRect[], sheets: PageRect[], view: PageRect, feedback: PageRect[] = []): PageRect | null {
   const lineH = lineHeight(changed)
   const lim = windowLimits(lineH, view)
   const seed = seedRect(changed, lim)
-  return seed && withContext(withLineAbove(clusterAround(seed, ink, lim), ink, lineH, lim), sheets, view)
+  return seed && withContext(withLineAbove(clusterAround(seed, [...ink, ...feedback], lim), ink, lineH, lim), sheets, view)
 }
 
 /**
@@ -232,4 +236,40 @@ export function helpWindow(selection: PageRect | undefined, ink: PageRect[], she
   const inside = ink.filter((r) => intersects(r, selection))
   const lim = windowLimits(lineHeight(inside.length ? inside : [selection]), view)
   return withContext(clusterAround(selection, ink, lim), sheets, view)
+}
+
+// ---------------------------------------------------------------------------------------
+// What the student is pointing at when they tap Help without selecting anything.
+// ---------------------------------------------------------------------------------------
+
+/**
+ * The last thing the student drew: the newest stroke and the strokes drawn just before it that
+ * belong with it (the rest of that line of writing; an underline or a circle is one stroke and
+ * stands alone). `strokes` = ink in view, oldest first. Walking back in time stops at the first
+ * stroke that is on another row or far along the row, so it never swallows the lines above.
+ */
+export function recentCluster(strokes: PageRect[], lineH: number): PageRect | null {
+  if (!strokes.length) return null
+  let area = strokes[strokes.length - 1]
+  for (let i = strokes.length - 2; i >= 0; i--) {
+    const s = strokes[i]
+    const cy = s.y + s.h / 2
+    const sameRow = cy >= area.y - lineH * 0.5 && cy <= area.y + area.h + lineH * 0.5
+    const dx = Math.max(0, s.x - (area.x + area.w), area.x - (s.x + s.w))
+    if (!sameRow || dx > lineH * 3) break
+    area = union(area, s)!
+  }
+  return area
+}
+
+/**
+ * The area to send as `help_box` when nothing is selected: the last thing drawn, stretched up
+ * and down by a line height, so that what an underline is drawn under, or what a circle is
+ * drawn around, is inside it. Null if there is no ink in view.
+ */
+export function pointedAt(strokes: PageRect[], view: PageRect): PageRect | null {
+  // a line height: from the writing in view, never less than a sliver of the screen (an underline alone has no height)
+  const lineH = Math.max(lineHeight(strokes), Math.min(view.w, view.h) * 0.04)
+  const c = recentCluster(strokes, lineH)
+  return c && { x: c.x, y: c.y - lineH, w: c.w, h: c.h + lineH * 2 }
 }

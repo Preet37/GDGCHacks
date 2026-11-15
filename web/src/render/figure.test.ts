@@ -51,9 +51,22 @@ describe('toPlotExpr', () => {
     expect(toPlotExpr('f(x) = 2sin(x)')).toBe('2*sin(x)')
     expect(toPlotExpr('y = (x+1)(x-1)')).toBe('(x+1)*(x-1)')
   })
+
+  it('leaves function names that end in a digit alone', () => {
+    expect(toPlotExpr('-20*log10(x)')).toBe('-20*log10(x)')
+    expect(toPlotExpr('20log10(1/sqrt(1+x^2))')).toBe('20*log10(1/sqrt(1+x^2))')
+    expect(toPlotExpr('atan2(x, 1) + log2(x)')).toBe('atan2(x, 1) + log2(x)')
+    expect(toPlotExpr('10x + 2(x)')).toBe('10*x + 2*(x)')
+  })
 })
 
 describe('sampleYRange', () => {
+  it('on a log axis it samples every decade, not just the last one', () => {
+    const [lo, hi] = sampleYRange(['-20*log10(x)'], [0.01, 100], true)!
+    expect(hi).toBeGreaterThan(38) // 40 dB at 0.01; evenly spaced samples would start near 0.5 and stop at 6 dB
+    expect(lo).toBeLessThan(-38)
+  })
+
   it('covers the whole curve with padding', () => {
     const [lo, hi] = sampleYRange(['x^2 - 4'], [-5, 5])!
     expect(lo).toBeLessThan(-4) // the vertex is inside the window

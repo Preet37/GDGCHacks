@@ -3,6 +3,7 @@ import type { Action, CheckResponse } from '../contract'
 import { anchorOf, cardRect, isAiShape, lineRect, shapesForAction, sizesFor } from './actions'
 import { drawFigures } from './figure'
 import { boxToPage, overlapRatio, type PageRect, type RenderContext } from './geometry'
+import { sheetInk } from './sheetInk'
 import { mathToSpeech } from './text'
 
 type LessonModule = { renderLesson: (editor: Editor, action: Action, rect: PageRect) => Promise<void> }
@@ -11,7 +12,7 @@ type LessonModule = { renderLesson: (editor: Editor, action: Action, rect: PageR
 const lessonModules = import.meta.glob<LessonModule>('../lesson/render.ts')
 
 /** Feedback written on or beside a line: these are replaced when new feedback arrives for the same writing. */
-const MARK_KINDS = new Set(['note', 'ask', 'circle', 'underline'])
+const MARK_KINDS = new Set(['note', 'ask', 'circle', 'underline', 'leader'])
 /** Two boxes are the same writing if they share this much of the smaller one. */
 export const SAME_WRITING = 0.5
 
@@ -36,6 +37,9 @@ function rectOf(b: { x: number; y: number; w: number; h: number }): PageRect {
   return { x: b.x, y: b.y, w: b.w, h: b.h }
 }
 
+/** What floats over the canvas: the tutor's own buttons, and the editor's panels and toolbars. */
+const CHROME = '.tutor-controls > *, .tutor-subtitle, .tlui-style-panel__wrapper, .tlui-menu-zone, .tlui-main-toolbar__inner, .tlui-navigation-panel'
+
 /** How the page is being looked at right now: zoom, viewport, and the student's strokes. */
 export function renderContext(editor: Editor): RenderContext {
   const ink: PageRect[] = []
@@ -44,7 +48,28 @@ export function renderContext(editor: Editor): RenderContext {
     const b = editor.getShapePageBounds(s)
     if (b) ink.push(rectOf(b))
   }
-  return { zoom: editor.getZoomLevel(), view: rectOf(editor.getViewportPageBounds()), ink }
+  // the buttons and panels floating over the canvas: feedback under them could not be read
+  const chrome: PageRect[] = []
+  if (typeof document !== 'undefined') {
+    for (const el of document.querySelectorAll(CHROME)) {
+      const b = el.getBoundingClientRect()
+      if (b.width <= 0 || b.height <= 0) continue
+      const a = editor.screenToPage({ x: b.left, y: b.top })
+      const z = editor.screenToPage({ x: b.right, y: b.bottom })
+      chrome.push({ x: a.x, y: a.y, w: z.x - a.x, h: z.y - a.y })
+    }
+  }
+  // printed worksheet text is kept clear of too: half a note gap around every printed cell
+  const { sheets, printedArea } = sheetInk(editor)
+  const margin = 5 / editor.getZoomLevel()
+  return {
+    zoom: editor.getZoomLevel(),
+    view: rectOf(editor.getViewportPageBounds()),
+    ink,
+    sheets,
+    chrome,
+    printedArea: (r) => printedArea({ x: r.x - margin, y: r.y - margin, w: r.w + margin * 2, h: r.h + margin * 2 }),
+  }
 }
 
 export interface OldShape {
@@ -101,10 +126,23 @@ function drawLesson(editor: Editor, action: Action, rect: PageRect) {
     .catch((err) => console.warn('lesson skipped', err))
 }
 
-/** Draw a CheckResponse onto the page. `bounds` = page-space area of the image that was sent. */
-export function applyResponse(editor: Editor, response: CheckResponse, bounds: PageRect) {
+/** What drawing a reply did, for the "what happened" line (see sync/status.ts). */
+export interface Drawn {
+  /** actions that put something on the page (or were spoken) */
+  drawn: number
+  /** old tutor shapes removed */
+  removed: number
+}
+
+/**
+ * Draw a CheckResponse onto the page. `bounds` = page-space area of the image that was sent.
+ * `printed` = page rects of printed worksheet lines read on earlier checks (the reply's own are
+ * added): nothing is written over them.
+ */
+export function applyResponse(editor: Editor, response: CheckResponse, bounds: PageRect, printed: PageRect[] = []): Drawn {
   const ctx = renderContext(editor)
   ctx.lines = new Map(response.lines.map((l) => [l.line_id, boxToPage(l.box, bounds)]))
+  ctx.printed = [...printed, ...response.lines.filter((l) => l.source === 'printed').map((l) => boxToPage(l.box, bounds))]
 
   const existing = editor.getCurrentPageShapes().filter(isAiShape)
   const rects = new Map<string, PageRect | null>()
@@ -114,29 +152,100 @@ export function applyResponse(editor: Editor, response: CheckResponse, bounds: P
   }
   const stale = new Set(staleShapeIds(existing.map((s: TLShape) => ({ id: s.id, meta: s.meta, rect: rects.get(s.id) })), response, bounds, ctx))
 
-  // what stays on the page is in the way of what is drawn now (the gray reading labels are not)
+  // what stays on the page is in the way of what is drawn now (the gray reading labels and leader lines are not)
   ctx.taken = existing.flatMap((s) => {
     const r = rects.get(s.id)
-    return r && !stale.has(s.id) && s.meta.kind !== 'reading' ? [r] : []
+    return r && !stale.has(s.id) && s.meta.kind !== 'reading' && s.meta.kind !== 'leader' ? [r] : []
   })
 
-  const shapes = response.actions.flatMap((a) => shapesForAction(a, bounds, ctx))
-
+  const takenBefore = ctx.taken.length // everything placed from here on is appended
+  const batches = response.actions.map((a) => shapesForAction(a, bounds, ctx))
+  let drawn = 0
   editor.run(
     () => {
       if (stale.size) editor.deleteShapes([...stale] as TLShapeId[])
-      if (shapes.length) editor.createShapes(shapes)
+      for (const shapes of batches) {
+        if (!shapes.length) continue
+        // one action at a time: a shape the editor refuses must not take the rest of the reply with it
+        try {
+          editor.createShapes(shapes)
+          drawn++
+        } catch (err) {
+          console.warn('feedback not drawn', err)
+        }
+      }
     },
     { history: 'ignore', ignoreShapeLock: true },
   )
 
-  drawFigures(editor, response.actions, bounds, ctx)
+  drawn += drawFigures(editor, response.actions, bounds, ctx)
+  // notes and graphs; a lesson opens in its own panel and looks after the camera itself
+  const placed = ctx.taken.slice(takenBefore)
 
   for (const action of response.actions) {
     if (action.type !== 'lesson' || !action.lesson) continue
     const sz = sizesFor(action, bounds, ctx)
     drawLesson(editor, action, cardRect(action, bounds, ctx, sz.lessonW, sz.lessonH))
+    drawn++
   }
 
-  for (const action of response.actions) if (action.type === 'speak' && action.text) speak(action.text)
+  for (const action of response.actions) {
+    if (action.type !== 'speak' || !action.text) continue
+    speak(action.text)
+    drawn++
+  }
+  reveal(editor, placed, response, bounds, ctx)
+  return { drawn, removed: stale.size }
+}
+
+/** Feedback this much off screen is brought into view. */
+export const REVEAL_BEYOND = 0.3
+
+/**
+ * Feedback that had to go off screen to keep off the writing (a graph beside a full worksheet page)
+ * would never be seen: `placed` = where things went. The rects among them that the student cannot
+ * see, joined with the lines they are about; null if everything is in view, or if none of those
+ * lines is on screen (the student is looking somewhere else: the camera is left alone).
+ */
+export function revealBounds(placed: PageRect[], about: PageRect[], view: PageRect): PageRect | null {
+  const seen = (r: PageRect) => {
+    const w = Math.min(r.x + r.w, view.x + view.w) - Math.max(r.x, view.x)
+    const h = Math.min(r.y + r.h, view.y + view.h) - Math.max(r.y, view.y)
+    return w > 0 && h > 0 ? (w * h) / (r.w * r.h) : 0
+  }
+  const hidden = placed.filter((r) => r.w > 0 && r.h > 0 && seen(r) < 1 - REVEAL_BEYOND)
+  const anchors = about.filter((r) => r.w > 0 && r.h > 0 && seen(r) > 0)
+  if (!hidden.length || !anchors.length) return null
+  const all = [...placed.filter((r) => r.w > 0 && r.h > 0), ...anchors] // what is already in view stays in view
+  const x = Math.min(...all.map((r) => r.x))
+  const y = Math.min(...all.map((r) => r.y))
+  return { x, y, w: Math.max(...all.map((r) => r.x + r.w)) - x, h: Math.max(...all.map((r) => r.y + r.h)) - y }
+}
+
+/** Move the camera (never zooming in) so off-screen feedback and the line it is about are both in view. */
+function reveal(editor: Editor, placed: PageRect[], response: CheckResponse, bounds: PageRect, ctx: RenderContext) {
+  if (!ctx.view || !placed.length) return
+  const about = response.actions.flatMap((a) => {
+    const r = lineRect(a, bounds, ctx)
+    return r ? [r] : []
+  })
+  const target = revealBounds(placed, about, ctx.view)
+  if (!target) return
+  try {
+    const zoom = editor.getZoomLevel()
+    const inset = 24 / zoom
+    const view = ctx.view
+    if (target.w + inset * 2 > view.w || target.h + inset * 2 > view.h) {
+      // too far apart for this zoom: step back just enough to see both
+      editor.zoomToBounds(target, { targetZoom: zoom, inset: 24, animation: { duration: 350 } })
+      return
+    }
+    // otherwise slide the page the least it takes, so the student's place on it barely moves
+    const slide = (lo: number, size: number, tLo: number, tSize: number) => Math.min(tLo - inset, Math.max(lo, tLo + tSize + inset - size))
+    const x = slide(view.x, view.w, target.x, target.w)
+    const y = slide(view.y, view.h, target.y, target.h)
+    editor.setCamera({ x: -x, y: -y, z: zoom }, { animation: { duration: 350 } })
+  } catch (err) {
+    console.warn('could not bring feedback into view', err)
+  }
 }

@@ -45,7 +45,7 @@ function quantile(sorted: number[], q: number): number {
  * values, clip extreme outliers (so an asymptote doesn't flatten everything else), pad by 10%.
  * Returns undefined if nothing could be evaluated.
  */
-export function sampleYRange(expressions: string[], xRange: [number, number]): [number, number] | undefined {
+export function sampleYRange(expressions: string[], xRange: [number, number], xLog = false): [number, number] | undefined {
   const [x0, x1] = xRange
   const ys: number[] = []
   for (const expr of expressions) {
@@ -57,7 +57,9 @@ export function sampleYRange(expressions: string[], xRange: [number, number]): [
     }
     for (let i = 0; i <= SAMPLES; i++) {
       try {
-        const y = fn.evaluate({ x: x0 + ((x1 - x0) * i) / SAMPLES })
+        // on a log axis the samples are spread evenly over the decades
+        const x = xLog && x0 > 0 ? x0 * (x1 / x0) ** (i / SAMPLES) : x0 + ((x1 - x0) * i) / SAMPLES
+        const y = fn.evaluate({ x })
         if (typeof y === 'number' && Number.isFinite(y)) ys.push(y)
       } catch {
         // undefined at this x (or not a function of x alone): skip the sample
@@ -85,13 +87,14 @@ export function toPlotExpr(expr: string): string {
     .replace(/\*\*/g, '^')
     .replace(/^\s*[a-zA-Z]\s*\(\s*x\s*\)\s*=\s*/, '') // "f(x) = ..." -> "..."
     .replace(/^\s*y\s*=\s*/, '')
-    .replace(/(\d)\s*([a-zA-Z(])/g, '$1*$2')
+    .replace(/(?<![A-Za-z_]\d*)(\d)\s*([a-zA-Z(])/g, '$1*$2') // 2x -> 2*x, but log10(x) stays a name
     .replace(/\)\s*([a-zA-Z(\d])/g, ')*$1')
 }
 
 /** Render a plot2d spec to an SVG data URL. Throws if function-plot can't parse it. */
 export function plot2dToDataUrl(spec: FigureSpec, w = FIGURE_W, h = FIGURE_H): string {
-  const yRange = spec.y_range ?? sampleYRange(spec.expressions, spec.x_range)
+  const xLog = spec.x_log === true && spec.x_range[0] > 0
+  const yRange = spec.y_range ?? sampleYRange(spec.expressions, spec.x_range, xLog)
   const target = document.createElement('div')
   target.style.cssText = 'position:absolute;left:-10000px;top:0'
   document.body.appendChild(target)
@@ -103,7 +106,7 @@ export function plot2dToDataUrl(spec: FigureSpec, w = FIGURE_W, h = FIGURE_H): s
       grid: true,
       disableZoom: true,
       title: spec.title,
-      xAxis: { domain: spec.x_range },
+      xAxis: xLog ? { type: 'log', domain: spec.x_range } : { domain: spec.x_range },
       yAxis: yRange ? { domain: yRange } : undefined,
       data: spec.expressions.map((e) => ({ fn: toPlotExpr(e), graphType: 'polyline' as const, sampler: 'builtIn' as const })),
     })
@@ -139,14 +142,19 @@ function drawSurface3d(editor: Editor, action: Action, rect: PageRect) {
     .catch((err) => console.warn('figure skipped', action.figure, err))
 }
 
-/** Draw every figure action as an image shape (3D surfaces are drawn by ./figure3d, asynchronously). Unsupported or broken specs are skipped. */
-export function drawFigures(editor: Editor, actions: Action[], bounds: PageRect, ctx: RenderContext = DEFAULT_CONTEXT) {
+/**
+ * Draw every figure action as an image shape (3D surfaces are drawn by ./figure3d, asynchronously).
+ * Unsupported or broken specs are skipped. Returns how many figures were drawn (or handed to the 3D renderer).
+ */
+export function drawFigures(editor: Editor, actions: Action[], bounds: PageRect, ctx: RenderContext = DEFAULT_CONTEXT): number {
   const assets: TLAsset[] = []
   const shapes: TLShapePartial[] = []
+  let handed = 0
   for (const action of actions) {
     if (action.type !== 'figure' || !action.figure) continue
     if (action.figure.kind === 'surface3d') {
       drawSurface3d(editor, action, figureRect(action, bounds, ctx))
+      handed++
       continue
     }
     if (action.figure.kind !== 'plot2d') continue
@@ -175,7 +183,7 @@ export function drawFigures(editor: Editor, actions: Action[], bounds: PageRect,
       props: { assetId, w: r.w, h: r.h },
     })
   }
-  if (!shapes.length) return
+  if (!shapes.length) return handed
   editor.run(
     () => {
       editor.createAssets(assets)
@@ -183,4 +191,5 @@ export function drawFigures(editor: Editor, actions: Action[], bounds: PageRect,
     },
     { history: 'ignore', ignoreShapeLock: true },
   )
+  return handed + shapes.length
 }

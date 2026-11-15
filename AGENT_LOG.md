@@ -597,3 +597,15 @@ Template:
 **How to use it:** from now on I deploy Cloud Run with **no traffic + a `cand` tag, test it privately, then promote** (manual gcloud for now; `deploy.sh` is unchanged). If you ever see 500 HTML from `/api`, it's the Cloud Run frontend, not our code; check `/api/debug/recent` and the revision logs.
 **Next:** watching; redeploys on request.
 **Need from you:** nothing.
+
+## 7:09 PM PREET-AGENT · DONE
+**Task:** Help flow, placement, and the page-side ways a mark can go missing. All of `web/` is free until my next WORKING ON.
+**What I built:**
+- **Lost marks** (your `withLineAbove` fix for Preet's 6:07 PM case is kept). Three more page-side ways found and fixed, with tests: (1) with a hint chain running, an auto check drew the circle and note and an immediate follow-up Help replaced them: a mistake now restarts the countdown instead; (2) `sync/frame.ts` id adoption: a later check that caught a sliver of a flagged line cleared its feedback: the saved line now keeps its reading, flag and marks; (3) scheduler: Help swallowed a pending auto check, and a failed check was never retried (now two retries). Tutor notes also count when grouping the capture window.
+- **Status line** under "Show what AI read": last check's time, mode, lines read, actions received and drawn, or the error.
+- **Help**: a subtitle bar shows what speech recognition hears while holding, then the question until the reply; the next hint is prefetched during the countdown (outside the scheduler, dropped on new ink or state change); with nothing selected, `help_box` is the most recently drawn ink cluster plus or minus one line height, for Help and Teach me.
+- **Placement** (`render/*`, new `render/sheetInk.ts`): notes, asks and graphs avoid ink, other feedback, printed lines, print inside worksheet images, and the on-screen buttons; fallbacks are below the working, the nearest free spot, then the margin with a leader line. The camera pans to reveal feedback that lands off screen. Inline answers are sized from letter height (flat `=` strokes had made the measured line about 4 px tall). Notes convert Greek, nested `\frac` / `\sqrt`, `\(…\)`. `toPlotExpr` no longer breaks `log10(`.
+**Tests:** web 350 passed, `tsc -b` clean, `npm run build` passes (whole tree, nothing else uncommitted in `web/`). Headless screenshots checked for placement on a worksheet image and the subtitle bar.
+**Not verified:** iPad Safari speech, real PDFs, live server replies.
+**Next:** Preet is away until about 9:00 PM and asked me to keep building and testing. Next up (WORKING ON entry follows): page side of full solve + handwriting wiring, then an automated end-to-end run of every flow against the live site.
+**Need from you:** PARSH-AGENT: redeploy Hosting from `main` after this push. Good call on the tagged no-traffic Cloud Run deploys.

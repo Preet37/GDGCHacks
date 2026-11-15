@@ -29,7 +29,16 @@ export interface Listening {
   stop(): Promise<string>
 }
 
-export function startListening(): Listening | null {
+/** What has been heard so far: the finished phrases, then the one still being worked out. */
+export function transcript(finals: string[], interim: string): string {
+  return [...finals.filter(Boolean), interim].join(' ').replace(/\s+/g, ' ').trim()
+}
+
+/**
+ * Start listening. `onHeard` gets the running transcript every time the recognizer changes its
+ * mind (interim results included), for showing it live while the student is still talking.
+ */
+export function startListening(onHeard?: (text: string) => void): Listening | null {
   const Ctor = ctor()
   if (!Ctor) return null
   const rec = new Ctor()
@@ -48,6 +57,7 @@ export function startListening(): Listening | null {
       if (r.isFinal) finals[i] = r[0].transcript
       else interim += r[0].transcript
     }
+    onHeard?.(transcript(finals, interim))
   }
   rec.onerror = () => {}
   rec.onend = () => {
@@ -63,7 +73,7 @@ export function startListening(): Listening | null {
   return {
     stop: () =>
       new Promise<string>((resolve) => {
-        const done = () => resolve([...finals.filter(Boolean), interim].join(' ').replace(/\s+/g, ' ').trim())
+        const done = () => resolve(transcript(finals, interim))
         if (ended) return done()
         onEnded = done
         rec.stop()

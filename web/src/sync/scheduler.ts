@@ -9,15 +9,20 @@ export interface SchedulerOptions {
   onIdle?: () => void
 }
 
+/** A check that failed (network, server) is sent again by itself this many times, waiting longer each time. */
+export const MAX_RETRIES = 2
+
 /**
  * Sends after a pause in changes. Skips if nothing changed since the last send,
  * never overlaps requests, and if changes arrived mid-flight, schedules one more send after.
+ * A failed send is retried a couple of times without waiting for another change.
  */
 export class PauseScheduler {
   private timer: ReturnType<typeof setTimeout> | null = null
   private inFlight = false
   private changedDuringFlight = false
   private lastKey: string | null = null
+  private failures = 0
   private opts: SchedulerOptions
 
   constructor(opts: SchedulerOptions) {
@@ -30,6 +35,11 @@ export class PauseScheduler {
 
   /** Call on every change to the student's work. */
   poke() {
+    this.failures = 0
+    this.arm()
+  }
+
+  private arm() {
     if (this.inFlight) {
       this.changedDuringFlight = true
       return
@@ -41,9 +51,16 @@ export class PauseScheduler {
   /** Run `fn` exclusively (e.g. a Help request). Waits out nothing: returns false if busy. */
   async exclusive(fn: () => Promise<void>): Promise<boolean> {
     if (this.inFlight) return false
+    // a pause that was being waited out starts again afterwards: Help must not swallow the
+    // automatic check of what was just written
+    const waiting = this.timer !== null
     if (this.timer) clearTimeout(this.timer)
     this.timer = null
-    await this.run(fn)
+    try {
+      await this.run(fn)
+    } finally {
+      if (waiting && !this.timer && !this.inFlight) this.arm()
+    }
     return true
   }
 
@@ -60,10 +77,18 @@ export class PauseScheduler {
       return
     }
     this.lastKey = key
-    await this.run(this.opts.send).catch(() => {
-      // allow retrying the same page after a failure
+    try {
+      await this.run(this.opts.send)
+      this.failures = 0
+    } catch {
+      // allow retrying the same page after a failure, and do: the student may be sitting there
+      // waiting for the check, not writing anything that would trigger another one
       this.lastKey = null
-    })
+      if (this.failures < MAX_RETRIES && !this.timer && !this.inFlight) {
+        this.failures++
+        this.timer = setTimeout(() => void this.fire(), this.opts.delayMs * 2 ** this.failures)
+      }
+    }
   }
 
   private async run(fn: () => Promise<void>) {

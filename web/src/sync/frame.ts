@@ -86,6 +86,7 @@ function renames(incoming: Iterable<string>, sent: Set<string>, reserved: Set<st
  * - Everything that was not sent (lines, flags, problems outside the window) is kept exactly as it was.
  * - The server names new lines/problems "next unused" among what it was sent, so a new id can
  *   collide with one outside the window: those are renamed everywhere in the reply.
+ * - A saved line the window showed less than half of keeps its saved reading, flag and feedback.
  * Returns the reply (ids fixed, boxes still over the sent image, ready to draw with `win`)
  * and the new saved state (boxes in page coordinates).
  */
@@ -102,9 +103,12 @@ export function mergeReply(
   let keptLines = saved.lines.filter((l) => !sentLines.has(l.line_id))
   let keptFlags = saved.flagged_line_ids.filter((id) => !sentFlags.has(id))
 
-  // A saved line the window only partly covered was not sent, so the server read it as a new
-  // line. It is the same writing: the reading takes the saved line's id (so its feedback is
-  // replaced, not doubled) and the saved copy goes.
+  // A saved line the window only partly covered was not sent, so the server read the part it
+  // could see as a new line. It is the same writing: the reading takes the saved line's id, so
+  // new feedback for it replaces the old instead of piling up. The saved line itself stays as it
+  // is, with its flag and its feedback: a reading of a fragment is worse than the one we have,
+  // and a check that had nothing new to say about the line must not wipe the red mark on it.
+  // Only a saved line that turns out to be a second copy of a line that WAS sent goes.
   const adopted = new Map<string, string>()
   const superseded = new Set<string>()
   for (const l of [...reply.state.lines, ...reply.lines]) {
@@ -115,9 +119,18 @@ export function mergeReply(
       if (!sentLines.has(l.line_id) && !adopted.has(l.line_id) && ![...adopted.values()].includes(k.line_id)) adopted.set(l.line_id, k.line_id)
     }
   }
-  keptLines = keptLines.filter((l) => !superseded.has(l.line_id))
-  keptFlags = keptFlags.filter((id) => !superseded.has(id))
+  const adoptedIds = new Set(adopted.values())
+  const duplicates = new Set([...superseded].filter((id) => !adoptedIds.has(id)))
+  keptLines = keptLines.filter((l) => !duplicates.has(l.line_id))
+  keptFlags = keptFlags.filter((id) => !duplicates.has(id))
   const keptProblems = saved.problems.filter((p) => !sentProblems.has(p.problem_id))
+  // the fragment's problem is the saved line's problem: lines written under it join that one
+  const adoptedProblems = new Map<string, string>()
+  for (const l of [...reply.state.lines, ...reply.lines]) {
+    const to = adopted.get(l.line_id)
+    const home = to && saved.lines.find((k) => k.line_id === to)?.problem_id
+    if (home && !sentProblems.has(l.problem_id) && !adoptedProblems.has(l.problem_id)) adoptedProblems.set(l.problem_id, home)
+  }
 
   const lineMap = renames(
     [
@@ -140,6 +153,7 @@ export function mergeReply(
     sentProblems,
     new Set([...keptLines.map((l) => l.problem_id), ...keptProblems.map((p) => p.problem_id)]),
   )
+  for (const [from, to] of adoptedProblems) problemMap.set(from, to)
   const lid = (id: string) => lineMap.get(id) ?? id
   const pid = (id: string) => problemMap.get(id) ?? id
   const fixLine = (l: ReadLine): ReadLine => ({ ...l, line_id: lid(l.line_id), problem_id: pid(l.problem_id) })
@@ -149,7 +163,7 @@ export function mergeReply(
     ...reply,
     lines: reply.lines.map(fixLine),
     actions: reply.actions.map((a) => (a.line_id ? { ...a, line_id: lid(a.line_id) } : a)),
-    clear_line_ids: [...new Set([...reply.clear_line_ids.map(lid), ...superseded])],
+    clear_line_ids: [...new Set([...reply.clear_line_ids.map(lid), ...duplicates])],
     state: {
       page_id: saved.page_id,
       lines: reply.state.lines.map(fixLine),
@@ -157,11 +171,18 @@ export function mergeReply(
       flagged_line_ids: reply.state.flagged_line_ids.map(lid),
     },
   }
+  // a problem the reply and the unsent part of the page both know: the server saw only a fragment of it, so the higher hint level stands
+  const problems = [...keptProblems]
+  for (const p of fixed.state.problems) {
+    const i = problems.findIndex((k) => k.problem_id === p.problem_id)
+    if (i < 0) problems.push(p)
+    else if (p.hint_level > problems[i].hint_level) problems[i] = p
+  }
   const state: SavedState = {
     page_id: saved.page_id,
     frame: 'page',
-    lines: [...keptLines, ...fixed.state.lines.map((l) => toPageLine(l, win))],
-    problems: [...keptProblems, ...fixed.state.problems],
+    lines: [...keptLines, ...fixed.state.lines.filter((l) => !adoptedIds.has(l.line_id)).map((l) => toPageLine(l, win))],
+    problems,
     flagged_line_ids: [...keptFlags, ...fixed.state.flagged_line_ids.filter((id) => !keptFlags.includes(id))],
   }
   return { reply: fixed, state }

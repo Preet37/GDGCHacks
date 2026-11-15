@@ -67,6 +67,55 @@ describe('PauseScheduler', () => {
     expect(send).toHaveBeenCalledTimes(2)
   })
 
+  it('a failed check is sent again by itself, a little later each time, and gives up after two retries', async () => {
+    // the student may be sitting there waiting for the check, writing nothing that would trigger another
+    const send = vi.fn().mockRejectedValue(new Error('down'))
+    const s = new PauseScheduler({ delayMs: 100, key: () => 'same', send })
+    s.poke()
+    await vi.advanceTimersByTimeAsync(100)
+    expect(send).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(199)
+    expect(send).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
+    expect(send).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(400)
+    expect(send).toHaveBeenCalledTimes(3)
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(send).toHaveBeenCalledTimes(3)
+    // writing again starts over
+    s.poke()
+    await vi.advanceTimersByTimeAsync(100)
+    expect(send).toHaveBeenCalledTimes(4)
+  })
+
+  it('a retry that works is the end of it', async () => {
+    const send = vi.fn().mockRejectedValueOnce(new Error('down')).mockResolvedValue(undefined)
+    const s = new PauseScheduler({ delayMs: 100, key: () => 'same', send })
+    s.poke()
+    await vi.advanceTimersByTimeAsync(100)
+    await vi.advanceTimersByTimeAsync(200)
+    expect(send).toHaveBeenCalledTimes(2)
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(send).toHaveBeenCalledTimes(2)
+  })
+
+  it('exclusive (Help) does not swallow a check that was waiting out its pause', async () => {
+    const { s, send } = setup()
+    s.poke()
+    await vi.advanceTimersByTimeAsync(1500) // half a second short of the check
+    expect(await s.exclusive(async () => {})).toBe(true)
+    expect(send).not.toHaveBeenCalled()
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(send).toHaveBeenCalledTimes(1)
+  })
+
+  it('exclusive with nothing waiting schedules nothing', async () => {
+    const { s, send } = setup()
+    expect(await s.exclusive(async () => {})).toBe(true)
+    await vi.advanceTimersByTimeAsync(60000)
+    expect(send).not.toHaveBeenCalled()
+  })
+
   it('exclusive refuses while a request is in flight', async () => {
     const { s, finish } = setup()
     s.poke()

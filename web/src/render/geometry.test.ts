@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { beside, boxToPage, expand, feedbackSizes, inlineAt, overlapRatio, pageToBox, placeBeside, TEXT_LINE_HEIGHT, textHeight } from './geometry'
+import { beside, boxToPage, coveredArea, expand, feedbackSizes, gapBetween, inlineAt, leaderEnds, overlapRatio, pageToBox, placeBeside, TEXT_LINE_HEIGHT, textHeight } from './geometry'
 
 const bounds = { x: 100, y: 50, w: 2000, h: 1000 }
 
@@ -49,7 +49,7 @@ describe('feedbackSizes', () => {
   it('scales notes, gaps, strokes and figures with the line height', () => {
     const s = feedbackSizes(150, screen(0.4))
     expect(s.noteFont).toBe(60) // 40% of the handwriting
-    expect(s.inlineFont).toBeCloseTo(112.5) // 75%
+    expect(s.inlineFont).toBeCloseTo(135) // 90%
     expect(s.noteWidth).toBe(720)
     expect(s.gap).toBeCloseTo(37.5)
     expect(s.pad).toBeCloseTo(18.75)
@@ -79,7 +79,7 @@ describe('feedbackSizes', () => {
     // 60 screen px tall writing at zoom 0.1 = 600 page units
     const s = feedbackSizes(600, screen(0.1))
     expect(s.noteFont).toBe(240) // 24 px on screen (was capped at 64 page units = 6 px)
-    expect(s.inlineFont).toBe(450)
+    expect(s.inlineFont).toBe(540)
     expect(s.figureH * 0.1).toBeGreaterThanOrEqual(768 / 3) // a third of the screen
   })
 
@@ -93,7 +93,7 @@ describe('feedbackSizes', () => {
       expect(tiny.figureH * zoom).toBeCloseTo(768 / 3)
       const huge = feedbackSizes(1e6, screen(zoom))
       expect(huge.noteFont * zoom).toBeCloseTo(768 * 0.055)
-      expect(huge.inlineFont * zoom).toBeCloseTo(768 * 0.14)
+      expect(huge.inlineFont * zoom).toBeCloseTo(768 * 0.16)
       expect(huge.figureH * zoom).toBeCloseTo(768 * 0.6)
       expect(huge.figureW * zoom).toBeLessThanOrEqual(1024 * 0.9)
       expect(huge.lessonW * zoom).toBeCloseTo(512) // half the viewport
@@ -129,6 +129,19 @@ describe('textHeight', () => {
     const h = textHeight(line, ink)
     expect(h).toBeGreaterThan(100)
     expect(h).toBeLessThan(200)
+  })
+
+  it('a short line is measured by its letters, not by the bars of its "="', () => {
+    // "x =" as on the iPad: one stroke for the x, two flat ones for the equals sign
+    const short = { x: 0, y: 0, w: 160, h: 44 }
+    const strokes = [
+      { x: 0, y: 4, w: 34, h: 36 },
+      { x: 70, y: 14, w: 60, h: 3 },
+      { x: 70, y: 28, w: 62, h: 4 },
+    ]
+    expect(textHeight(short, strokes)).toBe(44) // was 4.2: the answer after it came out tiny
+    // and with a minus and a dot thrown in
+    expect(textHeight({ x: 0, y: 0, w: 400, h: 60 }, [...strokes, { x: 200, y: 20, w: 40, h: 2 }, { x: 260, y: 30, w: 3, h: 3 }, { x: 300, y: 6, w: 30, h: 38 }])).toBeGreaterThan(40)
   })
 
   it('never exceeds the box, and ignores strokes of other lines', () => {
@@ -192,27 +205,72 @@ describe('placeBeside', () => {
     expect(placeBeside(anchor, size, 'right', 10, { zoom: 1, view, ink })).toEqual({ x: 400, y: 190, w: 300, h: 100 })
   })
 
-  it('does not run off the screen: other side, then narrower', () => {
+  it('does not run off the screen: other side, then narrower, then the nearest free spot on screen', () => {
     const edge = { x: 800, y: 300, w: 200, h: 60 }
-    expect(placeBeside(edge, size, 'right', 10, { zoom: 1, view }).x).toBe(800 - 0) // below: starts under the anchor
-    expect(placeBeside(edge, size, 'right', 10, { zoom: 1, view }).y).toBe(370)
-    // nothing fits at full width, a narrower wrap does
+    // nothing fits at full width beside it, a narrower wrap does
     const sizes = [
       { w: 600, h: 60 },
       { w: 200, h: 180 },
     ]
     expect(placeBeside(edge, sizes, 'right', 10, { zoom: 1, view })).toEqual({ x: 800, y: 370, w: 200, h: 180 })
+    // one size only: it goes to the nearest spot that is wholly on screen, not half off it
+    const r = placeBeside(edge, size, 'right', 10, { zoom: 1, view })
+    expect(r.x + r.w).toBeLessThanOrEqual(1024)
+    expect(r.x).toBeGreaterThanOrEqual(0)
+    expect(gapBetween(r, edge)).toBeGreaterThanOrEqual(9.9)
+    expect(gapBetween(r, edge)).toBeLessThan(60)
   })
 
-  it('takes the least crowded spot when nothing is free, and is deterministic', () => {
+  it('never settles on top of writing when there is free room further down, and is deterministic', () => {
     const ink = [
       { x: 610, y: 300, w: 400, h: 100 }, // right: fully covered
       { x: 400, y: 370, w: 20, h: 20 }, // below: a dot
       { x: 400, y: 100, w: 400, h: 190 }, // above: covered
     ]
     const a = placeBeside(anchor, size, 'right', 10, { zoom: 1, view, ink })
-    expect(a).toEqual({ x: 400, y: 370, w: 300, h: 100 })
+    expect(a).toEqual({ x: 400, y: 410, w: 300, h: 100 }) // under the dot and clear of the writing on the right
     expect(placeBeside(anchor, size, 'right', 10, { zoom: 1, view, ink })).toEqual(a)
+  })
+
+  it('a big card does not land on a line of handwriting just because thin strokes have little area', () => {
+    // iPad photo: line 2 with "graph it" to its right and a note under it; the graph went over line 1 (above)
+    const line2 = { x: 100, y: 330, w: 420, h: 70 }
+    const strokes = (x0: number, y: number, n: number) => Array.from({ length: n }, (_, i) => ({ x: x0 + i * 40, y, w: 24, h: 50 }))
+    const ink = [...strokes(60, 150, 9), ...strokes(100, 340, 10), ...strokes(560, 340, 8)]
+    const taken = [{ x: 100, y: 420, w: 260, h: 110 }] // the hint under line 2
+    const card = [{ w: 360, h: 260 }]
+    const ctx = { zoom: 1, view: { x: 0, y: 0, w: 900, h: 1100 }, ink, taken }
+    const r = placeBeside(line2, card, 'right', 15, ctx)
+    expect(coveredArea(r, ctx)).toBe(0)
+    expect(r).toEqual({ x: 100, y: 545, w: 360, h: 260 }) // below the whole working
+  })
+
+  it('keeps off printed text: the lines that were read, and what the worksheet image shows', () => {
+    const printed = [{ x: 380, y: 370, w: 200, h: 40 }] // the next printed line, right below
+    expect(placeBeside(anchor, size, 'below', 10, { zoom: 1, view, printed })).toEqual({ x: 610, y: 300, w: 300, h: 100 })
+    // the image says the band y 250..500 is full of text right across: the note goes under it
+    const printedArea = (r: { x: number; y: number; w: number; h: number }) => (r.y < 500 && r.y + r.h > 250 ? r.w : 0)
+    const r = placeBeside(anchor, size, 'below', 10, { zoom: 1, view, printedArea })
+    expect(r.y).toBeGreaterThanOrEqual(500)
+    expect(r.x).toBe(400)
+  })
+
+  it('with no free room on the worksheet it goes in the nearest margin, level with the line', () => {
+    const sheet = { x: 0, y: 0, w: 1000, h: 3000 }
+    const full = (r: { x: number; y: number; w: number; h: number }) => (r.x < 1000 && r.x + r.w > 0 ? r.w * r.h : 0) // text everywhere on the page
+    const wide = { x: -500, y: 0, w: 2000, h: 768 }
+    const left = { x: 100, y: 300, w: 200, h: 40 }
+    const l = placeBeside(left, size, 'below', 10, { zoom: 1, view: wide, printedArea: full, sheets: [sheet] })
+    expect(l.y).toBe(300)
+    expect(l.x + l.w).toBeLessThanOrEqual(0)
+    expect(l.x + l.w).toBeGreaterThan(-40)
+    const right = { x: 700, y: 300, w: 200, h: 40 }
+    const r = placeBeside(right, size, 'below', 10, { zoom: 1, view: wide, printedArea: full, sheets: [sheet] })
+    expect(r.y).toBe(300)
+    expect(r.x).toBeGreaterThanOrEqual(1000)
+    expect(r.x).toBeLessThan(1040)
+    // margins off screen: still the margin rather than on the text
+    expect(placeBeside(right, size, 'below', 10, { zoom: 1, view: { x: 0, y: 0, w: 1000, h: 768 }, printedArea: full, sheets: [sheet] })).toMatchObject({ x: 1010, y: 300 })
   })
 
   it('ignores the viewport when the anchor is not on screen', () => {
@@ -228,5 +286,14 @@ describe('overlapRatio', () => {
     expect(overlapRatio(a, { x: 50, y: 0, w: 100, h: 100 })).toBe(0.5)
     expect(overlapRatio(a, { x: 10, y: 10, w: 20, h: 20 })).toBe(1)
     expect(overlapRatio(a, { x: 200, y: 0, w: 100, h: 100 })).toBe(0)
+  })
+})
+
+describe('leaderEnds', () => {
+  it('joins the nearest points of the two rects', () => {
+    // note to the right, level: a horizontal line between the facing edges
+    expect(leaderEnds({ x: 500, y: 100, w: 200, h: 80 }, { x: 100, y: 110, w: 300, h: 40 })).toEqual({ a: { x: 500, y: 130 }, b: { x: 400, y: 130 } })
+    // note below and to the left: corner to corner
+    expect(leaderEnds({ x: 0, y: 300, w: 80, h: 50 }, { x: 100, y: 100, w: 300, h: 40 })).toEqual({ a: { x: 80, y: 300 }, b: { x: 100, y: 140 } })
   })
 })

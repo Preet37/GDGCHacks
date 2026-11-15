@@ -58,6 +58,16 @@ export interface ChainDeps {
   stuckMs: number
   /** Send one help request through the scheduler's exclusive path. Must not throw. */
   request: (target: HelpTarget) => Promise<HelpAttempt>
+  /**
+   * Fetch the next hint ahead of time without showing it: nothing on the page or in the saved
+   * state may change. Resolves to whatever `show` needs, or null if it could not be fetched.
+   */
+  prefetch?: (target: HelpTarget) => Promise<unknown>
+  /**
+   * Show a prefetched hint now. null = it is out of date (the page changed since it was asked
+   * for); 'busy' = another request is in flight. Either way a normal request is made instead.
+   */
+  show?: (held: unknown) => HelpAttempt
   setTimer?: (fn: () => void, ms: number) => unknown
   clearTimer?: (handle: unknown) => void
   now?: () => number
@@ -98,8 +108,13 @@ export function sameTarget(chain: { area?: PageRect; window: PageRect }, area: P
 
 /**
  * One tap on Help starts a chain of hints for one problem:
- * - no writing for `stuckMs`: ask for the next hint;
- * - writing: wait for its auto check; a mistake on the problem brings the next hint, a clean check ends the chain;
+ * - no writing for `stuckMs`: the next hint. It is fetched in the background as soon as the
+ *   countdown starts and held back, so it appears the moment the countdown ends (or Help is
+ *   tapped again). A held hint is thrown away if the student writes: it was made for a page
+ *   that no longer exists;
+ * - writing: wait for its auto check. A clean check ends the chain. A mistake gets its red mark
+ *   from that check, and the countdown starts again: the next hint only comes if the student
+ *   stays stuck on it (asking at once would replace the red mark before it could be read);
  * - the worked step (level 3), a reply that raises no level, or a failed request ends it.
  */
 export class HintChain {
@@ -113,6 +128,8 @@ export class HintChain {
   private epoch = 0
   private timer: unknown = null
   private deadline = 0
+  /** the next hint, being fetched or already here, not yet shown */
+  private pre: { held: Promise<unknown> } | null = null
   private listeners = new Set<() => void>()
   private snap: ChainSnapshot
   private d: Required<ChainDeps>
@@ -122,6 +139,8 @@ export class HintChain {
       setTimer: (fn, ms) => setTimeout(fn, ms),
       clearTimer: (h) => clearTimeout(h as ReturnType<typeof setTimeout>),
       now: () => Date.now(),
+      prefetch: () => Promise.resolve(null),
+      show: () => null,
       ...deps,
     }
     this.snap = this.makeSnapshot()
@@ -158,15 +177,17 @@ export class HintChain {
     if (!this.chain) return
     this.stopTimer()
     this.due = false
+    this.pre = null // made for the page as it was
     this.set('watching')
   }
 
   /** An auto check finished. null = nothing was checked (nothing new to read, or it failed). */
   checked(result: CheckResult | null) {
     if (this.phase !== 'watching' || !this.chain) return
-    if (!result) return this.startTimer() // they stopped without giving us anything to check: count again
+    if (!result) return this.count() // they stopped without giving us anything to check: count again
     if (result.dirty) return // more writing came in; its own check follows
-    if (result.mistakes.includes(this.chain.problemId)) this.due = true // sent from idle()
+    // a mistake: the check has just marked it in red. Give them time with that before the next hint.
+    if (result.mistakes.includes(this.chain.problemId)) this.count()
     else this.end() // their next step is fine: they're moving
   }
 
@@ -200,11 +221,28 @@ export class HintChain {
     this.inkWhileAsking = false
     this.due = false
     this.stopTimer()
+    // the hint fetched ahead of time answers this, unless the student asked something out loud just now
+    const pre = continuing && !target.question ? this.pre : null
+    this.pre = null
     const epoch = this.epoch
     this.set('asking')
-    let res: HelpAttempt
+    let res: HelpAttempt = null
     try {
-      res = await this.d.request(target)
+      let shown = false
+      if (pre) {
+        const held = await pre.held.catch(() => null)
+        if (epoch === this.epoch && this.inkWhileAsking) {
+          // they started writing while it was on its way: it is out of date, and their check comes first
+          this.asking = false
+          this.set('watching')
+          return 'ok'
+        }
+        if (epoch === this.epoch && held != null) {
+          res = this.d.show(held)
+          shown = res !== null && res !== 'busy'
+        }
+      }
+      if (!shown && epoch === this.epoch) res = await this.d.request(target)
     } catch {
       res = null
     } finally {
@@ -218,7 +256,7 @@ export class HintChain {
       else if (before.phase === 'watching') {
         this.due = before.due
         this.set('watching')
-      } else if (before.left > 0) this.startTimer(before.left)
+      } else if (before.left > 0) this.count(before.left)
       else {
         this.due = true
         this.set('counting')
@@ -238,8 +276,22 @@ export class HintChain {
     }
     if (res.raised.level >= MAX_HINT_LEVEL) this.end()
     else if (this.inkWhileAsking) this.set('watching')
-    else this.startTimer()
+    else this.count()
     return 'ok'
+  }
+
+  /** Start the countdown to the next hint, and fetch that hint now so it is ready when the countdown ends. */
+  private count(ms = this.d.stuckMs) {
+    this.startTimer(ms)
+    const c = this.chain
+    if (this.pre || !c) return
+    try {
+      const held = this.d.prefetch({ area: c.area, window: c.window, problemId: c.problemId })
+      held.catch(() => {}) // a failed prefetch is simply not used
+      this.pre = { held }
+    } catch {
+      // no prefetch: the hint is asked for when the countdown ends
+    }
   }
 
   private startTimer(ms = this.d.stuckMs) {
@@ -260,6 +312,7 @@ export class HintChain {
   private end() {
     this.stopTimer()
     this.epoch++
+    this.pre = null
     this.chain = null
     this.due = false
     this.set('idle')

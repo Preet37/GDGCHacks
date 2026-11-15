@@ -3,6 +3,7 @@ import type { Editor } from 'tldraw'
 import type { PageRect } from './render/geometry'
 import { primeSpeech } from './lesson/speech'
 import type { HintChain } from './sync/hintChain'
+import { statusLine } from './sync/status'
 import type { Tutor } from './sync/tutor'
 import { HoldGesture, startListening, type Listening } from './voice'
 import { importPdf } from './worksheet'
@@ -124,6 +125,21 @@ function TeachButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) {
 }
 
 /**
+ * What the student is saying while they hold Help, as a subtitle along the bottom of the screen:
+ * the recognizer's running guess while they talk, then the question as it was sent, until the answer is there.
+ */
+function Subtitle({ heard }: { heard: { text: string; sent: boolean } }) {
+  return (
+    <div className={'tutor-subtitle' + (heard.sent ? ' sent' : '')} role="status" aria-live="polite">
+      <span className="tutor-subtitle-mic" aria-hidden="true" />
+      <span className="tutor-subtitle-text">
+        <span>{heard.text || 'Listening… ask your question'}</span>
+      </span>
+    </div>
+  )
+}
+
+/**
  * Big floating Help. Tap: hint for the selection (lasso/box select), or for what is on screen if nothing is selected.
  * Hold: also listen, and send what the student said as `question` when they let go.
  * One tap is enough: more hints follow while the student stays stuck (see sync/hintChain.ts); tapping again
@@ -132,25 +148,49 @@ function TeachButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) {
 export function HelpButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) {
   const [reading, setReading] = useState(tutor.showReading)
   const [listening, setListening] = useState(false)
+  /** what speech recognition has heard: live while holding, then the question that was sent, until its reply arrives */
+  const [heard, setHeard] = useState<{ text: string; sent: boolean } | null>(null)
+  const [status, setStatus] = useState(tutor.status)
   const mic = useRef<Listening | null>(null)
   const area = useRef<PageRect | undefined>(undefined)
+  /** which hold the subtitle belongs to: an older question's reply must not clear a newer one */
+  const asked = useRef(0)
+
+  useEffect(() => {
+    const off = tutor.on((e) => {
+      if (e.type === 'status') setStatus(e.status)
+    })
+    return () => void off()
+  }, [tutor])
 
   const gesture = useMemo(() => {
     const send = (question?: string) => {
       editor.selectNone()
-      void tutor.help(area.current, question || undefined)
+      return tutor.help(area.current, question || undefined)
     }
     return new HoldGesture({
-      onTap: () => send(),
+      onTap: () => void send(),
       onHoldStart: () => {
-        mic.current = startListening()
+        const turn = ++asked.current
+        mic.current = startListening((text) => {
+          if (asked.current === turn) setHeard({ text, sent: false })
+        })
         setListening(mic.current !== null)
+        setHeard(mic.current ? { text: '', sent: false } : null)
       },
       onHoldEnd: async () => {
+        const turn = asked.current
         setListening(false)
         const m = mic.current
         mic.current = null
-        send(m ? await m.stop() : undefined)
+        const question = m ? await m.stop() : undefined
+        // the question stays on screen until the tutor has answered it
+        if (asked.current === turn) setHeard(question ? { text: question, sent: true } : null)
+        try {
+          await send(question)
+        } finally {
+          if (asked.current === turn) setHeard(null)
+        }
       },
     })
   }, [editor, tutor])
@@ -184,6 +224,8 @@ export function HelpButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) 
   }
 
   return (
+    <>
+    {heard && <Subtitle heard={heard} />}
     <div className="tutor-controls">
       <input
         ref={fileInput}
@@ -198,6 +240,11 @@ export function HelpButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) 
       <button className={'tutor-chip' + (reading ? ' on' : '')} onClick={toggleReading}>
         Show what AI read
       </button>
+      {reading && (
+        <div className="tutor-status" role="status">
+          {status ? statusLine(status) : 'no check yet'}
+        </div>
+      )}
       <NextHint chain={tutor.hints} />
       <TeachButton editor={editor} tutor={tutor} />
       <button
@@ -212,5 +259,6 @@ export function HelpButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) 
         {listening ? 'Listening…' : 'Help'}
       </button>
     </div>
+    </>
   )
 }

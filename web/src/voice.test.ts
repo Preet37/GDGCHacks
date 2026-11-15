@@ -72,4 +72,32 @@ describe('speech recognition', () => {
     FakeRec.last.onresult!({ resultIndex: 0, results: [res('why is this', true), res(' wrong', false)] })
     expect(await l.stop()).toBe('why is this wrong')
   })
+
+  it('reports what it hears as it goes, interim guesses included', () => {
+    class FakeRec {
+      static last: FakeRec
+      onresult: ((e: unknown) => void) | null = null
+      onend = null
+      onerror = null
+      lang = ''
+      interimResults = false
+      continuous = false
+      constructor() {
+        FakeRec.last = this
+      }
+      start() {}
+      abort() {}
+      stop() {}
+    }
+    Object.assign(globalThis, { webkitSpeechRecognition: FakeRec })
+    const heard: string[] = []
+    startListening((t) => heard.push(t))
+    const res = (t: string, isFinal: boolean) => Object.assign([{ transcript: t }], { isFinal })
+    FakeRec.last.onresult!({ resultIndex: 0, results: [res('why does', false)] })
+    FakeRec.last.onresult!({ resultIndex: 0, results: [res('why does the graph', false)] })
+    FakeRec.last.onresult!({ resultIndex: 0, results: [res('why does the graph turn', true)] })
+    FakeRec.last.onresult!({ resultIndex: 1, results: [res('why does the graph turn', true), res(' around there', false)] })
+    expect(heard).toEqual(['why does', 'why does the graph', 'why does the graph turn', 'why does the graph turn around there'])
+    expect(FakeRec.last.interimResults).toBe(true)
+  })
 })

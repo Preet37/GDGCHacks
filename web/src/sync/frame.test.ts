@@ -168,12 +168,20 @@ describe('mergeReply', () => {
     // before: the reading was renamed L2/L3, the page kept two lines for one piece of writing,
     // and the new note was drawn on top of L1's old one
     expect(state.lines.map((l) => l.line_id)).toEqual(['L1', 'L2'])
-    expect(fixed.actions[0].line_id).toBe('L1')
-    expect(fixed.clear_line_ids).toEqual(['L1'])
+    expect(fixed.actions[0].line_id).toBe('L1') // so the new note replaces L1's old one, by id
+    expect(fixed.clear_line_ids).toEqual([])
     expect(state.flagged_line_ids).toEqual(['L1'])
+    // the saved reading of the whole line stands, not the reading of the part that was in the image
+    expect(state.lines[0].box).toEqual([0, 100, 400, 700])
+    // and the line written under it belongs to the same problem, which keeps its hint level
+    expect(state.lines[1].problem_id).toBe('P1')
+    expect(state.problems).toEqual([{ problem_id: 'P1', hint_level: 1 }])
   })
 
-  it('a saved line read again under an id that is in use: the saved copy and its feedback go', () => {
+  it('a flagged line the window half covers, re-read with nothing new to say: its mark is not wiped', () => {
+    // headless repro: a red circle and note on line 2; the student writes further down, the window
+    // catches the bottom of line 2, the server reads that sliver as a new line and has no feedback
+    // for it. That used to put the line in clear_line_ids, and the red mark vanished.
     const two: SavedState = {
       ...saved,
       lines: [...saved.lines, line('L7', 'P1', [300, 100, 700, 400])], // tall, half outside window A (y 50..450)
@@ -186,9 +194,21 @@ describe('mergeReply', () => {
     const { state, reply: fixed } = mergeReply(two, s, { lines, actions: [], clear_line_ids: [], state: { ...s, lines, flagged_line_ids: ['L2'] } }, winA)
     expect(state.lines.map((l) => l.line_id).sort()).toEqual(['L1', 'L2', 'L3', 'L4', 'L7'])
     expect(state.lines.filter((l) => l.line_id === 'L7')).toHaveLength(1)
-    expect(state.lines.find((l) => l.line_id === 'L7')!.box).toEqual([300, 100, 450, 400]) // the new reading
-    expect(fixed.clear_line_ids).toEqual(['L7']) // not flagged any more: its old note is removed
-    expect(state.flagged_line_ids.sort()).toEqual(['L2', 'L4'])
+    expect(state.lines.find((l) => l.line_id === 'L7')!.box).toEqual([300, 100, 700, 400]) // the saved reading, whole
+    expect(fixed.clear_line_ids).toEqual([]) // nothing is removed from the page
+    expect(state.flagged_line_ids.sort()).toEqual(['L2', 'L4', 'L7']) // and it still counts as having feedback
+    expect(fixed.lines.map((l) => l.line_id)).toEqual(['L1', 'L2', 'L7']) // in the reply the fragment goes by the saved id
+  })
+
+  it('a saved line that is a second copy of a line that was sent: the copy and its feedback go', () => {
+    // L7 lies over L2 (the same writing saved twice, L7 reaching out of the window); L2 was sent and comes back as itself
+    const two: SavedState = { ...saved, lines: [...saved.lines, line('L7', 'P1', [200, 100, 700, 400])], flagged_line_ids: ['L2', 'L7'] }
+    const s = requestState(two, winA)
+    expect(s.lines.map((l) => l.line_id)).toEqual(['L1', 'L2'])
+    const { state, reply: fixed } = mergeReply(two, s, { lines: s.lines, actions: [], clear_line_ids: [], state: { ...s, flagged_line_ids: ['L2'] } }, winA)
+    expect(fixed.clear_line_ids).toEqual(['L7'])
+    expect(state.lines.some((l) => l.line_id === 'L7')).toBe(false)
+    expect(state.flagged_line_ids).toEqual(['L2'])
   })
 
   it('freshId', () => {

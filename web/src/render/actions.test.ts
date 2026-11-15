@@ -124,8 +124,8 @@ describe('feedback scales with the handwriting', () => {
     expect(JSON.stringify(p)).toContain('"12x"')
     expect(JSON.stringify(p)).not.toContain('$')
     const font = p.scale * 18
-    expect(font / 200).toBeGreaterThanOrEqual(0.7)
-    expect(font / 200).toBeLessThanOrEqual(0.8)
+    expect(font / 200).toBeGreaterThanOrEqual(0.85)
+    expect(font / 200).toBeLessThanOrEqual(0.95)
     expect(s.x).toBeGreaterThan(750)
     expect(s.x).toBeLessThan(750 + 70)
     const centre = s.y + (font * 1.35) / 2
@@ -227,6 +227,86 @@ describe('notes find room', () => {
     const [a] = shapesForAction(note, frame, ctx)
     const [b] = shapesForAction({ ...note, text: 'Another thought about this' }, frame, ctx)
     expect([a.x, a.y]).not.toEqual([b.x, b.y])
+  })
+})
+
+describe('notes on a worksheet keep off the printed text', () => {
+  // iPad photos: hints for "a) G(s) = 1/(s(s+5))" were written straight over problem b) and the next heading
+  const view = { x: 0, y: 0, w: 1000, h: 1300 }
+  const frame = { x: 0, y: 0, w: 1000, h: 1000 }
+  const sheet = { x: 50, y: 0, w: 900, h: 1300 }
+  const hint = { type: 'note' as const, color: 'blue' as const, side: 'below' as const, line_id: 'L1', box: [300, 100, 340, 300] as [number, number, number, number], text: 'Rewrite $G(s)$ in standard Bode form to find the DC gain and corner frequencies.' }
+  const lines = new Map([['L1', { x: 100, y: 300, w: 200, h: 40 }]])
+  // printed lines read around it: the next problem right below, a paragraph to the right
+  const printed = [
+    { x: 100, y: 350, w: 260, h: 40 },
+    { x: 100, y: 400, w: 700, h: 50 },
+  ]
+  const rectOfShape = (s: { x: number; y: number; props?: unknown }) => {
+    const p = s.props as { w: number; scale: number }
+    return { x: s.x, y: s.y, w: p.w * p.scale }
+  }
+
+  it('goes beside the line when the lines under it are printed text', () => {
+    const shapes = shapesForAction(hint, frame, { zoom: 1, view, lines, printed, sheets: [sheet] })
+    expect(shapes).toHaveLength(1) // right next to its line: no leader needed
+    const r = rectOfShape(shapes[0])
+    // not below (the next problem is there), not right (a paragraph starts under it): above the line
+    expect(r.x).toBe(100)
+    expect(shapes[0].y).toBeLessThan(300)
+  })
+
+  it('with text all around (per the worksheet image) it goes to free paper, joined to its line by a leader', () => {
+    // print everywhere on the page between y 200 and y 700; blank below that
+    const printedArea = (r: { x: number; y: number; w: number; h: number }) => {
+      const x = Math.min(r.x + r.w, 950) - Math.max(r.x, 50)
+      const y = Math.min(r.y + r.h, 700) - Math.max(r.y, 200)
+      return x > 0 && y > 0 ? x * y : 0
+    }
+    const shapes = shapesForAction(hint, frame, { zoom: 1, view, lines, printedArea, sheets: [sheet] })
+    expect(shapes.map((s) => (s.meta as { kind: string }).kind)).toEqual(['note', 'leader'])
+    const [note, leader] = shapes
+    expect(note.y).toBeGreaterThanOrEqual(700)
+    expect(printedArea({ x: note.x, y: note.y, w: rectOfShape(note).w, h: 60 })).toBe(0)
+    // the leader runs from the note back to the line, thin, in the note's colour, and belongs to the same line
+    expect(leader.type).toBe('line')
+    expect(leader.meta).toMatchObject({ ai: true, line_id: 'L1', kind: 'leader' })
+    expect(leader.props).toMatchObject({ color: 'blue' })
+    expect((leader.props as { scale: number }).scale).toBeLessThan(1)
+    const pts = Object.values((leader.props as { points: Record<string, { x: number; y: number }> }).points)
+    const end = { x: leader.x + pts[1].x, y: leader.y + pts[1].y }
+    expect(leader.y).toBe(note.y) // starts on the note's top edge
+    expect(end.y).toBe(340) // ends on the bottom edge of the line it is about
+    expect(end.x).toBeGreaterThanOrEqual(100)
+    expect(end.x).toBeLessThanOrEqual(300)
+  })
+
+  it('a page with no room at all on screen: the margin beside the sheet, never the text', () => {
+    const all = (r: { x: number; y: number; w: number; h: number }) => (Math.min(r.x + r.w, 950) > Math.max(r.x, 50) ? 1 : 0)
+    const [note] = shapesForAction(hint, frame, { zoom: 1, view, lines, printedArea: all, sheets: [sheet] })
+    const r = rectOfShape(note)
+    expect(r.x + r.w <= 50 || r.x >= 950).toBe(true)
+  })
+})
+
+describe('a finished answer is as big as the writing it finishes', () => {
+  // iPad photo: "x =" answered with a "±1" a third of the height of the x
+  const frame = { x: 0, y: 0, w: 1000, h: 1000 }
+  const view = { x: 0, y: 0, w: 1100, h: 800 }
+  const ink = [
+    { x: 100, y: 404, w: 34, h: 36 }, // x, one stroke
+    { x: 160, y: 414, w: 60, h: 3 }, // =
+    { x: 160, y: 428, w: 62, h: 4 },
+  ]
+  const answer = { type: 'note' as const, side: 'inline' as const, color: 'black' as const, line_id: 'L5', box: [400, 100, 444, 224] as [number, number, number, number], text: '$\\pm 1$' }
+
+  it('"x =": the answer is sized by the x, not by the bars of the equals sign', () => {
+    const [s] = shapesForAction(answer, frame, { zoom: 1, view, ink, lines: new Map([['L5', { x: 100, y: 400, w: 124, h: 44 }]]) })
+    const font = (s.props as { scale: number }).scale * 18
+    // the font's digits are about 0.75 em tall: as tall as the 36-unit x (the font was 14, the screen minimum)
+    expect(font * 0.75).toBeGreaterThan(36 * 0.9)
+    expect(font * 0.75).toBeLessThan(36 * 1.1)
+    expect(JSON.stringify(s.props)).toContain('±1')
   })
 })
 

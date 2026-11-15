@@ -53,7 +53,36 @@ describe('mathToPlain', () => {
   })
 })
 
+describe('LaTeX the model sends in notes', () => {
+  it('writes Greek letters and common commands as Unicode', () => {
+    expect(mathToPlain('Find $\\omega$ where the phase is $-180^\\circ$')).toBe('Find ω where the phase is −180°')
+    expect(mathToPlain('$\\alpha = \\frac{b}{a} = 4$ and $\\omega = 1$')).toBe('α = b/a = 4 and ω = 1')
+    expect(mathToPlain('$\\omega_0 \\pm \\Delta\\omega$, $\\tau \\geq 2\\pi$, $a \\times b \\neq a \\cdot b$')).toBe('ω₀ ± Δω, τ ≥ 2π, a × b ≠ a · b')
+    expect(mathToPlain('$\\theta \\approx \\phi$, $x \\in A \\Rightarrow \\lambda \\mu \\sigma \\Omega$')).toBe('θ ≈ φ, x ∈ A ⇒ λ μ σ Ω')
+  })
+
+  it('handles nested fractions and roots', () => {
+    expect(mathToPlain('Rewrite $G(s)$ in standard Bode form $\\frac{1}{5s(1 + \\frac{s}{5})}$ first')).toBe('Rewrite G(s) in standard Bode form 1/(5s(1 + s/5)) first')
+    expect(mathToPlain('$\\omega = \\sqrt{0.5 \\times 2} = 1$')).toBe('ω = √(0.5 × 2) = 1')
+    expect(mathToPlain('$\\sqrt{\\frac{a}{b}}$ and $\\sqrt[3]{x}$ and $\\sqrt 2$')).toBe('√(a/b) and ∛(x) and √2')
+    expect(mathToPlain('$\\dfrac{s+1}{(s+5)(s+10)}$')).toBe('(s+1)/((s+5)(s+10))')
+  })
+
+  it('takes \\( \\) and \\[ \\] as math marks, and drops styling commands', () => {
+    expect(mathToPlain('Use \\(\\frac{1}{5s}\\) here')).toBe('Use 1/(5s) here')
+    expect(mathToPlain('$\\mathbf{v} = \\vec{a} + \\hat{b}$, $50\\%$')).toBe('v = a + b, 50%')
+    expect(mathToPlain('$\\big(x\\big)$')).toBe('(x)')
+    expect(mathToPlain('$\\pm 1$')).toBe('±1')
+    expect(mathToPlain('$x = \\pm 1$')).toBe('x = ±1')
+    expect(mathToPlain('$a \\pm b$')).toBe('a ± b')
+  })
+})
+
 describe('mathToSpeech', () => {
+  it('says Greek letters by name', () => {
+    expect(mathToSpeech('Find $\\omega$ and $2\\pi$')).toBe('Find omega and 2pi')
+  })
+
   it('keeps plain characters for the voice', () => {
     expect(mathToSpeech('Try $x^2 - 1$ again')).toBe('Try x^2 - 1 again')
   })

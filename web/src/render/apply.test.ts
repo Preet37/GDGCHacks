@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import type { Action, CheckResponse } from '../contract'
 import wrongDerivative from '../../../contract/examples/wrong_derivative.json'
 import { shapesForAction } from './actions'
-import { staleShapeIds, type OldShape } from './apply'
+import { revealBounds, staleShapeIds, type OldShape } from './apply'
 
 const frame = { x: 0, y: 0, w: 1000, h: 1000 }
 const wrong = wrongDerivative as unknown as CheckResponse
@@ -67,6 +67,17 @@ describe('staleShapeIds', () => {
     expect(staleShapeIds(legacy, wrong, frame, { zoom: 1, lines: linesOf(wrong) })).toEqual(['c'])
   })
 
+  it('a leader line goes with its note: by line id, and by place when the id has changed', () => {
+    const anchor = { ax: 300, ay: 200, aw: 100, ah: 60 }
+    const page: OldShape[] = [
+      { id: 'n', meta: { ai: true, kind: 'note', line_id: 'L2', ...anchor } },
+      { id: 'l', meta: { ai: true, kind: 'leader', line_id: 'L2', ...anchor } },
+    ]
+    expect(staleShapeIds(page, wrong, frame, { zoom: 1, lines: linesOf(wrong) })).toEqual(['n', 'l'])
+    const again = renamed(wrong, 'L9')
+    expect(staleShapeIds(page, again, frame, { zoom: 1, lines: linesOf(again) })).toEqual(['n', 'l'])
+  })
+
   it('clear_line_ids removes everything of that line, lesson included', () => {
     const shapes: OldShape[] = [
       { id: 'n', meta: { ai: true, line_id: 'L3', kind: 'note' } },
@@ -94,5 +105,23 @@ describe('staleShapeIds', () => {
     ]
     const lesson: Action = { type: 'lesson', line_id: 'L2', box: [480, 60, 590, 470], lesson: { title: 't', steps: [] } }
     expect(staleShapeIds(shapes, { actions: [lesson], clear_line_ids: [] }, frame)).toEqual([])
+  })
+})
+
+describe('revealBounds', () => {
+  const view = { x: 0, y: 0, w: 1000, h: 800 }
+  const line = { x: 100, y: 300, w: 300, h: 40 }
+
+  it('nothing to do when what was placed is in view', () => {
+    expect(revealBounds([{ x: 420, y: 300, w: 200, h: 100 }], [line], view)).toBeNull()
+    expect(revealBounds([{ x: 900, y: 300, w: 120, h: 100 }], [line], view)).toBeNull() // a sliver over the edge
+  })
+
+  it('a graph in the margin, off screen: it and the line it is about', () => {
+    expect(revealBounds([{ x: -400, y: 300, w: 380, h: 280 }], [line], view)).toEqual({ x: -400, y: 300, w: 800, h: 280 })
+  })
+
+  it('leaves the camera alone when the student is looking somewhere else', () => {
+    expect(revealBounds([{ x: 5000, y: 5300, w: 380, h: 280 }], [{ x: 5000, y: 5000, w: 300, h: 40 }], view)).toBeNull()
   })
 })

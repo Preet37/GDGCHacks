@@ -97,14 +97,21 @@ describe('HintChain', () => {
     expect(request).toHaveBeenCalledTimes(1)
   })
 
-  it('a wrong next line on the same problem brings the next hint once nothing is in flight', async () => {
+  it('a wrong next line: its red mark gets the stuck time to itself, then the next hint comes', async () => {
+    // iPad, live: with a chain running, the auto check drew the red circle and the hint asked for
+    // straight after replaced it before it could be read
     const { chain, request, tap } = setup()
     await tap()
     chain.ink()
     chain.checked({ dirty: false, mistakes: ['P1'] })
-    expect(request).toHaveBeenCalledTimes(1) // the auto check is still in flight
     chain.idle()
     await vi.advanceTimersByTimeAsync(0)
+    expect(request).toHaveBeenCalledTimes(1) // no hint on top of the mark that was just drawn
+    expect(chain.snapshot).toMatchObject({ phase: 'counting', level: 1 })
+    expect(chain.snapshot.deadline - Date.now()).toBe(18000)
+    await vi.advanceTimersByTimeAsync(17999)
+    expect(request).toHaveBeenCalledTimes(1)
+    await vi.advanceTimersByTimeAsync(1)
     expect(request).toHaveBeenCalledTimes(2)
     expect(chain.snapshot).toMatchObject({ phase: 'counting', level: 2 })
   })
@@ -143,6 +150,8 @@ describe('HintChain', () => {
     chain.checked({ dirty: false, mistakes: ['P1'] })
     chain.idle()
     await vi.advanceTimersByTimeAsync(0)
+    expect(chain.snapshot.phase).toBe('counting')
+    await vi.advanceTimersByTimeAsync(18000)
     expect(request).toHaveBeenCalledTimes(2)
   })
 
@@ -294,6 +303,183 @@ describe('HintChain', () => {
     await finish()
     await first
     expect(chain.snapshot).toMatchObject({ phase: 'watching', level: 1 })
+  })
+
+  describe('prefetching the next hint', () => {
+    /** A fake tutor whose prefetches stay in flight until arrive(); show() works like a request, without the wait. */
+    function withPrefetch() {
+      let level = 0
+      let stale = false
+      let busy = false
+      const waiting: ((v: unknown) => void)[] = []
+      const raise = (t: HelpTarget): HelpAttempt => ({ window: t.window ?? WIN, raised: { problemId: 'P1', level: (level = Math.min(3, level + 1)) } })
+      const request = vi.fn(async (t: HelpTarget) => raise(t))
+      const prefetch = vi.fn((t: HelpTarget) => new Promise<unknown>((r) => waiting.push((v) => r(v === undefined ? { target: t } : v))))
+      const show = vi.fn((held: unknown): HelpAttempt => (busy ? 'busy' : stale ? null : raise((held as { target: HelpTarget }).target)))
+      const chain = new HintChain({ stuckMs: 18000, request, prefetch, show })
+      return {
+        chain,
+        request,
+        prefetch,
+        show,
+        /** the oldest prefetch still in flight gets its reply (or `v`: null = it failed) */
+        arrive: async (v?: unknown) => {
+          waiting.shift()?.(v)
+          await vi.advanceTimersByTimeAsync(0)
+        },
+        setStale: () => (stale = true),
+        setBusy: (b: boolean) => (busy = b),
+      }
+    }
+
+    it('asks for the next hint as soon as one is shown, with the chain target, and shows nothing yet', async () => {
+      const { chain, request, prefetch, show, arrive } = withPrefetch()
+      await chain.tap(SEL, 'why?', VIEW)
+      expect(prefetch).toHaveBeenCalledTimes(1)
+      expect(prefetch.mock.calls[0][0]).toEqual({ area: SEL, window: WIN, problemId: 'P1' }) // no question: that was for hint 1
+      await arrive()
+      await vi.advanceTimersByTimeAsync(17000)
+      expect(show).not.toHaveBeenCalled()
+      expect(request).toHaveBeenCalledTimes(1)
+      expect(chain.snapshot).toMatchObject({ phase: 'counting', level: 1 })
+    })
+
+    it('when the countdown ends the held hint is shown at once, with no new request, and the one after is fetched', async () => {
+      const { chain, request, prefetch, show, arrive } = withPrefetch()
+      await chain.tap(undefined, undefined, VIEW)
+      await arrive()
+      await vi.advanceTimersByTimeAsync(18000)
+      expect(show).toHaveBeenCalledTimes(1)
+      expect(request).toHaveBeenCalledTimes(1)
+      expect(chain.snapshot).toMatchObject({ phase: 'counting', level: 2 })
+      expect(prefetch).toHaveBeenCalledTimes(2)
+      await arrive()
+      await vi.advanceTimersByTimeAsync(18000)
+      expect(chain.snapshot).toMatchObject({ phase: 'idle', level: 0 }) // the worked step ends it
+      expect(prefetch).toHaveBeenCalledTimes(2) // nothing to fetch after the last hint
+      expect(request).toHaveBeenCalledTimes(1)
+    })
+
+    it('a second tap on Help shows the held hint instantly', async () => {
+      const { chain, request, show, arrive } = withPrefetch()
+      await chain.tap(undefined, undefined, VIEW)
+      await arrive()
+      await vi.advanceTimersByTimeAsync(3000)
+      expect(await chain.tap(undefined, undefined, VIEW)).toBe('ok')
+      expect(show).toHaveBeenCalledTimes(1)
+      expect(request).toHaveBeenCalledTimes(1)
+      expect(chain.snapshot).toMatchObject({ phase: 'counting', level: 2 })
+      expect(chain.snapshot.deadline - Date.now()).toBe(18000)
+    })
+
+    it('a tap with a spoken question is asked afresh: the held hint did not hear it', async () => {
+      const { chain, request, show, arrive } = withPrefetch()
+      await chain.tap(undefined, undefined, VIEW)
+      await arrive()
+      await chain.tap(undefined, 'but why?', VIEW)
+      expect(show).not.toHaveBeenCalled()
+      expect(request).toHaveBeenCalledTimes(2)
+      expect(request.mock.calls[1][0].question).toBe('but why?')
+    })
+
+    it('the countdown ends while the hint is still on its way: it is shown the moment it arrives', async () => {
+      const { chain, request, show, arrive } = withPrefetch()
+      await chain.tap(undefined, undefined, VIEW)
+      await vi.advanceTimersByTimeAsync(18000)
+      expect(chain.snapshot.phase).toBe('asking')
+      expect(show).not.toHaveBeenCalled()
+      await arrive()
+      expect(show).toHaveBeenCalledTimes(1)
+      expect(request).toHaveBeenCalledTimes(1)
+      expect(chain.snapshot).toMatchObject({ phase: 'counting', level: 2 })
+    })
+
+    it('the student writes: the held hint is thrown away, and the usual rules follow', async () => {
+      const { chain, request, prefetch, show, arrive } = withPrefetch()
+      await chain.tap(undefined, undefined, VIEW)
+      await arrive()
+      chain.ink()
+      expect(chain.snapshot.phase).toBe('watching')
+      // their line is wrong: red mark, count again, and a fresh hint is fetched for the page as it is now
+      chain.checked({ dirty: false, mistakes: ['P1'] })
+      expect(prefetch).toHaveBeenCalledTimes(2)
+      await arrive()
+      await vi.advanceTimersByTimeAsync(18000)
+      expect(show).toHaveBeenCalledTimes(1)
+      expect((show.mock.calls[0][0] as { target: HelpTarget }).target).toBe(prefetch.mock.calls[1][0]) // the new one, not the stale one
+      expect(request).toHaveBeenCalledTimes(1)
+    })
+
+    it('the student writes while the hint is still on its way: it is dropped when it lands', async () => {
+      const { chain, request, show, arrive } = withPrefetch()
+      await chain.tap(undefined, undefined, VIEW)
+      chain.ink()
+      await arrive()
+      await vi.advanceTimersByTimeAsync(60000)
+      expect(show).not.toHaveBeenCalled()
+      expect(request).toHaveBeenCalledTimes(1)
+      expect(chain.snapshot.phase).toBe('watching')
+    })
+
+    it('the student writes after the countdown ended, while still waiting for the hint: watch, show nothing', async () => {
+      const { chain, request, show, arrive } = withPrefetch()
+      await chain.tap(undefined, undefined, VIEW)
+      await vi.advanceTimersByTimeAsync(18000) // waiting for the prefetch
+      chain.ink()
+      await arrive()
+      expect(show).not.toHaveBeenCalled()
+      expect(request).toHaveBeenCalledTimes(1)
+      expect(chain.snapshot.phase).toBe('watching')
+    })
+
+    it('a held hint that is out of date, or a prefetch that failed, falls back to a normal request', async () => {
+      const a = withPrefetch()
+      await a.chain.tap(undefined, undefined, VIEW)
+      await a.arrive()
+      a.setStale()
+      await vi.advanceTimersByTimeAsync(18000)
+      expect(a.show).toHaveBeenCalledTimes(1)
+      expect(a.request).toHaveBeenCalledTimes(2)
+      expect(a.chain.snapshot).toMatchObject({ phase: 'counting', level: 2 })
+
+      const b = withPrefetch()
+      await b.chain.tap(undefined, undefined, VIEW)
+      await b.arrive(null)
+      await vi.advanceTimersByTimeAsync(18000)
+      expect(b.show).not.toHaveBeenCalled()
+      expect(b.request).toHaveBeenCalledTimes(2)
+    })
+
+    it('cannot be shown while another request is in flight: the follow-up waits for it as before', async () => {
+      const { chain, request, show, arrive, setBusy } = withPrefetch()
+      await chain.tap(undefined, undefined, VIEW)
+      await arrive()
+      setBusy(true)
+      request.mockResolvedValueOnce('busy')
+      await vi.advanceTimersByTimeAsync(18000)
+      expect(show).toHaveBeenCalledTimes(1)
+      expect(request).toHaveBeenCalledTimes(2)
+      expect(chain.snapshot).toMatchObject({ phase: 'counting', level: 1 }) // owed, sent from idle()
+      setBusy(false)
+      chain.idle()
+      await vi.advanceTimersByTimeAsync(0)
+      expect(request).toHaveBeenCalledTimes(3)
+      expect(chain.snapshot.level).toBe(2)
+    })
+
+    it('cancelling, or help somewhere else, forgets the held hint', async () => {
+      const { chain, show, arrive, prefetch } = withPrefetch()
+      await chain.tap(SEL, undefined, VIEW)
+      await arrive()
+      chain.cancel()
+      await vi.advanceTimersByTimeAsync(60000)
+      expect(show).not.toHaveBeenCalled()
+      await chain.tap(SEL, undefined, VIEW)
+      await arrive()
+      await chain.tap({ x: 600, y: 500, w: 200, h: 60 }, undefined, VIEW) // a new chain: the old prefetch is not for it
+      expect(show).not.toHaveBeenCalled()
+      expect(prefetch).toHaveBeenCalledTimes(2) // (the fake reaches the last hint here, so nothing more is fetched)
+    })
   })
 
   it('tells subscribers about every change', async () => {

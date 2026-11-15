@@ -10,6 +10,8 @@ import {
   helpWindow,
   intersect,
   LEGIBLE_LINES,
+  pointedAt,
+  recentCluster,
   rectDistance,
   seedRect,
   union,
@@ -188,3 +190,74 @@ describe('the line above comes along', () => {
   })
 })
 
+
+describe('a hint between two lines does not split them', () => {
+  const view = { x: 0, y: 0, w: 820, h: 1000 }
+  const letters = (y: number, x0 = 100) => Array.from({ length: 10 }, (_, i) => ({ x: x0 + i * 40, y, w: 26, h: 40 }))
+  const line1 = letters(100)
+  // a four-line hint under line 1 pushed line 2 far down: further than the gap, and than the "line above" reach
+  const hint = { x: 100, y: 160, w: 260, h: 330 }
+  const line2 = letters(520, 150)
+
+  it('without the hint in the picture, line 2 would go alone', () => {
+    const win = autoWindow(line2, [...line1, ...line2], [], view)!
+    expect(win.y).toBeGreaterThan(400)
+  })
+
+  it('the hint joins them: the window holds both lines', () => {
+    const win = autoWindow(line2, [...line1, ...line2], [], view, [hint])!
+    expect(win.y).toBeLessThanOrEqual(100)
+    expect(win.y + win.h).toBeGreaterThanOrEqual(560)
+  })
+
+  it('feedback far from the new writing changes nothing', () => {
+    const far = { x: 100, y: 2000, w: 260, h: 120 }
+    expect(autoWindow(line2, [...line1, ...line2], [], view, [far])).toEqual(autoWindow(line2, [...line1, ...line2], [], view))
+  })
+})
+
+describe('what the student pointed at (Help with nothing selected)', () => {
+  const view = { x: 0, y: 0, w: 1000, h: 800 }
+  const letters = (y: number, x0 = 100, n = 8) => Array.from({ length: n }, (_, i) => ({ x: x0 + i * 40, y, w: 26, h: 40 }))
+
+  it('nothing drawn: nothing', () => {
+    expect(pointedAt([], view)).toBeNull()
+  })
+
+  it('an underline is taken alone, with a line of room above it for what it is under', () => {
+    // two lines of working written first, then an underline somewhere else
+    const underline = { x: 500, y: 600, w: 180, h: 3 }
+    const box = pointedAt([...letters(100), ...letters(170), underline], view)!
+    expect(box.x).toBe(500)
+    expect(box.w).toBe(180)
+    expect(box.y).toBeLessThanOrEqual(600 - 40) // one line of writing above the stroke
+    expect(box.y + box.h).toBeGreaterThanOrEqual(603 + 40)
+    expect(box.y).toBeGreaterThan(400) // and not the working further up
+  })
+
+  it('an underline on a bare worksheet still reaches the printed line above it', () => {
+    const box = pointedAt([{ x: 200, y: 300, w: 160, h: 2 }], view)!
+    expect(box.y).toBeLessThanOrEqual(300 - 30) // 4% of the screen when there is no writing to measure
+  })
+
+  it('the last line written is the whole line, not its last stroke, and not the lines above', () => {
+    const last = letters(240, 120)
+    const box = pointedAt([...letters(100), ...letters(170), ...last], view)!
+    expect(box.x).toBe(120)
+    expect(box.x + box.w).toBe(120 + 7 * 40 + 26)
+    expect(box.y).toBe(240 - 40)
+    expect(box.y + box.h).toBe(280 + 40)
+  })
+
+  it('recentCluster keeps a superscript and an equals sign, and stops at a stroke far along the row', () => {
+    const line = [
+      { x: 700, y: 205, w: 30, h: 40 }, // older, far to the right on the same row
+      { x: 100, y: 200, w: 26, h: 40 },
+      { x: 130, y: 185, w: 14, h: 18 }, // superscript
+      { x: 160, y: 212, w: 30, h: 3 }, // =
+      { x: 160, y: 224, w: 30, h: 3 },
+      { x: 205, y: 200, w: 26, h: 40 },
+    ]
+    expect(recentCluster(line, 40)).toEqual({ x: 100, y: 185, w: 131, h: 55 })
+  })
+})
