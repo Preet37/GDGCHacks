@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { Action, Model3dFigure, ModelPart } from '../contract'
 import example from '../../../contract/examples/model3d_bridge.json'
-import { drawModel3d, MODEL3D_MIN_H, MODEL3D_MIN_W, MODEL3D_TYPE } from './figure'
+import { ASSET3D_MIN_H, ASSET3D_MIN_W, ASSET3D_TYPE, drawModel3d, MODEL3D_MIN_H, MODEL3D_MIN_W, MODEL3D_TYPE } from './figure'
 import { loadsUsed, memberAxis, memberRadius, modelBounds, partGroups, partPoints, thinStroke, TL_COLORS } from './model3d/geometry'
 
 const figureAction = example.actions.find((a) => a.type === 'figure') as unknown as Action
@@ -78,9 +78,22 @@ describe('drawModel3d', () => {
 
   it('a model the reply only named is put on the page for the card to build', () => {
     const { editor, created } = fakeEditor()
-    const named = { ...figureAction, figure: { ...figureAction.figure!, model3d: { parts: [], subject: 'truss bridge' } } } as Action
+    // (a subject the asset library has no hand-built model for)
+    const named = { ...figureAction, figure: { ...figureAction.figure!, title: 'Roof truss', model3d: { parts: [], subject: 'roof truss' } } } as Action
     expect(drawModel3d(editor, named, { x: 0, y: 0, w: 1, h: 1 })).toBe(true)
-    expect(created[0].props.model).toEqual({ parts: [], subject: 'truss bridge' })
+    expect(created[0].type).toBe(MODEL3D_TYPE)
+    expect(created[0].props.model).toEqual({ parts: [], subject: 'roof truss' })
+  })
+
+  it('a named subject the asset library has a hand-built model for gets that card, not a model to build', () => {
+    const { editor, created } = fakeEditor()
+    const named = { ...figureAction, figure: { ...figureAction.figure!, title: 'Bridge physics', model3d: { parts: [], subject: 'beam bridge' } } } as Action
+    expect(drawModel3d(editor, named, { x: 5, y: 6, w: 1, h: 1 })).toBe(true)
+    expect(created).toHaveLength(1)
+    const s = created[0] as unknown as { type: string; meta: { ai: boolean }; props: { w: number; h: number; asset: string; title: string; params: Record<string, number> } }
+    expect(s.type).toBe(ASSET3D_TYPE)
+    expect(s.meta.ai).toBe(true)
+    expect(s.props).toEqual({ w: ASSET3D_MIN_W, h: ASSET3D_MIN_H, asset: 'bridge', title: 'Bridge physics', params: { Load: 100, Deck_Thickness: 0.5, Span: 40 } })
   })
 
   it('no model or a broken editor: nothing drawn, no throw', () => {

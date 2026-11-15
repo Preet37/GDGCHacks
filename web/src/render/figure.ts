@@ -6,6 +6,7 @@ import { aiMeta, cardRect, lineRect, sizesFor } from './actions'
 import { renderCircuit } from './circuit'
 import { fbdToDataUrl } from './fbd'
 import { markFresh } from '../shapes/fresh3d'
+import { assetParams, matchAsset } from '../assets3d/catalog'
 import { prettyMath } from './text'
 import { DEFAULT_CONTEXT, FIGURE_BASE_H, FIGURE_BASE_W, type PageRect, type RenderContext } from './geometry'
 
@@ -23,6 +24,11 @@ export const MODEL3D_TYPE = 'model3d'
 /** A model needs room to be turned and read: never smaller than this. */
 export const MODEL3D_MIN_W = 520
 export const MODEL3D_MIN_H = 460
+/** Must match Asset3dShapeUtil.type (web/src/shapes/AssetModelShape.tsx, registered in App.tsx). */
+export const ASSET3D_TYPE = 'asset3d'
+/** A hand-built model's card: the view, three sliders and a caption. */
+export const ASSET3D_MIN_W = 560
+export const ASSET3D_MIN_H = 540
 
 // function-plot ships CommonJS with `exports.default`; depending on the bundler's interop the
 // default import is either the function or the whole exports object.
@@ -147,6 +153,37 @@ export function drawModel3d(editor: Editor, action: Action, rect: PageRect): boo
   if (!model || !Array.isArray(model.parts) || (!model.parts.length && !model.subject)) return false
   const modelId = createShapeId()
   markFresh(modelId)
+  // The asset library: a subject we have a hand-built, animated model for (a bridge, an F1 car, a wind
+  // turbine...) gets that model instead of one built from boxes. Only when the reply didn't bring its own parts.
+  const asset = model.parts.length ? null : matchAsset(`${model.subject ?? ''} ${action.figure?.title ?? ''}`)
+  if (asset) {
+    try {
+      editor.run(
+        () =>
+          editor.createShapes([
+            {
+              id: modelId,
+              type: ASSET3D_TYPE,
+              x: rect.x,
+              y: rect.y,
+              meta: aiMeta('figure', action.line_id),
+              props: {
+                w: Math.max(ASSET3D_MIN_W, rect.w),
+                h: Math.max(ASSET3D_MIN_H, rect.h),
+                asset: asset.id,
+                title: action.figure?.title || asset.title,
+                params: assetParams(asset),
+              },
+            },
+          ]),
+        { history: 'ignore', ignoreShapeLock: true },
+      )
+      return true
+    } catch (err) {
+      // fall through to the built model
+      console.warn('asset3d figure skipped', action.figure, err)
+    }
+  }
   try {
     editor.run(
       () =>
