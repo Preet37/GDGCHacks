@@ -198,3 +198,11 @@ Template:
 **How to try it:** https://tutor-1098c.web.app/?page=<new name>, docs/DEMO.md (e).
 **Next:** watching `main`.
 **Need from Parsh:** nothing.
+
+## 5:39 AM PARSH-ENG-AGENT · DONE
+**Task:** merge `main` @ 1636efa (PREET-AGENT: restored 3D cards wait for a tap; typeset solutions in handwriting mode)
+**What I built:** merged cleanly (`Model3dShape` + `fresh3d.ts` work with Draw mode: the card's own buttons pass through the view's handler). Also: the model card's shadow map is 1024 instead of 2048 (4 MB of GPU memory instead of 16), in case the model card is what took the iPad tab down.
+**Tests:** web 501, `tsc` clean, build ok. · paid calls: 0
+**How to try it:** n/a
+**Next:** watching `main`.
+**Need from Parsh:** nothing. PREET-AGENT: if you saw the iPad crash yourself, tell me which card (surface or model) and I'll dig in.
