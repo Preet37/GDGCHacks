@@ -82,10 +82,16 @@ export function cleanLesson(lesson: Partial<Lesson> | null | undefined): Lesson 
  * Play the lesson of a `lesson` action. The lesson opens in the docked panel (never on top of the
  * work) and starts playing; a small marker is left on the page in the corner of `rect` (page
  * space, the free spot found next to the line) nearest the writing. The marker stores the Lesson, so it opens again from a
- * saved page. The camera moves, if it has to, so the line stays in view beside the panel.
+ * saved page, and the line it is about (`about`, page space), so the practice problem that follows
+ * the lesson can be written under that work. The camera moves, if it has to, so the line stays in view beside the panel.
  * Never throws.
  */
-export async function renderLesson(editor: Editor, action: Action, rect: { x: number; y: number; w: number; h: number }): Promise<void> {
+export async function renderLesson(
+  editor: Editor,
+  action: Action,
+  rect: { x: number; y: number; w: number; h: number },
+  about?: { x: number; y: number; w: number; h: number } | null,
+): Promise<void> {
   try {
     const lesson = action.type === 'lesson' ? cleanLesson(action.lesson) : null
     if (!lesson) {
@@ -104,7 +110,7 @@ export async function renderLesson(editor: Editor, action: Action, rect: { x: nu
       () => {
         if (twins.length) editor.deleteShapes(twins)
         editor.createShapes([
-          { id, type: SHAPE_TYPE, x: spot.x, y: spot.y, meta: aiMeta('lesson', action.line_id), props: { w: spot.w, h: spot.h, lesson } },
+          { id, type: SHAPE_TYPE, x: spot.x, y: spot.y, meta: aiMeta('lesson', action.line_id, about), props: { w: spot.w, h: spot.h, lesson } },
         ])
       },
       { history: 'ignore', ignoreShapeLock: true },

@@ -1,11 +1,14 @@
 import type { Editor, TLRecord, TLShape, TLShapeId } from 'tldraw'
-import type { CheckRequest, CheckResponse, PageState } from '../contract'
+import type { CheckRequest, CheckResponse, GivenLine, PageState } from '../contract'
 import { handwritingEnabled, harvestGlyphs } from '../handwriting'
 import { isAiShape } from '../render/actions'
 import { applyResponse, renderContext } from '../render/apply'
 import { readingShapes } from '../render/reading'
 import { pageToBox, type PageRect } from '../render/geometry'
-import { autoWindow, coverage, EXPORT_PADDING, helpWindow, intersects, pointedAt, rectOf, studentShapes, union } from '../page'
+import { autoWindow, checkShapes, coverage, EXPORT_PADDING, helpWindow, intersects, pointedAt, rectOf, studentShapes, union } from '../page'
+import { givenLines, openPractices, solvedPractices, type OpenPractice } from '../practice/given'
+import { isGivenShape, shapeUse } from '../practice/kind'
+import { bindPractice, markSolved } from '../practice/write'
 import { isWorksheetShape } from '../worksheet'
 import { postCheck } from './api'
 import { exportPng } from './exportImage'
@@ -31,12 +34,13 @@ export type TutorEvent =
 /** What a tap on "Teach me" came to. 'none' = the tutor answered without a lesson (or there was nothing to look at). */
 export type ExplainResult = 'ok' | 'busy' | 'none' | 'failed'
 
+/** The student's own strokes. A practice problem the tutor wrote is sent like ink but is never ink that "changed". */
 function isInkRecord(r: TLRecord): r is TLShape {
-  return r.typeName === 'shape' && !isAiShape(r) && !isWorksheetShape(r)
+  return r.typeName === 'shape' && shapeUse(r).student && !isWorksheetShape(r)
 }
 
 function isStudentShapeRecord(r: TLRecord): boolean {
-  return r.typeName === 'shape' && !isAiShape(r)
+  return r.typeName === 'shape' && shapeUse(r).student
 }
 
 /** What one request did (see hintChain.ts). */
@@ -59,6 +63,8 @@ interface Fetched {
   ms: number
   /** unsent changes this request covers (never for a prefetch) */
   pending: { key: string; seq: number; rect: PageRect }[]
+  /** unsolved practice problems in the window: a green note in the reply solves one */
+  practices: OpenPractice[]
 }
 
 /** Tutor feedback that links one line of working to the next (see autoWindow). */
@@ -76,7 +82,7 @@ export class Tutor {
   state: SavedState
   showReading = false
   /** What the last request covered and carried (for the dev console and tests). */
-  lastSent: { window: PageRect; mode: CheckRequest['mode']; state: PageState; help_box?: CheckRequest['help_box'] } | null = null
+  lastSent: { window: PageRect; mode: CheckRequest['mode']; state: PageState; help_box?: CheckRequest['help_box']; given?: GivenLine[] } | null = null
   /** What the last check came to: shown beside "Show what AI read". */
   status: CheckStatus | null = null
   /** One tap on Help, then hints keep coming while the student is stuck (see hintChain.ts). */
@@ -92,6 +98,7 @@ export class Tutor {
   private scheduler: PauseScheduler
   private listeners = new Set<(e: TutorEvent) => void>()
   private unlisten: () => void
+  private unbindPractice: () => void
   private editor: Editor
 
   constructor(editor: Editor, pageId?: string | null) {
@@ -99,6 +106,7 @@ export class Tutor {
     this.state = toSaved(loadState(), loadLastBounds())
     if (pageId && pageId !== this.state.page_id) this.state = toSaved(emptyState(pageId), null)
     this.rememberAll()
+    this.unbindPractice = bindPractice(editor, { workOf: (lineId) => this.workOf(lineId) })
     this.scheduler = new PauseScheduler({
       delayMs: PAUSE_MS,
       key: () => this.fingerprint(),
@@ -167,6 +175,7 @@ export class Tutor {
 
   dispose() {
     this.unlisten()
+    this.unbindPractice()
     this.scheduler.dispose()
     this.hints.dispose()
   }
@@ -282,6 +291,15 @@ export class Tutor {
     return hashString(parts.sort().join('|') + '#' + [...this.changes.keys()].join(','))
   }
 
+  /** Where the handwritten working of the problem that line `lineId` belongs to is, as last read. */
+  private workOf(lineId: string): PageRect | null {
+    const problem = this.state.lines.find((l) => l.line_id === lineId)?.problem_id
+    if (!problem) return null
+    return this.state.lines
+      .filter((l) => l.problem_id === problem && l.source !== 'printed')
+      .reduce<PageRect | null>((a, l) => union(a, boxRect(l.box)), null)
+  }
+
   /** Lines whose writing is gone are forgotten here, and their feedback removed. */
   private sweep(ink: PageRect[], sheets: PageRect[]) {
     const { state, erased } = sweepErased(this.state, ink, sheets)
@@ -326,13 +344,16 @@ export class Tutor {
    */
   private async fetch(opts: { mode: CheckRequest['mode'] } & HelpTarget, quiet: boolean): Promise<Fetched | null> {
     const view = rectOf(this.editor.getViewportPageBounds())
-    const items = studentShapes(this.editor).flatMap((shape) => {
+    // the student's shapes, and the practice problems written for them (`given`): sent, and part of the
+    // working around them, but not ink of the student's
+    const items = checkShapes(this.editor).flatMap((shape) => {
       const b = this.editor.getShapePageBounds(shape)
-      return b ? [{ shape, rect: rectOf(b), sheet: isWorksheetShape(shape) }] : []
+      return b ? [{ shape, rect: rectOf(b), sheet: isWorksheetShape(shape), given: isGivenShape(shape) }] : []
     })
     const ink = items.filter((i) => !i.sheet).map((i) => i.rect)
     const sheets = items.filter((i) => i.sheet).map((i) => i.rect)
-    if (!quiet) this.sweep(ink, sheets)
+    // a practice line that was read stays read while its text is there, whatever the reading called it
+    if (!quiet) this.sweep(ink, [...sheets, ...items.filter((i) => i.given).map((i) => i.rect)])
     // worksheet pages are measured now, so their printed text is known by the time the reply is drawn
     renderContext(this.editor)
 
@@ -360,7 +381,7 @@ export class Tutor {
     if (!win) return skip('nothing new to read')
 
     const visible = items.filter((i) => intersects(i.rect, win))
-    if (opts.mode === 'auto' && !visible.some((i) => !i.sheet)) {
+    if (opts.mode === 'auto' && !visible.some((i) => !i.sheet && !i.given)) {
       this.settle(pending, win) // only erasures here: nothing to read
       return skip('only erasing, nothing to read')
     }
@@ -381,16 +402,19 @@ export class Tutor {
     const about = opts.area ?? (opts.mode === 'auto' ? undefined : this.lastDrawn(visible, win))
     if (about) req.help_box = pageToBox(about, win)
     if (opts.question) req.question = opts.question
-    this.lastSent = { window: win, mode: req.mode, state: sent, help_box: req.help_box }
+    const placed = visible.filter((i) => i.given).map((i) => ({ meta: i.shape.meta as Record<string, unknown>, rect: i.rect }))
+    const given = givenLines(placed, win)
+    if (given.length) req.given = given
+    this.lastSent = { window: win, mode: req.mode, state: sent, help_box: req.help_box, given: req.given }
     const started = Date.now()
     const raw = await postCheck(req)
-    return { mode: opts.mode, win, sent, raw, problemId: opts.problemId, base, touches, ms: Date.now() - started, pending }
+    return { mode: opts.mode, win, sent, raw, problemId: opts.problemId, base, touches, ms: Date.now() - started, pending, practices: openPractices(placed, win) }
   }
 
   /** Nothing selected: the last thing the student drew in the window, with a line of room above and below. */
-  private lastDrawn(visible: { shape: TLShape; rect: PageRect; sheet: boolean }[], win: PageRect): PageRect | undefined {
+  private lastDrawn(visible: { shape: TLShape; rect: PageRect; sheet: boolean; given: boolean }[], win: PageRect): PageRect | undefined {
     const strokes = visible
-      .filter((i) => !i.sheet)
+      .filter((i) => !i.sheet && !i.given)
       .sort((a, b) => (this.drawnAt.get(a.shape.id) ?? 0) - (this.drawnAt.get(b.shape.id) ?? 0))
       .map((i) => i.rect)
     return pointedAt(strokes, win) ?? undefined
@@ -441,6 +465,14 @@ export class Tutor {
     this.state = state
     saveState(state)
     this.drawReading()
+    // the answer under a practice problem is right: its "Your turn" label says so
+    for (const id of solvedPractices(reply.actions, got.practices, win)) {
+      try {
+        markSolved(this.editor, id)
+      } catch (err) {
+        console.warn('practice not marked solved', err)
+      }
+    }
     this.settle(got.pending, win)
     this.setStatus({
       at: Date.now(),

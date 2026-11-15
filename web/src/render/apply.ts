@@ -2,13 +2,14 @@ import type { Editor, TLShape, TLShapeId } from 'tldraw'
 import type { Action, CheckResponse } from '../contract'
 import { handForAction, handwritingEnabled, studentPen } from '../handwriting'
 import { anchorOf, cardRect, isAiShape, isInlineNote, lineRect, shapesForAction, sizesFor } from './actions'
+import { shapeUse } from '../practice/kind'
 import { drawFigures } from './figure'
 import { boxToPage, overlapRatio, type PageRect, type RenderContext } from './geometry'
 import { sheetInk } from './sheetInk'
 import { fontMeasure, panTo, revealSolution, solutionLayout, solutionShapes } from './solution'
 import { mathToSpeech } from './text'
 
-type LessonModule = { renderLesson: (editor: Editor, action: Action, rect: PageRect) => Promise<void> }
+type LessonModule = { renderLesson: (editor: Editor, action: Action, rect: PageRect, about?: PageRect | null) => Promise<void> }
 // The lesson player lives in ../lesson/render (loaded only when a lesson arrives). The glob
 // resolves to nothing if that module isn't there, so a lesson action is then simply not drawn.
 const lessonModules = import.meta.glob<LessonModule>('../lesson/render.ts')
@@ -115,6 +116,7 @@ export interface OldShape {
  * - By place: a line can come back under another id (read again from a different window of the
  *   page, or renamed by the model), so marks (notes, asks, circles, underlines, never figures or
  *   lessons) anchored on the same writing as a new mark go too, whatever their id.
+ * A practice problem is never replaced: it is what the student is working on, not feedback.
  */
 export function staleShapeIds(
   shapes: OldShape[],
@@ -133,7 +135,7 @@ export function staleShapeIds(
   }
   return shapes
     .filter((s) => {
-      if (!isAiShape(s)) return false
+      if (!isAiShape(s) || !shapeUse(s).replaceable) return false
       const kind = s.meta.kind
       const id = s.meta.line_id
       if (typeof id === 'string') {
@@ -147,11 +149,11 @@ export function staleShapeIds(
 }
 
 /** Hand a lesson action to ../lesson/render, if that module is present. Never throws. */
-function drawLesson(editor: Editor, action: Action, rect: PageRect) {
+function drawLesson(editor: Editor, action: Action, rect: PageRect, about: PageRect | null) {
   const load = lessonModules['../lesson/render.ts']
   if (!load) return
   load()
-    .then((m) => m.renderLesson(editor, action, rect))
+    .then((m) => m.renderLesson(editor, action, rect, about))
     .catch((err) => console.warn('lesson skipped', err))
 }
 
@@ -240,7 +242,7 @@ export function applyResponse(editor: Editor, response: CheckResponse, bounds: P
   for (const action of response.actions) {
     if (action.type !== 'lesson' || !action.lesson) continue
     const sz = sizesFor(action, bounds, ctx)
-    drawLesson(editor, action, cardRect(action, bounds, ctx, sz.lessonW, sz.lessonH))
+    drawLesson(editor, action, cardRect(action, bounds, ctx, sz.lessonW, sz.lessonH), lineRect(action, bounds, ctx))
     drawn++
   }
 

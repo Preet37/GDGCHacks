@@ -520,7 +520,7 @@
 }
 
 /* The lesson, put away: a pill at the top of the notebook. Tap to open it again. */
-.lesson-pill {
+.lesson-pills {
   position: absolute;
   top: 44px;
   left: 50%;
@@ -529,8 +529,16 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  max-width: min(94vw, 480px);
+}
+
+.lesson-pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
   max-width: min(70vw, 420px);
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 16px 0 12px;
   border: 1px solid #c7d7f5;
   border-radius: 999px;
@@ -555,7 +563,60 @@
   text-overflow: ellipsis;
 }
 
+/* "Your turn": the practice problem that follows the lesson. Violet, like the problem on the page. */
+.lesson-pill.turn,
+.lesson-dock .lesson-turn {
+  flex: none;
+  padding: 0 16px;
+  border: 1px solid #d9cdf6;
+  border-radius: 999px;
+  background: #f5f1fe;
+  color: #5b3fb4;
+  font: 600 14px system-ui, sans-serif;
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+.lesson-dock .lesson-turn {
+  min-height: 40px;
+  margin-right: 4px;
+  animation: lesson-caption-in 250ms ease both;
+}
+
+.lesson-pill.turn.solved {
+  border-color: #bfe3cd;
+  background: #f0faf4;
+  color: #1f7a45;
+  padding-left: 12px;
+}
+
+.lesson-tick {
+  flex: none;
+  fill: none;
+  stroke: #1f9d55;
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 22;
+  stroke-dashoffset: 22;
+  animation: lesson-tick-draw 450ms 150ms ease-out forwards;
+}
+
+.lesson-pill .lesson-tick {
+  color: inherit;
+}
+
+@keyframes lesson-tick-draw {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .lesson-tick {
+    animation: none;
+    stroke-dashoffset: 0;
+  }
   .lesson-dock,
   .lesson-caption,
   .lesson-subs-lines,

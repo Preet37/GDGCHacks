@@ -1,6 +1,7 @@
 import type { Editor, TLShape } from 'tldraw'
 import { isAiShape } from './render/actions'
 import { clamp, type PageRect } from './render/geometry'
+import { shapeUse } from './practice/kind'
 import { isWorksheetShape } from './worksheet'
 
 export const EXPORT_PADDING = 32
@@ -10,6 +11,14 @@ export const WORKSHEET_CONTEXT = 240
 /** Everything on the page that isn't tutor feedback: handwriting, plus any imported worksheet. */
 export function studentShapes(editor: Editor): TLShape[] {
   return editor.getCurrentPageShapes().filter((s) => !isAiShape(s))
+}
+
+/**
+ * Everything that goes into the image sent for a check: the student's shapes, plus the practice
+ * problems the tutor wrote for them to work on (see practice/kind.ts). No other tutor shape.
+ */
+export function checkShapes(editor: Editor): TLShape[] {
+  return editor.getCurrentPageShapes().filter((s) => shapeUse(s).exported)
 }
 
 export function union(a: PageRect | null, b: PageRect | null): PageRect | null {

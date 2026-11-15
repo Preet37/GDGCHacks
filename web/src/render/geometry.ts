@@ -297,7 +297,7 @@ export function coveredArea(r: PageRect, ctx: RenderContext, obstacles = obstacl
 }
 
 /** The first free `w` x `h` spot going straight down from below `anchor`, past everything in the way. */
-function slideBelow(anchor: PageRect, w: number, h: number, gap: number, ctx: RenderContext, obstacles: PageRect[]): PageRect | null {
+export function slideBelow(anchor: PageRect, w: number, h: number, gap: number, ctx: RenderContext, obstacles: PageRect[]): PageRect | null {
   const r = { x: anchor.x, y: anchor.y + anchor.h + gap, w, h }
   for (let i = 0; i < 400; i++) {
     const hit = obstacles.filter((o) => overlapArea(r, { x: o.x, y: o.y, w: Math.max(o.w, 1), h: Math.max(o.h, 1) }) > 0)

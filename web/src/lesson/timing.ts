@@ -119,3 +119,9 @@ export function splitCaption(text: string): { math: boolean; text: string }[] {
   if (at < text.length) out.push({ math: false, text: text.slice(at) })
   return out
 }
+
+/** The `?lessonSpeed=` debug parameter: how many times faster lessons play (1 = normal; between 1 and 60). */
+export function lessonSpeed(search: string): number {
+  const v = Number(new URLSearchParams(search).get('lessonSpeed'))
+  return Number.isFinite(v) && v > 1 ? Math.min(v, 60) : 1
+}

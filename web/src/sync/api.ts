@@ -9,6 +9,11 @@ export async function postCheck(req: CheckRequest): Promise<CheckResponse> {
   if (MOCK) {
     // "Teach me" gets the example lesson, after a wait long enough to see the "preparing" state
     const explain = req.mode === 'explain'
+    // work under a practice problem: the short green note the server sends when the answer is right
+    if (req.mode === 'auto' && req.given?.length) {
+      await new Promise((r) => setTimeout(r, 600))
+      return { lines: [], actions: [{ type: 'note', color: 'green', text: 'Correct!', box: req.given.at(-1)!.box, side: 'right' }], clear_line_ids: [], state: req.state }
+    }
     const mod = explain
       ? await import('../../../contract/examples/lesson.json')
       : await import('../../../contract/examples/wrong_derivative.json')

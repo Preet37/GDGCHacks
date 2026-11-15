@@ -1,5 +1,6 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { FigureSpec, LessonVisual } from '../contract'
+import { practiceKey, practiceStatus, startPractice } from '../practice/write'
 import { trySampleSurface } from '../render/figure3d/sample'
 import type { SurfaceView } from '../render/figure3d/scene'
 import { audioOut } from './audio'
@@ -9,7 +10,7 @@ import { scenesFor, type Scene } from './geometry'
 import { Caption, MathLine } from './mathText'
 import { LessonPlayer } from './player'
 import { narrator } from './speech'
-import { sweepPlan, wordsSpoken } from './timing'
+import { lessonSpeed, sweepPlan, wordsSpoken } from './timing'
 import { LessonVoice } from './voice'
 
 /** Does step i bring a curve that wasn't on screen in the step before? (It is drawn on, which takes a moment.) */
@@ -19,6 +20,9 @@ function revealsAt(scenes: (Scene | null)[], i: number): boolean {
   const before = new Set((i > 0 ? scenes[i - 1]?.curves : undefined)?.map((c) => c.src) ?? [])
   return now.curves.some((c) => c.fn && !before.has(c.src))
 }
+
+/** Debug: `?lessonSpeed=8` plays lessons that many times faster, without the voice. */
+const SPEED = typeof location === 'undefined' ? 1 : lessonSpeed(location.search)
 
 const ICONS = {
   play: 'M8 5.2v13.6a.9.9 0 0 0 1.37.77l11-6.8a.9.9 0 0 0 0-1.54l-11-6.8A.9.9 0 0 0 8 5.2z',
@@ -104,7 +108,7 @@ export default function LessonPanel({ state }: { state: DockState }) {
     return {
       scenes,
       sweeps: lesson.steps.map((s) => sweepPlan(s.say ?? '')),
-      player: new LessonPlayer(lesson, voice, { reveals: (i) => revealsAt(scenes, i) }),
+      player: new LessonPlayer(lesson, voice, { reveals: (i) => revealsAt(scenes, i), muted: SPEED > 1 }),
     }
   }, [state.key])
   const snap = useSyncExternalStore(player.subscribe, () => player.snapshot)
@@ -118,6 +122,14 @@ export default function LessonPanel({ state }: { state: DockState }) {
   useEffect(() => {
     if (collapsed) player.pause()
   }, [player, collapsed])
+
+  // "Your turn": when the lesson ends, its practice problem is written on the page and the panel folds away
+  const practice = lesson.practice
+  const turn = useSyncExternalStore(practiceStatus.subscribe, () => (practice ? practiceStatus.get(practiceKey(practice)) : undefined))
+  useEffect(() => {
+    if (snap.ended) startPractice(practice, { lesson })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [snap.ended])
 
   // the picture fills whatever room the panel gives it
   const visualRef = useRef<HTMLDivElement>(null)
@@ -160,7 +172,7 @@ export default function LessonPanel({ state }: { state: DockState }) {
       raf = requestAnimationFrame(frame)
       const dt = Math.min(250, now - last)
       last = now
-      player.tick(dt)
+      player.tick(dt * SPEED)
       if (!player.animating && !dirty.current) return
       dirty.current = false
       const s = player.snapshot
@@ -226,6 +238,11 @@ export default function LessonPanel({ state }: { state: DockState }) {
         <div className="lesson-count">
           {snap.step + 1} of {steps.length}
         </div>
+        {practice && snap.step >= steps.length - 1 && (
+          <button className="lesson-turn" data-practice={turn ?? 'ready'} onClick={() => startPractice(practice, { lesson, explicit: true })}>
+            {turn === 'solved' ? 'Another one' : 'Your turn'}
+          </button>
+        )}
         <button className="lesson-btn small" onClick={() => dock.collapse()} aria-label="Minimise the lesson">
           <Icon name="collapse" size={24} />
         </button>

@@ -47,6 +47,7 @@ const lessonProp = T.object({
       }).optional(),
     }),
   ),
+  practice: T.object({ prompt: T.string, problem: T.string, plain: T.string, ask: T.string.optional() }).optional(),
 }) as unknown as T.Validator<Lesson>
 
 /** The marker is never bigger than this on the page, whatever was stored (older pages kept a whole card here). */
