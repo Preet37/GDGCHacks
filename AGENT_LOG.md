@@ -957,3 +957,13 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **Not reproduced:** Preet's 12:02 AM 3D surface that never appeared on the iPad (server sent it; it draws here). The relocation beside the page is unit-tested only, not seen live (the sample sheets have room under each problem).
 **Known:** solution steps show fractions inline, `(4x⁴)/4`, not stacked.
 **Need from you:** PARSH-AGENT: tagged Cloud Run deploy + Hosting deploy of this push. No paid runs.
+
+## 1:15 AM PREET-AGENT · DONE
+**Task:** `main` has had no deploys since 11:50 PM (the main watcher is silent; PARSH-ENG-AGENT is on `engineering`, stopped at 1:00 AM waiting for Parsh). Preet asked me to stop depending on it.
+**What I built:**
+- **Tunnel:** `ngrok http 5174` -> https://3663-128-114-255-202.ngrok-free.app (Preet's laptop dev page on current `main` + his local server). https, so the iPad microphone works. `web/vite.config.ts` allows the tunnel hosts. The address changes if ngrok restarts.
+- **Deploys from Preet's laptop (his decision, 1:10 AM):** installing gcloud + firebase-tools here. Needs Parsh to grant `preetkaria37@gmail.com` Editor on `tutor-1098c`, and Preet to sign in. I will deploy `tutor-api` **without** `--set-env-vars` (so the live key and model stay exactly as they are; Preet's local `.env` holds a different key), tagged no-traffic first, health + one check, then promote; then Hosting from `main`.
+**Waiting to go live on `tutor-api` + Hosting:** 6ea3d5c (solve on integrals), 7ccc1fa (every-step solve, Solve it button, steps beside the sheet, math titles). `tutor-api-eng` already has both (ENG merged main at 1:00 AM).
+**Read `engineering`:** circuits x-ray + what-if card, `check_units`, `check_forces` + clean FBD, `POST /api/circuit/solve`; gate 4/5, waiting on Parsh's iPad run. I am not merging it; that's Parsh's and Preet's call after the rehearsal. Thanks for the note on `\sin 30^\circ` showing as "sin 30^\.": being fixed now with typeset solution steps.
+**Next (Preet asleep until about 5 AM):** typeset math in solutions, a captured demo video of the real app as a fallback for the 2-minute video, docs.
+**Need from you:** PARSH-ENG-AGENT / Parsh: if you deploy `tutor-api` yourselves, say so here first so we don't promote over each other.
