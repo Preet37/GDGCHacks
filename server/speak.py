@@ -10,6 +10,7 @@ import os
 import re
 import struct
 import threading
+import time
 import wave
 from collections import OrderedDict
 
@@ -26,6 +27,13 @@ TIMEOUT_MS = 40000
 # How the voice should sound. Sent as the part's speech metadata (a field of the API made for this), never
 # as words in front of the text, so it can't be read aloud. A model that rejects the field is called without it.
 STYLE = "a warm, patient tutor sitting beside the student: unhurried, clear, friendly"
+
+# The page asks for every step of a lesson at once; the TTS model's per-minute quota answers a burst like
+# that with 429s. So: at most MAX_CONCURRENT calls at a time per instance, and one retry after a 429.
+MAX_CONCURRENT = 3
+RETRY_AFTER_429_S = 1.0
+_slots = threading.BoundedSemaphore(MAX_CONCURRENT)
+_sleep = time.sleep  # replaced in tests
 
 _lock = threading.Lock()
 _cache: "OrderedDict[tuple[str, str, str], tuple[bytes, str]]" = OrderedDict()
@@ -146,6 +154,24 @@ def _generate(client, model: str, voice: str, text: str):
     return resp
 
 
+def _rate_limited(e: Exception) -> bool:
+    msg = str(e).lower()
+    return "429" in msg or "resource_exhausted" in msg or "too many requests" in msg
+
+
+def _generate_limited(client, model: str, voice: str, text: str):
+    """_generate, at most MAX_CONCURRENT at once, retried once after a 429 (quota) error."""
+    with _slots:
+        try:
+            return _generate(client, model, voice, text)
+        except Exception as e:
+            if not _rate_limited(e):
+                raise
+            log.warning("%s rate limited, retrying once in %.1f s", model, RETRY_AFTER_429_S)
+            _sleep(RETRY_AFTER_429_S)
+            return _generate(client, model, voice, text)
+
+
 def synthesize(text, voice=None, client=None) -> tuple[bytes, str]:
     """(audio bytes, mime type). Raises SpeakError when there is nothing to say or the voice model fails."""
     clean = clean_text(text)
@@ -161,7 +187,7 @@ def synthesize(text, voice=None, client=None) -> tuple[bytes, str]:
             _cache.move_to_end(key)
             return _cache[key]
     try:
-        resp = _generate(client or _client(), model, voice, clean)
+        resp = _generate_limited(client or _client(), model, voice, clean)
         parts = _audio_parts(resp)
         if not parts:
             raise SpeakError("the voice model returned no audio")

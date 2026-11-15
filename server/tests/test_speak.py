@@ -147,3 +147,61 @@ def test_busy_model_is_retried_and_a_rejected_style_is_dropped(monkeypatch):
     assert client.calls[1][1] == "hello you"
     http.post("/api/speak", json={"text": "again"})
     assert len(client.calls) == 3 and client.calls[2][1] == "again"
+
+
+QUOTA = RuntimeError("429 RESOURCE_EXHAUSTED. You exceeded your current quota")
+
+
+def test_a_429_is_retried_once_then_speaks(monkeypatch):
+    waits = []
+    monkeypatch.setattr(speak, "_sleep", waits.append)
+    client = FakeClient(QUOTA, _resp(_wav(), "audio/wav"))
+    r = _use(monkeypatch, client).post("/api/speak", json={"text": "Watch the tangent line."})
+    assert r.status_code == 200 and r.content == _wav()
+    assert waits == [speak.RETRY_AFTER_429_S] and len(client.calls) == 2
+
+
+def test_a_second_429_still_fails_cleanly(monkeypatch):
+    monkeypatch.setattr(speak, "_sleep", lambda s: None)
+    client = FakeClient(QUOTA, QUOTA)
+    r = _use(monkeypatch, client).post("/api/speak", json={"text": "Watch the tangent line."})
+    assert r.status_code == 502 and r.json()["error"] == "speak_failed"
+    assert len(client.calls) == 2  # one retry, not more
+
+
+def test_other_errors_are_not_retried_here(monkeypatch):
+    waits = []
+    monkeypatch.setattr(speak, "_sleep", waits.append)
+    client = FakeClient(RuntimeError("500 internal"))
+    r = _use(monkeypatch, client).post("/api/speak", json={"text": "Watch the tangent line."})
+    assert r.status_code == 502 and waits == []
+
+
+def test_at_most_three_voice_calls_at_once(monkeypatch):
+    import threading
+    live, peak, lock = [0], [0], threading.Lock()
+    hold = threading.Event()  # time.sleep is stubbed by the fixture, so wait on an event instead
+
+    class SlowClient:
+        models = None
+
+        def __init__(self):
+            self.models = self
+
+        def generate_content(self, model, contents, config):
+            with lock:
+                live[0] += 1
+                peak[0] = max(peak[0], live[0])
+            hold.wait(0.1)
+            with lock:
+                live[0] -= 1
+            return _resp(_wav(), "audio/wav")
+
+    client = SlowClient()
+    texts = [f"Step {i} of the lesson." for i in range(9)]  # a whole lesson asked for at once
+    threads = [threading.Thread(target=speak.synthesize, args=(t, None, client)) for t in texts]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+    assert peak[0] == speak.MAX_CONCURRENT
