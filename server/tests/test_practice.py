@@ -442,3 +442,123 @@ def test_silent_model_still_gets_the_mistake_marked():
     # help mode is the model's to answer: nothing is added there
     hint = _note("L4", "blue", "The derivative of a term like 5x is just the number in front. Try that term again.")
     assert [a.color for a in _run(lines, _submit(hint), mode="help")[0].actions] == ["blue"]
+
+
+# ---- the answer written on the ask line's own row (the page invites it: `g'(x) =` then the student's ink) ----
+
+STATEMENT = GivenLine(box=(690, 109, 800, 640), latex="g(x) = 4x^2 + 5x", plain="g(x) = 4*x^2 + 5*x")
+ASK = GivenLine(box=(818, 109, 940, 496), latex="g'(x) =", plain="g'(x) =")
+SID = practice.given_lines([STATEMENT])[0].line_id
+AID = practice.given_lines([ASK])[0].line_id
+ROW_OWN = [_line("L1", "f(x) = x^2", (100, 109, 200, 500)), _line("L2", "f'(x) = 2*x", (220, 109, 320, 500), "derivative")]
+
+
+def _row_page(*read, given=(STATEMENT, ASK), tasks=None):
+    return practice.merge_given(ROW_OWN + list(read), list(given), tasks)
+
+
+def _sent(resp):
+    return [(a.type, a.color, a.line_id) for a in resp.actions]
+
+
+def test_answer_on_the_ask_row_read_as_one_line_is_the_practice_answer():
+    # the live case: the reader returned the tutor's `g'(x) =` and the student's `8x + 5` as one line, L4
+    merged = _line("L4", "g'(x) = 8*x + 5", (822, 109, 936, 850), "derivative", "P2")
+    lines = _row_page(merged)
+    assert [(l.line_id, l.problem_id) for l in lines] == [("L1", "P1"), ("L2", "P1"), (SID, "P" + SID), ("L4", "P" + SID)]
+    assert list(practice.problems(lines)) == ["P" + SID] and practice.problems(lines)["P" + SID].line_id == SID
+    assert [l.line_id for l in practice.work(lines, lines[2])] == ["L4"] and lines[3].relation == "derivative"
+    resp, result, _ = _run(lines, _submit())
+    assert result.tool_calls[0] == f"verify_step({SID}->L4, derivative) = correct"
+    assert practice.done(lines, result.verdicts) == {"P" + SID: "L4"}
+    assert _sent(resp) == [("note", "green", "L4")] and resp.actions[0].text == guard.WELL_DONE
+    # a short answer leaves most of the row's box inside the ask line's box: still the answer, not a duplicate
+    short = _row_page(_line("L4", "g'(x) = 8*x + 5", (822, 109, 936, 560), "start", "P2"))
+    assert [(l.line_id, l.plain, l.relation) for l in short[3:]] == [("L4", "g'(x) = 8*x + 5", "derivative")]
+    # the reader also returned the tutor's two lines as printed text: those are the given lines again
+    printed = [_line("L3", "g(x) = 4x^2 + 5x", (692, 110, 798, 640), "start", "P2", "printed"),
+               _line("L5", "g'(x) =", (820, 110, 938, 490), "other", "P2", "printed")]
+    again = _row_page(printed[0], printed[1], _line("L4", "8*x + 5", (822, 520, 936, 850), "start", "P2"))
+    assert [(l.line_id, l.plain) for l in again[2:]] == [(SID, STATEMENT.plain), ("L4", "g'(x) = 8*x + 5")]
+
+
+def test_answer_on_the_ask_row_read_as_only_the_right_hand_part():
+    for plain in ("8*x + 5", "= 8*x + 5"):
+        lines = _row_page(_line("L4", plain, (826, 520, 934, 850), "start", "P2"))
+        assert [(l.line_id, l.problem_id, l.plain, l.relation, l.box) for l in lines[2:]] == [
+            (SID, "P" + SID, STATEMENT.plain, "start", STATEMENT.box),
+            ("L4", "P" + SID, "g'(x) = 8*x + 5", "derivative", (826, 520, 934, 850))]
+        resp, result, _ = _run(lines, _submit())
+        assert result.tool_calls[0] == f"verify_step({SID}->L4, derivative) = correct"
+        assert _sent(resp) == [("note", "green", "L4")] and resp.actions[0].box == (826, 520, 934, 850)
+        assert practice.status(lines, result.verdicts) == [
+            {"problem": STATEMENT.plain, "latex": STATEMENT.latex, "problem_id": "P" + SID, "lines": 1, "correct": True}]
+    # the reader split the student's ink in two: one answer line, under the first piece's id
+    lines = _row_page(_line("L4", "8*x", (826, 520, 934, 650), "start", "P2"), _line("L5", "+ 5", (826, 670, 934, 760), "other", "P2"))
+    assert [(l.line_id, l.plain, l.box) for l in lines[3:]] == [("L4", "g'(x) = 8*x + 5", (826, 520, 934, 760))]
+    # the id and the problem stay the same from the half-written answer to the finished one
+    half = _row_page(_line("L4", "8*x +", (826, 520, 934, 700), "start", "P2"))
+    assert [(l.line_id, l.problem_id) for l in half[2:]] == [(l.line_id, l.problem_id) for l in lines[2:]]
+
+
+def test_wrong_answer_on_the_ask_row_is_marked():
+    for read in (_line("L4", "g'(x) = 8*x", (822, 109, 936, 700), "derivative", "P2"),
+                 _line("L4", "8*x", (826, 520, 934, 700), "start", "P2")):
+        lines = _row_page(read)
+        resp, result, _ = _run(lines, _submit())
+        assert result.verdicts == {"L4": "incorrect"} and practice.done(lines, result.verdicts) == {}
+        assert _sent(resp) == [("circle", "red", "L4"), ("note", "red", "L4")]
+
+
+def test_answer_written_below_the_ask_line_still_works():
+    below = _line("L4", "g'(x) = 8*x + 5", (960, 109, 995, 600), "start", "P2")
+    lines = _row_page(below)
+    assert [(l.line_id, l.problem_id, l.relation) for l in lines[2:]] == [
+        (SID, "P" + SID, "start"), (AID, "P" + SID, "other"), ("L4", "P" + SID, "derivative")]
+    resp, result, _ = _run(lines, _submit())
+    assert result.tool_calls[0] == f"verify_step({SID}->L4, derivative) = correct"
+    assert _sent(resp) == [("note", "green", "L4")]
+    # the answer on the row and a further step under it: the last line is the one that finishes the problem
+    lines = _row_page(_line("L4", "8*x + 5", (826, 520, 934, 850), "start", "P2"),
+                      _line("L5", "g'(x) = 5 + 8*x", (955, 109, 995, 600), "simplify", "P2"))
+    assert [(l.line_id, l.problem_id) for l in lines[2:]] == [(SID, "P" + SID), ("L4", "P" + SID), ("L5", "P" + SID)]
+    resp, result, _ = _run(lines, _submit())
+    assert result.verdicts == {"L4": "correct", "L5": "correct"} and _sent(resp) == [("note", "green", "L5")]
+
+
+def test_untouched_ask_line_does_nothing():
+    reads = ([],                                                                           # the reader skipped the tutor's text
+             [_line("L4", "g'(x) =", (820, 105, 938, 530), "other", "P2")],               # read it again, a bit wide
+             [_line("L4", "g'(x)", (820, 109, 938, 525), "start", "P2")],                  # ... and without the '='
+             [_line("L4", "g`(x) =", (820, 109, 938, 700), "start", "P2")])                # ... or with a far too wide box
+    for read in reads:
+        lines = _row_page(*read)
+        assert [l.line_id for l in lines] == ["L1", "L2", SID, AID], read
+        assert practice.work(lines, lines[2]) == [] and all(l.source == "printed" for l in lines[2:])
+        compute_call = ("compute_step", {"before": STATEMENT.plain, "relation": "derivative",
+                                         "before_line_id": SID, "after_line_id": AID})
+        resp, result, _ = _run(lines, _resp(compute_call), _submit(
+            _note(AID, "green", "Correct!"), {"type": "circle", "line_id": AID, "color": "red", "box": list(ASK.box)},
+            {"type": "note", "line_id": AID, "color": "blue", "side": "inline", "text": "8x + 5", "box": list(ASK.box)}))
+        assert resp.actions == [] and result.verdicts == {} and practice.done(lines, result.verdicts) == {}
+        assert practice.status(lines, {})[0]["lines"] == 0
+
+
+def test_two_practice_problems_with_ask_lines_stay_separate():
+    s2 = GivenLine(box=(400, 109, 480, 640), latex="h(x) = x^3", plain="h(x) = x^3")
+    a2 = GivenLine(box=(495, 109, 575, 480), latex="h'(x) =", plain="h'(x) =")
+    s2_id, a2_id = (l.line_id for l in practice.given_lines([s2, a2]))
+    read = [_line("L3", "3*x^2", (500, 500, 572, 700), "start", "P2"), _line("L4", "8*x", (826, 520, 934, 700), "start", "P2")]
+    lines = _row_page(*read, given=(STATEMENT, ASK, s2, a2))
+    assert [(l.line_id, l.problem_id, l.plain) for l in lines[2:]] == [
+        (s2_id, "P" + s2_id, "h(x) = x^3"), ("L3", "P" + s2_id, "h'(x) = 3*x^2"),
+        (SID, "P" + SID, STATEMENT.plain), ("L4", "P" + SID, "g'(x) = 8*x")]
+    assert list(practice.problems(lines)) == ["P" + s2_id, "P" + SID]
+    resp, result, _ = _run(lines, _submit())
+    assert result.verdicts == {"L3": "correct", "L4": "incorrect"}
+    assert practice.done(lines, result.verdicts) == {"P" + s2_id: "L3"}
+    assert _sent(resp) == [("circle", "red", "L4"), ("note", "red", "L4"), ("note", "green", "L3")]
+    # only the first is answered: the second keeps its untouched ask line
+    lines = _row_page(read[0], given=(STATEMENT, ASK, s2, a2))
+    assert [l.line_id for l in lines[2:]] == [s2_id, "L3", SID, AID] and a2_id not in [l.line_id for l in lines]
+    assert _sent(_run(lines, _submit())[0]) == [("note", "green", "L3")]

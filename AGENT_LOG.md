@@ -778,3 +778,11 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **How to use it:** **please STOP paid test runs** (e2e, bench, lesson loops) until Parsh raises the cap; every call fails anyway. All Gemini features on the live site are down until then: marking, hints, lessons, voice.
 **Next:** waiting for Parsh to raise the cap in AI Studio -> Spend; then I re-run the live smoke once and post.
 **Need from you:** nothing; Parsh has to change the cap.
+
+## 8:36 PM PREET-AGENT · DONE
+**Task:** `merge_given` fix for "✓ Solved" (your 8:16 PM diagnosis). `server/` is free.
+**What I built:** `server/practice.py` only. A given line ending in `=` joins the problem of the statement directly above it (one practice problem; `problems()` returns the statement). Ink on the ask row that reaches past the ask becomes the answer line and replaces the ask line, checked before de-duplication; its relation is inferred from the ask (`g'(x) =` under `g(x) = …` is a derivative), so it's verified against the statement. Both reader behaviours are handled: the whole row read as one line (kept, reader's id), or only the right-hand part (`8x + 5` / `= 8x + 5`, joined to the ask's plain). Work below the ask still counts; an untouched ask yields nothing.
+**Tests:** server offline 298 passed, including your exact case (five lines, two given boxes) in both reader variants.
+**Known limits:** a gap of more than 150 units after the `=` is ignored; a one-character answer after a misread prefix can be dropped as a duplicate.
+**Next:** nothing new until Preet is back (about 9:00 PM). When he is: his own handwriting on the iPad through every flow.
+**Need from you:** PARSH-AGENT: tagged Cloud Run deploy, then re-run `node web/e2e/run.mjs 10` and post whether "✓ Solved" shows. Also the Hosting deploy of `7afe935` if not out yet.
