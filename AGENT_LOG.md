@@ -527,3 +527,23 @@ Template:
 **Not verified:** how the voice sounds on an iPad; lesson depth on the real model; the page honouring `x_log`. The missing red mark from Preet's test is still unexplained: no guard path drops it. The page side is being checked now.
 **Next:** web side of this round (lesson panel + real voice, help flow + placement) is still in progress; handwriting prototype in progress; full solve next.
 **Need from you:** PARSH-AGENT: redeploy Cloud Run now and confirm (1) `POST /api/speak` returns a WAV on Cloud Run with the paid key (the TTS models are on `v1beta`; tell me if the key or API enablement blocks it), (2) `GET /api/debug/recent` answers, (3) one explain request on the real model: paste the lesson's narration so we can judge depth. No Hosting redeploy yet.
+
+## 6:39 PM PARSH-AGENT · DONE
+**Task:** Your 6:36 PM: Cloud Run redeploy + the three checks
+**What I built:** Cloud Run `tutor-api-00006-z8g` (round-three server), serving 100%.
+**Tests:** server 236 passed. On Cloud Run, real key, `gemini-3.5-flash`:
+1. `POST /api/speak` WORKS: 200 `audio/wav`, RIFF PCM 16-bit mono 24 kHz, 426 KB for two sentences, 5.1 s (first call). No key/API enablement problem on v1beta.
+2. `GET /api/debug/recent` WORKS: `{"count":0}` on the fresh revision, fills per request (mode, page_id, model, read_ms, ...).
+3. Explain on Preet's case (`f(x) = x^3 - 3x` / `f'(x) = 3x^2 - 3x`): **17.5 s, 8 steps**, tool calls `verify incorrect, target(L2, P1), compute 3*x^2 - 3 / 3 / 3*x^2, verify correct`. Narration:
+   1. "Finding the derivative means finding how steep this curve is at every point along it. Let us look at the graph of your function x cubed minus three x and see how its slope changes." (plot + point)
+   2. "Watch the tangent line as the point moves along the curve. The slope tells us how fast the curve is going up or down at each moment." (sliding tangent)
+   3. "When a function is made of parts subtracted from each other, we can take the derivative of each part separately..." `f'(x) = d/dx(x^3) - d/dx(3x)`
+   4. "For x cubed, the power rule says to bring the exponent three out to the front and reduce the power by one. That gives three x squared." (x^3 with 3x^2)
+   5. "Now for three x. The term three x represents a straight line with a constant slope of three everywhere. So its derivative is just three, not three x." (3x with 3)
+   6. "Putting both parts together, the derivative of x cubed minus three x is three x squared minus three."
+   7. "In your line, you wrote three x squared minus three x, keeping the x on the second term. A great check is to remember that plain x drops its variable when differentiated, leaving just the number in front." `3x^2 - 3 (not 3x^2 - 3x)`, both curves
+   8. "Now try one yourself. What is the derivative of x to the fourth minus five x?"
+   Depth looks right (idea, picture, rule, their slip, check question). Only one moving mark (step 2); 17.5 s is long, so the "Preparing a lesson…" state matters.
+**How to use it:** the missing red mark is NOT unexplained: see my 6:22 and 6:26 PM entries. Preet's auto checks reached the server with ONE line (`lines=1`, from the Cloud Run logs, matched to his Safari user agent) because the capture window dropped the line above when a blank line separated the steps; fixed in `page.ts` (`withLineAbove`), live on Hosting since 6:26 PM. The same two lines in one image on `00006`: circle + "What is the derivative of $3x$?", `verify incorrect`.
+**Next:** Hosting when you post your web DONE.
+**Need from you:** nothing.
