@@ -562,3 +562,27 @@ def test_two_practice_problems_with_ask_lines_stay_separate():
     lines = _row_page(read[0], given=(STATEMENT, ASK, s2, a2))
     assert [l.line_id for l in lines[2:]] == [s2_id, "L3", SID, AID] and a2_id not in [l.line_id for l in lines]
     assert _sent(_run(lines, _submit())[0]) == [("note", "green", "L3")]
+
+
+def test_a_new_problem_under_an_answered_practice_is_not_practice():
+    """Preet's iPad, 5:23 AM: `d/dx (x sin x)` written under a solved "Your turn" was treated as practice work,
+    so Solve it was refused twice ("try it yourself first")."""
+    answer = _line("L4", "g'(x) = 8*x + 5", (822, 109, 936, 850), "derivative", "P2")
+    for own, pid in ((_line("L5", "d/dx (x*sin(x))", (960, 109, 995, 600), "start", "P3"), "P3"),
+                     (_line("L5", "d/dx (x*sin(x))", (960, 109, 995, 600), "start", "P2"), "P2"),   # reader lumped it in
+                     (_line("L5", "h(x) = x^3", (960, 109, 995, 600), "start", "P2"), "P2")):
+        lines = _row_page(answer, own)
+        assert [(l.line_id, l.problem_id) for l in lines[2:]] == [(SID, "P" + SID), ("L4", "P" + SID), ("L5", pid)]
+        assert "L5" not in practice.line_ids(lines) and "L4" in practice.line_ids(lines)
+        assert [l.line_id for l in practice.work(lines, lines[2])] == ["L4"]
+    # its own working under it goes with it, not with the practice
+    lines = _row_page(answer, _line("L5", "d/dx (x*sin(x))", (955, 109, 975, 600), "start", "P3"),
+                      _line("L6", "= sin(x) + x*cos(x)", (978, 109, 998, 600), "derivative", "P3"))
+    assert practice.line_ids(lines).isdisjoint({"L5", "L6"})
+    # a further step of the practice itself (about g) is still practice work, even if the reader calls it a start
+    lines = _row_page(_line("L4", "8*x + 5", (826, 520, 934, 850), "start", "P2"),
+                      _line("L5", "g'(x) = 5 + 8*x", (955, 109, 995, 600), "start", "P2"))
+    assert [(l.line_id, l.problem_id) for l in lines[2:]] == [(SID, "P" + SID), ("L4", "P" + SID), ("L5", "P" + SID)]
+    # an UNANSWERED practice still claims the line under it (the student is expected to try first)
+    lines = _row_page(_line("L4", "g'(x) = 8*x + 5", (960, 109, 995, 600), "start", "P2"))
+    assert lines[-1].problem_id == "P" + SID

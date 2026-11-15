@@ -195,6 +195,24 @@ def _answer(a: ReadLine, parts: list[tuple[ReadLine, str]], asked: str | None, k
                                     "relation": relation, "source": None if first.source == "printed" else first.source})
 
 
+def _label(plain: str) -> str | None:
+    """The function a statement names: `g(x) = 4*x^2 + 5*x` -> "g". None if it names none."""
+    m = re.match(r"\s*([A-Za-z])\s*'*\s*\(\s*[A-Za-z]\s*\)\s*=", plain or "")
+    return m.group(1) if m else None
+
+
+def _new_problem(l: ReadLine, statement: ReadLine) -> bool:
+    """A line under an ANSWERED practice problem that starts something of the student's own: the reader read it
+    as the start of a problem, and it is not about the practice function (`d/dx (x*sin(x))` under `g'(x) = 8x + 5`).
+    Such a line is not practice work: Solve and Help treat it like any other problem."""
+    if l.relation != "start" or l.source == "printed":
+        return False
+    name = _label(statement.plain)
+    if name and re.search(rf"(?<![A-Za-z]){name}\s*'*\s*\(", l.plain or ""):
+        return False  # g'(x) = 5 + 8x: still about g
+    return bool(name) or compute.operation(l.plain) is not None
+
+
 def merge_given(lines: list[ReadLine], given: list[GivenLine] | None, tasks: dict | None = None) -> list[ReadLine]:
     """The page's lines with the tutor-written problem lines in place.
 
@@ -274,6 +292,12 @@ def merge_given(lines: list[ReadLine], given: list[GivenLine] | None, tasks: dic
         grouped = set(pids)
         under = sorted((l for l in out if g.box[2] <= _mid(l) < stop and _across(l.box, g.box) > 0),
                        key=lambda l: l.box[0])
+        statement = stated.get(g.problem_id, g)
+        # the ask line is answered on its own row: what comes under it may be a new problem of the student's
+        fresh = next((l for l in under if answer is not None and _new_problem(l, statement)), None)
+        if fresh is not None:
+            stop = min(stop, fresh.box[0])
+            under = [l for l in under if l.box[0] < fresh.box[0]]
         if under and under[0].source != "printed" and under[0].problem_id not in pids:
             first = under[0]
             gap = first.box[0] - g.box[2]
