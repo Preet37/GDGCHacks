@@ -16,13 +16,62 @@ export interface ReadLine {
 export type ActionType = "circle" | "underline" | "note" | "figure" | "ask" | "speak" | "lesson" | "solution";
 
 export interface FigureSpec {
-  kind: "plot2d" | "surface3d";
-  expressions: string[];      // math.js syntax: "x^2 - 4", "sin(x)". surface3d: one expression in x and y
-  x_range: [number, number];
+  kind: "plot2d" | "surface3d" | "circuit" | "fbd";  // circuit / fbd: Part 2 (engineering). A page that doesn't know a kind ignores it
+  expressions: string[];      // math.js syntax: "x^2 - 4", "sin(x)". surface3d: one expression in x and y. [] for circuit / fbd
+  x_range: [number, number];  // [0, 1] for circuit / fbd (unused)
   y_range?: [number, number];
   x_log?: boolean;            // true = logarithmic x axis (x_range must be positive), e.g. frequency plots
   title?: string;
+  circuit?: CircuitFigure;    // kind "circuit" only: filled in by server code from the read netlist + solve_circuit
+  fbd?: FbdFigure;            // kind "fbd" only: filled in by server code from the read force diagram
 }
+
+// ---- Engineering (Part 2): circuits and free-body diagrams ----
+
+export interface CircuitElement {
+  id: string;                 // label from the drawing: "R1", "V1"
+  kind: "resistor" | "vsource" | "isource";
+  a: string;                  // node names; "0" is ground. vsource: V(a) - V(b) = value; isource: value amps a -> b
+  b: string;
+  value: string;              // as written: "4.7k", "9", "2mA"
+  box?: Box;                  // where its symbol is drawn, 0-1000 over the sent image
+}
+
+export interface CircuitSolution {
+  node_voltages: Record<string, number>;     // volts, measured from ground
+  currents: Record<string, number>;          // amps, a -> b through each element
+  element_voltages?: Record<string, number>; // V(a) - V(b) across each element
+  power?: Record<string, number>;            // watts absorbed (sources come out negative)
+}
+
+export interface CircuitFigure {
+  elements: CircuitElement[];
+  nodes?: { id: string; at: [number, number] }[];  // [y, x] 0-1000: a point on each node's wire, for voltage labels
+  solution?: CircuitSolution;                        // from solve_circuit
+  reveal: boolean;            // false = show the elements, hide the numbers (the student hasn't answered yet)
+}
+
+export interface Force {
+  id: string;
+  label: string;              // "mg", "N", "f", "T"
+  angle_deg: number;          // direction, degrees counter-clockwise from +x
+  magnitude?: string;         // as written, if any: "19.6 N", "m*g"
+  on: string;                 // body id
+  at?: [number, number];      // [y, x] 0-1000: where the arrow starts
+}
+
+export interface FbdFigure {
+  bodies: { id: string; shape: "box" | "point" | "beam"; at?: [number, number] }[];
+  surfaces?: { id: string; angle_deg: number }[];  // a ramp at 30 degrees, a floor at 0
+  forces: Force[];            // what the student drew
+  expected?: Force[];         // what should be there; the page draws the missing ones dashed
+}
+
+// POST /api/circuit/solve (no Gemini): { elements: CircuitElement[] } -> CircuitSolveResponse
+export interface CircuitSolveRequest {
+  elements: CircuitElement[];
+}
+export type CircuitSolveResponse = ({ ok: true } & CircuitSolution & { ground_chosen?: string }) | { ok: false; detail: string };
 
 export interface Action {
   type: ActionType;

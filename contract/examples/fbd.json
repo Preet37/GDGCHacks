@@ -1,0 +1,186 @@
+{
+  "lines": [
+    {
+      "line_id": "L1",
+      "problem_id": "P1",
+      "latex": "\\text{force diagram: block on a } 30^\\circ \\text{ ramp}",
+      "plain": "{\"fbd\": {\"bodies\": [{\"id\": \"B\", \"shape\": \"box\", \"at\": [420, 470]}], \"surfaces\": [{\"id\": \"ramp\", \"angle_deg\": 30}], \"forces\": [{\"id\": \"F1\", \"label\": \"mg\", \"angle_deg\": 270, \"on\": \"B\", \"at\": [420, 470]}, {\"id\": \"F2\", \"label\": \"N\", \"angle_deg\": 120, \"on\": \"B\", \"at\": [420, 470]}]}}",
+      "box": [
+        250,
+        150,
+        650,
+        800
+      ],
+      "relation": "other",
+      "confidence": "high",
+      "source": "handwriting"
+    },
+    {
+      "line_id": "L2",
+      "problem_id": "P1",
+      "latex": "\\text{at rest}",
+      "plain": "at rest",
+      "box": [
+        680,
+        150,
+        740,
+        400
+      ],
+      "relation": "other",
+      "confidence": "high",
+      "source": "handwriting"
+    }
+  ],
+  "actions": [
+    {
+      "type": "note",
+      "line_id": "L1",
+      "box": [
+        250,
+        150,
+        650,
+        800
+      ],
+      "color": "blue",
+      "side": "right",
+      "text": "Here's your diagram with the missing force dashed. Which way must it point?"
+    },
+    {
+      "type": "figure",
+      "line_id": "L1",
+      "box": [
+        250,
+        150,
+        650,
+        800
+      ],
+      "side": "right",
+      "figure": {
+        "kind": "fbd",
+        "expressions": [],
+        "x_range": [
+          0,
+          1
+        ],
+        "title": "Block on a 30° ramp",
+        "fbd": {
+          "bodies": [
+            {
+              "id": "B",
+              "shape": "box",
+              "at": [
+                420,
+                470
+              ]
+            }
+          ],
+          "surfaces": [
+            {
+              "id": "ramp",
+              "angle_deg": 30
+            }
+          ],
+          "forces": [
+            {
+              "id": "F1",
+              "label": "mg",
+              "angle_deg": 270,
+              "on": "B",
+              "at": [
+                420,
+                470
+              ]
+            },
+            {
+              "id": "F2",
+              "label": "N",
+              "angle_deg": 120,
+              "on": "B",
+              "at": [
+                420,
+                470
+              ]
+            }
+          ],
+          "expected": [
+            {
+              "id": "F1",
+              "label": "mg",
+              "angle_deg": 270,
+              "on": "B",
+              "at": [
+                420,
+                470
+              ]
+            },
+            {
+              "id": "F2",
+              "label": "N",
+              "angle_deg": 120,
+              "on": "B",
+              "at": [
+                420,
+                470
+              ]
+            },
+            {
+              "id": "F3",
+              "label": "f",
+              "angle_deg": 30,
+              "on": "B",
+              "at": [
+                420,
+                470
+              ]
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "clear_line_ids": [],
+  "state": {
+    "page_id": "demo",
+    "lines": [
+      {
+        "line_id": "L1",
+        "problem_id": "P1",
+        "latex": "\\text{force diagram: block on a } 30^\\circ \\text{ ramp}",
+        "plain": "{\"fbd\": {\"bodies\": [{\"id\": \"B\", \"shape\": \"box\", \"at\": [420, 470]}], \"surfaces\": [{\"id\": \"ramp\", \"angle_deg\": 30}], \"forces\": [{\"id\": \"F1\", \"label\": \"mg\", \"angle_deg\": 270, \"on\": \"B\", \"at\": [420, 470]}, {\"id\": \"F2\", \"label\": \"N\", \"angle_deg\": 120, \"on\": \"B\", \"at\": [420, 470]}]}}",
+        "box": [
+          250,
+          150,
+          650,
+          800
+        ],
+        "relation": "other",
+        "confidence": "high",
+        "source": "handwriting"
+      },
+      {
+        "line_id": "L2",
+        "problem_id": "P1",
+        "latex": "\\text{at rest}",
+        "plain": "at rest",
+        "box": [
+          680,
+          150,
+          740,
+          400
+        ],
+        "relation": "other",
+        "confidence": "high",
+        "source": "handwriting"
+      }
+    ],
+    "problems": [
+      {
+        "problem_id": "P1",
+        "hint_level": 2
+      }
+    ],
+    "flagged_line_ids": [
+      "L1"
+    ]
+  }
+}

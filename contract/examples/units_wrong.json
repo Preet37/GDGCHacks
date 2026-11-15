@@ -1,0 +1,75 @@
+{
+  "lines": [
+    {
+      "line_id": "L1",
+      "problem_id": "P1",
+      "latex": "F = 2\\,kg \\cdot 9.8\\,m/s = 19.6\\,N",
+      "plain": "F = 2*kg * 9.8*m/s = 19.6*N",
+      "box": [
+        120,
+        80,
+        200,
+        760
+      ],
+      "relation": "start",
+      "confidence": "high",
+      "source": "handwriting"
+    }
+  ],
+  "actions": [
+    {
+      "type": "circle",
+      "line_id": "L1",
+      "box": [
+        120,
+        430,
+        200,
+        560
+      ],
+      "color": "red"
+    },
+    {
+      "type": "note",
+      "line_id": "L1",
+      "box": [
+        120,
+        80,
+        200,
+        760
+      ],
+      "color": "red",
+      "side": "below",
+      "text": "What are the units of acceleration?"
+    }
+  ],
+  "clear_line_ids": [],
+  "state": {
+    "page_id": "demo",
+    "lines": [
+      {
+        "line_id": "L1",
+        "problem_id": "P1",
+        "latex": "F = 2\\,kg \\cdot 9.8\\,m/s = 19.6\\,N",
+        "plain": "F = 2*kg * 9.8*m/s = 19.6*N",
+        "box": [
+          120,
+          80,
+          200,
+          760
+        ],
+        "relation": "start",
+        "confidence": "high",
+        "source": "handwriting"
+      }
+    ],
+    "problems": [
+      {
+        "problem_id": "P1",
+        "hint_level": 0
+      }
+    ],
+    "flagged_line_ids": [
+      "L1"
+    ]
+  }
+}

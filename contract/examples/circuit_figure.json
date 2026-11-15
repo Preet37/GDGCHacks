@@ -1,0 +1,188 @@
+{
+  "lines": [
+    {
+      "line_id": "L1",
+      "problem_id": "P1",
+      "latex": "\\text{circuit: } V_1 = 9\\,V,\\ R_1 = 1\\,k\\Omega,\\ R_2 = 2\\,k\\Omega",
+      "plain": "{\"circuit\": [{\"id\": \"V1\", \"kind\": \"vsource\", \"a\": \"n1\", \"b\": \"0\", \"value\": \"9\", \"box\": [347, 78, 452, 189]}, {\"id\": \"R1\", \"kind\": \"resistor\", \"a\": \"n1\", \"b\": \"n2\", \"value\": \"1k\", \"box\": [153, 328, 234, 467]}, {\"id\": \"R2\", \"kind\": \"resistor\", \"a\": \"n2\", \"b\": \"0\", \"value\": \"2k\", \"box\": [298, 639, 500, 694]}], \"nodes\": [{\"id\": \"n1\", \"at\": [194, 222]}, {\"id\": \"n2\", \"at\": [242, 667]}, {\"id\": \"0\", \"at\": [645, 400]}]}",
+      "box": [
+        129,
+        67,
+        661,
+        867
+      ],
+      "relation": "other",
+      "confidence": "high",
+      "source": "handwriting"
+    },
+    {
+      "line_id": "L2",
+      "problem_id": "P1",
+      "latex": "I = 3\\,mA",
+      "plain": "I = 3*mA",
+      "box": [
+        758,
+        156,
+        823,
+        289
+      ],
+      "relation": "other",
+      "confidence": "high",
+      "source": "handwriting"
+    }
+  ],
+  "actions": [
+    {
+      "type": "figure",
+      "line_id": "L1",
+      "box": [
+        129,
+        67,
+        661,
+        867
+      ],
+      "side": "right",
+      "figure": {
+        "kind": "circuit",
+        "expressions": [],
+        "x_range": [
+          0,
+          1
+        ],
+        "title": "Your circuit",
+        "circuit": {
+          "elements": [
+            {
+              "id": "V1",
+              "kind": "vsource",
+              "a": "n1",
+              "b": "0",
+              "value": "9",
+              "box": [
+                347,
+                78,
+                452,
+                189
+              ]
+            },
+            {
+              "id": "R1",
+              "kind": "resistor",
+              "a": "n1",
+              "b": "n2",
+              "value": "1k",
+              "box": [
+                153,
+                328,
+                234,
+                467
+              ]
+            },
+            {
+              "id": "R2",
+              "kind": "resistor",
+              "a": "n2",
+              "b": "0",
+              "value": "2k",
+              "box": [
+                298,
+                639,
+                500,
+                694
+              ]
+            }
+          ],
+          "nodes": [
+            {
+              "id": "n1",
+              "at": [
+                194,
+                222
+              ]
+            },
+            {
+              "id": "n2",
+              "at": [
+                242,
+                667
+              ]
+            },
+            {
+              "id": "0",
+              "at": [
+                645,
+                400
+              ]
+            }
+          ],
+          "reveal": true,
+          "solution": {
+            "node_voltages": {
+              "n1": 9.0,
+              "n2": 6.0,
+              "0": 0.0
+            },
+            "currents": {
+              "V1": -0.003,
+              "R1": 0.003,
+              "R2": 0.003
+            },
+            "element_voltages": {
+              "V1": 9.0,
+              "R1": 3.0,
+              "R2": 6.0
+            },
+            "power": {
+              "V1": -0.027,
+              "R1": 0.009,
+              "R2": 0.018
+            }
+          }
+        }
+      }
+    }
+  ],
+  "clear_line_ids": [],
+  "state": {
+    "page_id": "demo",
+    "lines": [
+      {
+        "line_id": "L1",
+        "problem_id": "P1",
+        "latex": "\\text{circuit: } V_1 = 9\\,V,\\ R_1 = 1\\,k\\Omega,\\ R_2 = 2\\,k\\Omega",
+        "plain": "{\"circuit\": [{\"id\": \"V1\", \"kind\": \"vsource\", \"a\": \"n1\", \"b\": \"0\", \"value\": \"9\", \"box\": [347, 78, 452, 189]}, {\"id\": \"R1\", \"kind\": \"resistor\", \"a\": \"n1\", \"b\": \"n2\", \"value\": \"1k\", \"box\": [153, 328, 234, 467]}, {\"id\": \"R2\", \"kind\": \"resistor\", \"a\": \"n2\", \"b\": \"0\", \"value\": \"2k\", \"box\": [298, 639, 500, 694]}], \"nodes\": [{\"id\": \"n1\", \"at\": [194, 222]}, {\"id\": \"n2\", \"at\": [242, 667]}, {\"id\": \"0\", \"at\": [645, 400]}]}",
+        "box": [
+          129,
+          67,
+          661,
+          867
+        ],
+        "relation": "other",
+        "confidence": "high",
+        "source": "handwriting"
+      },
+      {
+        "line_id": "L2",
+        "problem_id": "P1",
+        "latex": "I = 3\\,mA",
+        "plain": "I = 3*mA",
+        "box": [
+          758,
+          156,
+          823,
+          289
+        ],
+        "relation": "other",
+        "confidence": "high",
+        "source": "handwriting"
+      }
+    ],
+    "problems": [
+      {
+        "problem_id": "P1",
+        "hint_level": 0
+      }
+    ],
+    "flagged_line_ids": []
+  }
+}

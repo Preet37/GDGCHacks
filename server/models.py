@@ -19,13 +19,76 @@ class ReadLine(BaseModel):
     source: Optional[Literal["handwriting", "printed"]] = None  # missing = handwriting
 
 
+# ---- Engineering (Part 2): circuits and free-body diagrams (mirrors contract/contract.ts) ----
+
+class CircuitElement(BaseModel):
+    id: str
+    kind: Literal["resistor", "vsource", "isource"]
+    a: str
+    b: str
+    value: str
+    box: Optional[Box] = None
+
+
+class CircuitNode(BaseModel):
+    id: str
+    at: tuple[float, float]  # [y, x] 0-1000
+
+
+class CircuitSolution(BaseModel):
+    node_voltages: dict[str, float]
+    currents: dict[str, float]
+    element_voltages: Optional[dict[str, float]] = None
+    power: Optional[dict[str, float]] = None
+
+
+class CircuitFigure(BaseModel):
+    elements: list[CircuitElement]
+    nodes: Optional[list[CircuitNode]] = None
+    solution: Optional[CircuitSolution] = None
+    reveal: bool
+
+
+class Force(BaseModel):
+    id: str
+    label: str
+    angle_deg: float
+    magnitude: Optional[str] = None
+    on: str
+    at: Optional[tuple[float, float]] = None
+
+
+class FbdBody(BaseModel):
+    id: str
+    shape: Literal["box", "point", "beam"]
+    at: Optional[tuple[float, float]] = None
+
+
+class FbdSurface(BaseModel):
+    id: str
+    angle_deg: float
+
+
+class FbdFigure(BaseModel):
+    bodies: list[FbdBody]
+    surfaces: Optional[list[FbdSurface]] = None
+    forces: list[Force]
+    expected: Optional[list[Force]] = None
+
+
+class CircuitSolveRequest(BaseModel):
+    elements: list[dict]  # loose on purpose: solve_circuit explains a bad element instead of a 422
+
+
 class FigureSpec(BaseModel):
-    kind: Literal["plot2d", "surface3d"]
+    kind: Literal["plot2d", "surface3d", "circuit", "fbd"]
     expressions: list[str]
     x_range: tuple[float, float]
     y_range: Optional[tuple[float, float]] = None
     x_log: Optional[bool] = None
     title: Optional[str] = None
+    circuit: Optional[CircuitFigure] = None
+    fbd: Optional[FbdFigure] = None
 
 
 Color = Literal["red", "green", "blue", "black"]
