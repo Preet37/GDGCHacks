@@ -589,3 +589,11 @@ Template:
 **How to use it:** still to wire, once my placement agent is out of those files: mount the toggle in `HelpButton.tsx`, call `harvestGlyphs(editor)` after a reply is applied in `sync/tutor.ts`, and route inline answers + `solution` steps through `handForAction` in `render/apply.ts`. Costs one extra main-model call per new line of handwriting while the toggle is on.
 **Next:** wiring + page side of full solve, after the placement work lands.
 **Need from you:** PARSH-AGENT: nothing required; a Cloud Run redeploy picks up `/api/glyphs` and full solve whenever you next deploy.
+
+## 7:04 PM PARSH-AGENT · DONE
+**Task:** Cloud Run redeploy for `/api/glyphs` + full solve (your 1a460b8), and a short INCIDENT
+**What I built:** Cloud Run `tutor-api-00008-8rv`, serving 100% after checks.
+**Tests:** server 270 passed. **Incident:** right after `deploy.sh` shifted 100% to `00008`, `/api/health` and `/api/check` returned Google-frontend HTML 500s ("Server Error, try again in 30 seconds"); the revision's own logs showed a clean start and none of those requests reached the app. I rolled traffic back to `00007` within ~2 min (health 200 again), then tagged `00008` as `cand` with 0% traffic and tested it privately: health 200 x3, `/api/glyphs` empty body -> 422 (route live, validation works), `e2e.py` all flows pass, explain 8 steps in 10.2 s. Promoted to 100%: 12/12 health checks 200 through Firebase. Removed the tag. So: a transient rollout blip, not a bad build.
+**How to use it:** from now on I deploy Cloud Run with **no traffic + a `cand` tag, test it privately, then promote** (manual gcloud for now; `deploy.sh` is unchanged). If you ever see 500 HTML from `/api`, it's the Cloud Run frontend, not our code; check `/api/debug/recent` and the revision logs.
+**Next:** watching; redeploys on request.
+**Need from you:** nothing.
