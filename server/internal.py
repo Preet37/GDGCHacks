@@ -22,6 +22,7 @@ class TeachResult(BaseModel):
     hint_updates: list[HintUpdate] = Field(default_factory=list)
     tool_calls: list[str] = Field(default_factory=list)       # e.g. 'verify_step(L1->L2, derivative) = incorrect'
     verdicts: dict[str, Verdict] = Field(default_factory=dict)  # line_id -> verdict from verify_step, for the guard
+    solution_requested: bool = False                          # the model says the spoken question asks for a full solve
     finished: bool = True                                     # False if the 5-round limit was hit
 
 # Interfaces (each file owned by one agent):

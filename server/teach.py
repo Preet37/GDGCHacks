@@ -17,6 +17,7 @@ from pydantic import ValidationError
 import circuits
 import compute
 import memory
+import solution
 import verify
 from figures import fix_figure
 from internal import HintUpdate, TeachResult
@@ -53,10 +54,27 @@ _FIGURE = {
     "required": ["kind", "expressions", "x_range"],
 }
 
+_STEPS = {
+    "type": "array",
+    "maxItems": solution.MAX_STEPS,
+    "description": "solution only: the worked steps in order, 2 to 8, ending with the final answer. Only when the "
+                   "student asked for the whole solution. The server checks every step before it is shown",
+    "items": {
+        "type": "object",
+        "properties": {
+            "latex": {"type": "string", "description": "the whole line as a student would write it, LaTeX, no $ and no words: '3x^2 = 3'"},
+            "plain": {"type": "string", "description": "the same whole line in calculator syntax, for the checker: '3*x^2 = 3'. Several answers as 'x = 1 or x = -1'"},
+            "relation": {"type": "string", "enum": list(solution.STEP_RELATIONS),
+                         "description": "how this step follows from the step before it (the first step: from the line it continues)"},
+        },
+        "required": ["latex", "plain", "relation"],
+    },
+}
+
 _ACTION = {
     "type": "object",
     "properties": {
-        "type": {"type": "string", "enum": ["circle", "underline", "note", "figure", "ask", "speak"]},
+        "type": {"type": "string", "enum": ["circle", "underline", "note", "figure", "ask", "speak", "solution"]},
         "box": _BOX,
         "line_id": {"type": "string", "description": "the line this action is about"},
         "color": {"type": "string", "enum": ["red", "green", "blue", "black"],
@@ -67,6 +85,7 @@ _ACTION = {
         "options": {"type": "array", "items": {"type": "string"}, "description": "ask only: choices"},
         "focus": {"type": "string", "description": "circle/underline only: the smallest wrong part of the line, copied exactly from that line's `plain` (e.g. '+ 1'). The server narrows the box to it."},
         "figure": _FIGURE,
+        "steps": _STEPS,
     },
     "required": ["type"],
 }
@@ -97,7 +116,8 @@ COMPUTE_DECL = types.FunctionDeclaration(
     name="compute_step",
     description=(
         "Work out with real math what follows from line `before` by `relation`. Only for finishing a line "
-        "the student asked you to finish (a line left open after '=', or a spoken request). Returns "
+        "the student asked you to finish (a line left open after '=', or a spoken request), or for the steps "
+        "of a full solution they asked for. Returns "
         "`result` (plain) and `latex`: what to write after the open line's '='. Empty result = couldn't. "
         "When the open line is the whole problem ('int(4*x, x) =', 'd/dx(x^3) =', '3*4 + 2 ='), pass that "
         "line itself as `before`, with its id as both before_line_id and after_line_id."
@@ -177,6 +197,11 @@ SUBMIT_DECL = types.FunctionDeclaration(
                     },
                     "required": ["problem_id", "hint_level"],
                 },
+            },
+            "solution_requested": {
+                "type": "boolean",
+                "description": "true only when `question` (help mode) asks you in the student's own words to solve "
+                               "the problem or show its steps. Leave false otherwise",
             },
         },
         "required": ["actions", "clear_line_ids", "hint_updates"],
@@ -349,6 +374,10 @@ def _parse_actions(raw: Any, lines: list[ReadLine] | None = None) -> list[Action
             a["box"] = _clean_box(a["box"])
         if "figure" in a:
             a["figure"] = fix_figure(a["figure"])  # give every graph a window that shows the curve
+        if "steps" in a:  # the model sends {latex, plain, relation}; the page gets the LaTeX lines
+            steps = a.pop("steps")
+            if a.get("type") == "solution":
+                a["steps"] = [s["latex"] for s in solution.norm_steps(steps)]
         line = by_id.get(a.get("line_id"))
         if focus and line is not None and a.get("type") in ("circle", "underline"):
             # Always start from the line's own box, so a box the model made up can't move the mark.
@@ -393,6 +422,15 @@ def _tidy(actions: list[Action], by_id: dict) -> list[Action]:
     for a in actions:
         if a.type in ("note", "ask", "speak") and not (a.text or "").strip():
             continue  # nothing to show or say
+        if a.type == "solution":
+            # Worked steps under a line of the student's work, in their ink colour: no words, placed by the line's real box.
+            line = by_id.get(a.line_id)
+            steps = [t for t in (solution.clean_latex(s) for s in a.steps or []) if t][:solution.MAX_STEPS]
+            if line is None or not steps:
+                continue
+            out.append(a.model_copy(update={"steps": steps, "color": "black", "box": line.box, "text": None,
+                                            "side": None, "options": None, "figure": None}))
+            continue
         if a.type in ("note", "ask") and "\\" in (a.text or ""):
             a = a.model_copy(update={"text": plain_note(a.text)})
         if a.type == "note" and a.color == "black" and is_open(getattr(by_id.get(a.line_id), "plain", "")):
@@ -429,6 +467,7 @@ def _apply_submit(args: dict, result: TeachResult, lines: list[ReadLine] | None 
         except ValidationError as e:
             log.warning("dropping invalid hint update %s: %s", h, e)
     result.hint_updates = hints
+    result.solution_requested = args.get("solution_requested") is True
     n = len(args.get("actions") or [])
     result.tool_calls.append(f"submit_feedback({len(result.actions)}/{n} actions kept)")
 
@@ -445,7 +484,7 @@ def help_gap(actions: list[Action], req: CheckRequest) -> str | None:
     if req.mode != "help":
         return None
     told = any((a.type == "note" and a.color != "red" and (a.color == "black" or a.side == "inline" or _explains(a.text)))
-               or a.type == "figure" for a in actions)
+               or a.type in ("figure", "solution") for a in actions)
     if told:
         return None
     asked = (req.question or "").strip()
@@ -456,12 +495,33 @@ def help_gap(actions: list[Action], req: CheckRequest) -> str | None:
             + " Keep any red circle on a real mistake. Then call submit_feedback again.")
 
 
+def _circuit_solved(result: TeachResult) -> bool:
+    return any(c.startswith("solve_circuit(") and "= ok" in c for c in result.tool_calls)
+
+
+def _settled(submit: dict, reports: list[dict], req: CheckRequest, result: TeachResult) -> tuple[dict, list[str]]:
+    """The submit with its solutions made safe to send: cut before a step the checker called wrong, dropped
+    when nothing could be checked. Unchecked steps are only let through for a spoken request in help mode."""
+    if not reports:
+        return submit, []
+    spoken = req.mode == "help" and bool((req.question or "").strip())
+    actions, notes = solution.settle(submit.get("actions"), reports, spoken, _circuit_solved(result))
+    return {**submit, "actions": actions}, notes
+
+
 def teach(client, model: str, lines: list[ReadLine], req: CheckRequest) -> TeachResult:
     result = TeachResult()
-    sent_back: dict | None = None  # a Help reply that explained nothing, kept in case nothing better comes
+    pending: tuple | None = None  # the last reply that was sent back to be fixed, kept in case nothing better comes
+    help_sent = steps_sent = False
     contents: list = [
         types.Content(role="user", parts=[types.Part.from_text(text=_page_json(lines, req))])
     ]
+
+    def apply(submit: dict, notes: list[str]) -> TeachResult:
+        result.tool_calls.extend(notes)
+        _apply_submit(submit, result, lines)
+        result.finished = True
+        return result
 
     for _ in range(MAX_ROUNDS):
         response = gemini.generate(client, model, contents, _build_config)
@@ -498,22 +558,30 @@ def teach(client, model: str, lines: list[ReadLine], req: CheckRequest) -> Teach
                 id=call.id, name=call.name, response=out)))
 
         if submit is not None:
-            gap = help_gap(_parse_actions(submit.get("actions"), lines), req) if sent_back is None else None
+            # A full solution is checked step by step here, whatever the model checked itself.
+            reports = solution.review(submit.get("actions"), lines, result.verdicts)
+            spoken = req.mode == "help" and bool((req.question or "").strip())
+            fixed, notes = _settled(submit, reports, req, result)
+            gap = why = None
+            if not steps_sent:
+                gap = solution.gap(reports, spoken, _circuit_solved(result))
+                if gap is not None:
+                    steps_sent, why = True, "a solution step did not pass the check"
+            if gap is None and not help_sent:
+                gap = help_gap(_parse_actions(fixed.get("actions"), lines), req)
+                if gap is not None:
+                    help_sent, why = True, "Help must explain, not only ask"
             if gap is None:
-                _apply_submit(submit, result, lines)
-                result.finished = True
-                return result
-            sent_back = submit
-            result.tool_calls.append("submit_feedback sent back: Help must explain, not only ask")
+                return apply(fixed, notes)
+            pending = (fixed, notes)
+            result.tool_calls.append(f"submit_feedback sent back: {why}")
             for part in replies:
                 if part.function_response.name == "submit_feedback":
                     part.function_response.response = {"ok": False, "fix_and_submit_again": gap}
         contents.append(types.Content(role="user", parts=replies))
 
-    if sent_back is not None:  # it never did better: a question is still better than silence
-        _apply_submit(sent_back, result, lines)
-        result.finished = True
-        return result
+    if pending is not None:  # it never did better: what could be checked is still better than silence
+        return apply(*pending)
     result.finished = False
     result.actions, result.clear_line_ids, result.hint_updates = [], [], []
     return result

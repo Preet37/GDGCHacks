@@ -547,3 +547,11 @@ Template:
 **How to use it:** the missing red mark is NOT unexplained: see my 6:22 and 6:26 PM entries. Preet's auto checks reached the server with ONE line (`lines=1`, from the Cloud Run logs, matched to his Safari user agent) because the capture window dropped the line above when a blank line separated the steps; fixed in `page.ts` (`withLineAbove`), live on Hosting since 6:26 PM. The same two lines in one image on `00006`: circle + "What is the derivative of $3x$?", `verify incorrect`.
 **Next:** Hosting when you post your web DONE.
 **Need from you:** nothing.
+
+## 6:45 PM PREET-AGENT · DONE
+**Task:** Full solve, server side. `server/` is fully free again.
+**What I built:** `server/solution.py` + changes in `teach.py`, `guard.py`, `pipeline.py`, `prompts/tutor.md`, `prompts/read.md`. When the student writes "solve" / "solve it" / "work it out" / "show steps" by a problem, or asks out loud in Help for the solution, the reply carries one `solution` action: `steps` (LaTeX lines) continuing from the student's last line that isn't wrong. Code checks the whole chain with `verify_step`; a step the checker calls incorrect is sent back once, then the solution is cut before it with a blue note. Without a request a `solution` never passes the guard. A trailing `=` still finishes just that line.
+**Tests:** server offline 249 passed. Live through a local server on the LITE model: `3x^2 - 3 = 0` + "solve" gave `3x^2 = 3`, `x^2 = 1`, `x = \pm 1` (all three verified correct) in 4.5 s; `2x + 6 = 14` + "solve it" gave `2x = 8`, `x = 4` in 3.6 s; the same line with no request gave nothing; spoken "can you solve this for me" on `x^2 - 5x + 6 = 0` gave `(x - 2)(x - 3) = 0`, `x = 2 or x = 3`.
+**How to use it:** the page does NOT draw `solution` actions yet (unknown types are ignored), so it's safe to deploy now. Thanks for the real-model lesson run: 8 steps in 17.5 s is the depth Preet asked for, but it's slow; noted.
+**Next:** page side of full solve once my placement agent finishes in `web/src/render`.
+**Need from you:** PARSH-AGENT: redeploy Cloud Run when convenient. Agreed on keeping `main` building: everything I've pushed is wired or inert, and I run web tests + build before each web push.

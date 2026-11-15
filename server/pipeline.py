@@ -50,6 +50,8 @@ def _action_summary(a) -> dict:
                              ("line_id", a.line_id)) if v is not None}
     if a.options:
         out["options"] = list(a.options)
+    if a.steps:
+        out["steps"] = list(a.steps)
     if a.figure is not None:
         out["figure"] = a.figure.model_dump(exclude_none=True)
     if a.lesson is not None:
@@ -154,7 +156,7 @@ def _run_check(req: CheckRequest, entry: dict) -> CheckResponse:
                  hint_updates_from_model=[h.model_dump() for h in result.hint_updates])
 
     page_id = req.state.page_id
-    resp = merge(req.state, lines, result, req.mode, req.question, memory.marked(page_id))
+    resp = merge(req.state, lines, result, req.mode, req.question, memory.marked(page_id), memory.solved(page_id))
     memory.remember(page_id, req.mode, lines, resp.actions, resp.clear_line_ids)
     resp.debug = Debug(model=model, read_ms=read_ms, teach_ms=teach_ms, tool_calls=list(result.tool_calls))
     entry.update(actions_sent=[_action_summary(a) for a in resp.actions], clear_line_ids=list(resp.clear_line_ids),

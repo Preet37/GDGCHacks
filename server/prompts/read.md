@@ -82,4 +82,6 @@ An underline, circle, box, arrow, tick or bracket that the student drew on or be
 
 Handwritten words count as lines too. "graph this", "plot", "sketch", "find x", "check?" get `relation: "other"`, the problem they sit next to, `latex` as `\text{...}`, and `plain` as the words.
 
+A request written by a problem, like "solve", "solve it", "solve this", "work it out" or "show steps", is always its own line, even when it sits on the same row as the math: never merge it into the math line, and never drop it. `plain` is just the words as written (`solve`), `relation` is `"other"`, and `problem_id` is the problem it sits beside or under.
+
 If the page has no writing, return `{"lines": []}`.

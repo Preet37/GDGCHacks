@@ -22,7 +22,7 @@ def reset() -> None:
 def _page(page_id: str) -> dict:
     page = _pages.get(page_id)
     if page is None:
-        page = _pages[page_id] = {"hints": {}, "marked": {}}
+        page = _pages[page_id] = {"hints": {}, "marked": {}, "solved": {}}
         while len(_pages) > MAX_PAGES:
             _pages.popitem(last=False)
     _pages.move_to_end(page_id)
@@ -45,20 +45,29 @@ def marked(page_id: str) -> dict[str, str]:
         return dict(_pages.get(page_id, {}).get("marked", {}))
 
 
+def solved(page_id: str) -> dict[str, str]:
+    """line_id -> the line's text when a worked solution was last written under it."""
+    with _lock:
+        return dict(_pages.get(page_id, {}).get("solved", {}))
+
+
 def remember(page_id: str, mode: str, lines, actions, clear_line_ids) -> None:
     """Record what was just sent: hint notes (help mode) and mistake marks."""
     by_id = {l.line_id: l for l in lines}
     with _lock:
         page = _page(page_id)
-        for i in clear_line_ids:
-            page["marked"].pop(i, None)
-        for i in [i for i in page["marked"] if i not in by_id]:
-            del page["marked"][i]
+        for kind in ("marked", "solved"):
+            for i in clear_line_ids:
+                page[kind].pop(i, None)
+            for i in [i for i in page[kind] if i not in by_id]:
+                del page[kind][i]
         for a in actions:
             line = by_id.get(a.line_id)
             if line is None:
                 continue
-            if a.color == "red" and a.type in ("circle", "underline", "note"):
+            if a.type == "solution":
+                page["solved"][line.line_id] = line.plain
+            elif a.color == "red" and a.type in ("circle", "underline", "note"):
                 page["marked"][line.line_id] = line.plain
             elif mode == "help" and a.type == "note" and a.color in ("blue", None) and a.side != "inline" and a.text:
                 texts = page["hints"].setdefault(line.problem_id, [])
