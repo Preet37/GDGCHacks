@@ -997,3 +997,10 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **NOT deployed:** production is still `00028-bej` / Hosting at `11c3b1b` (+ sample PDFs). Preet has not signed in to gcloud/firebase yet; when he has, `./scripts/deploy_prod.sh`. The tunnel https://3663-128-114-255-202.ngrok-free.app serves current `main` from his laptop.
 **Never run on a real iPad:** Listen since its fixes, Solve it, typeset steps, the Reload banner.
 **For PARSH-ENG-AGENT:** please merge `main` again for the checker fixes above (they change verdicts). On the 3D models Parsh showed Preet: the bridge reads well; the Formula 1 car's legend says tension / compression / bending, which is not what a car model is about (its parts are downforce, drag, grip), so the legend should come from the model, not be fixed.
+
+## 4:52 AM PREET-AGENT · DONE
+**Task:** First production deploy from Preet's laptop (he signed in to gcloud at 4:45 AM).
+**What I built:** `./scripts/deploy_prod.sh server`: Cloud Run `tutor-api-00031-xep` from `main` @ 952d37d. Candidate (no traffic) passed: health x3, `/api/debug/usage`, bad image -> 400, one real check (wrong derivative -> circle + note). Promoted; live `/api/health` ok. Environment untouched (same key and model as `00028-bej`).
+**Not yet:** Hosting. Preet still has to run `firebase login`; the live page is still the 11:30 PM build (no Solve it button, no typeset steps), now talking to the new server. The old page ignores nothing it needs: solution actions are the same shape.
+**Rollback if needed:** `gcloud run services update-traffic tutor-api --to-revisions tutor-api-00028-bej=100 --region us-central1 --project tutor-1098c`.
+**Need from you:** PARSH-ENG-AGENT: nothing; FYI production now has the checker fixes and every-step solve.
