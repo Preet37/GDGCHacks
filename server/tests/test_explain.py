@@ -80,7 +80,8 @@ def test_tool_call_then_submit():
     cfg = client.configs[0]
     assert [t.name for t in cfg.tools[0].function_declarations] == ["compute_step", "verify_step", "submit_lesson"]
     assert cfg.tool_config.function_calling_config.mode == "ANY"
-    assert r.tool_calls[2] == "compute_step(?->?, integral) = x^2 + C"
+    assert r.tool_calls[2].startswith("precompute(L2, integral)")  # the server works the math out first
+    assert "compute_step(?->?, integral) = x^2 + C" in r.tool_calls
     assert client.calls[1][-1].parts[0].function_response.response["latex"] == "x^{2} + C"
     # one lesson action, anchored to the student's line
     (a,) = r.actions
@@ -290,3 +291,17 @@ def test_log_axis_visual_and_target_in_the_request():
     client = FakeClient([_resp(SUBMIT)])
     r = explain_mod.explain(client, "fake", [stem, a, b, two], _req())
     assert json.loads(client.calls[0][0].parts[0].text)["target_line_id"] == "L1" and r.actions[0].line_id == "L1"
+
+
+def test_precompute_does_the_math_before_gemini_starts():
+    from internal import TeachResult
+    L = lambda i, p, r: ReadLine(line_id=f"L{i}", problem_id="P1", latex=p, plain=p, box=[0, 0, 1, 1],
+                                 relation=r, confidence="high", source="handwriting")
+    problem = [L(1, "f(x) = x^3 - 3*x", "start"), L(2, "f'(x) = 3*x^2 - 3*x", "derivative")]
+    r = TeachResult()
+    done = explain_mod._precompute(problem, problem[1], r)
+    assert done[0]["result"] == "3*x^2 - 3"                       # the right result of the target's step
+    assert {d["result"] for d in done[1:]} == {"3*x^2", "-3"}      # and term by term, for a linear relation
+    assert r.tool_calls == ["precompute(L2, derivative) = 3*x^2 - 3 +2 terms"]
+    # nothing to precompute for a start line or words
+    assert explain_mod._precompute(problem, problem[0], TeachResult()) == []

@@ -13,6 +13,7 @@ import re
 from typing import Any
 
 import gemini
+import sympy as sp
 from google.genai import types
 from pydantic import ValidationError
 
@@ -20,6 +21,7 @@ import compute
 import practice as practice_mod
 import solution
 import teach
+import verify
 from figures import _function, fix_figure
 from internal import TeachResult
 from target import pick_line
@@ -194,8 +196,46 @@ def _check_problem(problem: list[ReadLine], lines: list[ReadLine], result: Teach
     return checks
 
 
+LINEAR = ("derivative", "integral")  # done term by term, so a lesson can explain each piece
+MAX_TERMS = 6
+
+
+def _precompute(problem: list[ReadLine], target: ReadLine | None, result: TeachResult) -> list[dict]:
+    """Work out with the math engine, before Gemini starts, what a lesson about `target` will need: the right
+    result of the target's step and, for a derivative or integral of a sum, each term's. Gemini otherwise asks
+    for these one tool round at a time (1-3 s each). General by relation, nothing topic-specific."""
+    if target is None or target.source == "printed" or target.relation not in compute.RELATIONS:
+        return []
+    own = [l for l in problem if l.source != "printed"]
+    i = next((k for k, l in enumerate(own) if l.line_id == target.line_id), None)
+    if i is None:
+        return []
+    before = own[i - 1] if i > 0 else target  # a one-line problem (int(4*x, x) =) carries its own math
+    done = []
+    try:
+        out = compute.compute_step(before.plain, target.relation)
+        if out.get("result"):
+            done.append({"what": f"{target.relation} of {before.line_id} ({before.plain})",
+                         "result": out["result"], "latex": out.get("latex", "")})
+            if target.relation in LINEAR and before is not target:
+                expr = verify.value(before.plain)
+                terms = sp.Add.make_args(sp.expand(expr))
+                if 1 < len(terms) <= MAX_TERMS:
+                    for term in terms:
+                        part = compute.compute_step(compute._plain(term), target.relation)
+                        if part.get("result"):
+                            done.append({"what": f"{target.relation} of the term {compute._plain(term)}",
+                                         "result": part["result"], "latex": part.get("latex", "")})
+    except Exception:  # precomputing is only a shortcut; Gemini can still call the tools
+        log.exception("explain precompute failed")
+    if done:
+        result.tool_calls.append(f"precompute({target.line_id}, {target.relation}) = {done[0]['result']}"
+                                 + (f" +{len(done) - 1} terms" if len(done) > 1 else ""))
+    return done
+
+
 def _page_json(lines: list[ReadLine], req: CheckRequest, problem: list[ReadLine], anchor: ReadLine,
-               checks: list[dict], target: ReadLine | None = None) -> str:
+               checks: list[dict], target: ReadLine | None = None, math_done: list[dict] | None = None) -> str:
     def brief(l: ReadLine) -> dict:
         return {"line_id": l.line_id, "problem_id": l.problem_id, "latex": l.latex, "plain": l.plain,
                 "relation": l.relation, "source": l.source or "handwriting"}
@@ -206,6 +246,12 @@ def _page_json(lines: list[ReadLine], req: CheckRequest, problem: list[ReadLine]
         "target_line_id": target.line_id,
         "problem": [brief(l) for l in problem],
         "checks": checks,
+        "math_already_done": {
+            "results": math_done or [],
+            "note": ("Worked out and checked by the math engine already. Use these results as they are; do not call "
+                     "compute_step or verify_step for them again. If nothing else needs computing, go straight to "
+                     "submit_lesson."),
+        } if math_done else None,
         "anchor_line_id": anchor.line_id,
         "question": req.question,
         "other_lines_on_the_page": [dict(brief(l), where="above the target" if i < at else "below the target")
@@ -558,8 +604,9 @@ def explain(client, model: str, lines: list[ReadLine], req: CheckRequest) -> Tea
         return result
     checks = _check_problem(problem, lines, result)
     result.tool_calls.append(f"target({target.line_id}, problem {target.problem_id})")
+    math_done = _precompute(problem, target, result)
     contents: list = [types.Content(role="user", parts=[types.Part.from_text(
-        text=_page_json(lines, req, problem, anchor, checks, target))])]
+        text=_page_json(lines, req, problem, anchor, checks, target, math_done))])]
     fallback: tuple | None = None  # a short or picture-less lesson, used if nothing better comes
     asked_for_motion = asked_for_length = asked_for_practice = False
 
