@@ -1,4 +1,4 @@
-import type { CheckRequest, CheckResponse } from '../contract'
+import type { CheckRequest, CheckResponse, CircuitElement, CircuitSolveResponse } from '../contract'
 import { mockReply } from './mock'
 
 const MOCK = new URLSearchParams(location.search).has('mock') || import.meta.env.VITE_MOCK === '1'
@@ -77,4 +77,25 @@ export async function speak(text: string, signal?: AbortSignal): Promise<Blob> {
   const blob = await res.blob()
   if (!blob.size) throw new ApiError('The voice came back empty')
   return blob
+}
+
+/**
+ * POST /api/circuit/solve: re-solve a circuit for the what-if card. No Gemini, so it's free to call on every edit.
+ * Always resolves: a network problem comes back as { ok: false, detail } like a circuit the server can't solve.
+ */
+export async function solveCircuit(elements: CircuitElement[], signal?: AbortSignal): Promise<CircuitSolveResponse> {
+  try {
+    const res = await fetch('/api/circuit/solve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ elements }),
+      signal,
+    })
+    const body = (await res.json().catch(() => null)) as CircuitSolveResponse | null
+    if (!body || typeof body.ok !== 'boolean') return { ok: false, detail: `the solver answered ${res.status}` }
+    return body
+  } catch (err) {
+    if ((err as Error)?.name === 'AbortError') throw err
+    return { ok: false, detail: "can't reach the solver" }
+  }
 }

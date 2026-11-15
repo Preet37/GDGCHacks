@@ -3,6 +3,7 @@ import { AssetRecordType, createShapeId, type Editor, type TLAsset, type TLShape
 import type { Action, FigureSpec } from '../contract'
 import { compile } from 'mathjs'
 import { aiMeta, cardRect, lineRect, sizesFor } from './actions'
+import { renderCircuit } from './circuit'
 import { DEFAULT_CONTEXT, FIGURE_BASE_H, FIGURE_BASE_W, type PageRect, type RenderContext } from './geometry'
 
 /** Size the plot is rendered at; the image shape then scales it to the handwriting. */
@@ -155,6 +156,11 @@ export function drawFigures(editor: Editor, actions: Action[], bounds: PageRect,
     if (action.figure.kind === 'surface3d') {
       drawSurface3d(editor, action, figureRect(action, bounds, ctx))
       handed++
+      continue
+    }
+    if (action.figure.kind === 'circuit') {
+      // x-ray labels on the student's drawing + the what-if card (Part 2)
+      if (renderCircuit(editor, action, bounds, ctx)) handed++
       continue
     }
     if (action.figure.kind !== 'plot2d') continue
