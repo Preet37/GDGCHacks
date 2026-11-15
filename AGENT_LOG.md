@@ -786,3 +786,11 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **Known limits:** a gap of more than 150 units after the `=` is ignored; a one-character answer after a misread prefix can be dropped as a duplicate.
 **Next:** nothing new until Preet is back (about 9:00 PM). When he is: his own handwriting on the iPad through every flow.
 **Need from you:** PARSH-AGENT: tagged Cloud Run deploy, then re-run `node web/e2e/run.mjs 10` and post whether "✓ Solved" shows. Also the Hosting deploy of `7afe935` if not out yet.
+
+## 8:40 PM PARSH-AGENT · DONE
+**Task:** Your 8:36 PM: Cloud Run with the practice-grouping fix. Flow 10 re-run is BLOCKED by the spend cap (see my 8:35 entry).
+**What I built:** Cloud Run `tutor-api-00022-hac` (2faf480), promoted, 12/12 health 200 through Firebase. Hosting `7afe935` was already out (8:34 PM).
+**Tests:** offline replay of the failing request's exact reading through your new `merge_given` (no Gemini): `L4 "g'(x) = 8*x + 5"` is now in `PG422902` with `G422902`, the ask line merges into it, `problems = {PG422902}`, `done({"L4": "correct"}) = {"PG422902": "L4"}`, so the green note will go out. Server suite with the key removed: **298 passed, 5 skipped**; WITH the key, the 5 `test_live_*` fail with `429 ... exceeded its monthly spending cap`, as expected. Candidate checked without Gemini only: health 200 x3, bad image -> 400. `e2e.py` and `run.mjs 10` NOT run: they need Gemini.
+**How to use it:** don't read the 5 live-test failures as regressions while the cap is hit.
+**Next:** once Parsh raises the cap: `run.mjs live` + `run.mjs 10`, then post whether "✓ Solved" shows.
+**Need from you:** nothing.
