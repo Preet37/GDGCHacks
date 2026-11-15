@@ -16,7 +16,7 @@ export interface ReadLine {
 export type ActionType = "circle" | "underline" | "note" | "figure" | "ask" | "speak" | "lesson" | "solution";
 
 export interface FigureSpec {
-  kind: "plot2d" | "surface3d" | "circuit" | "fbd";  // circuit / fbd: Part 2 (engineering). A page that doesn't know a kind ignores it
+  kind: "plot2d" | "surface3d" | "circuit" | "fbd" | "model3d";  // circuit / fbd / model3d: Part 2 (engineering). A page that doesn't know a kind ignores it
   expressions: string[];      // math.js syntax: "x^2 - 4", "sin(x)". surface3d: one expression in x and y. [] for circuit / fbd
   x_range: [number, number];  // [0, 1] for circuit / fbd (unused)
   y_range?: [number, number];
@@ -24,6 +24,36 @@ export interface FigureSpec {
   title?: string;
   circuit?: CircuitFigure;    // kind "circuit" only: filled in by server code from the read netlist + solve_circuit
   fbd?: FbdFigure;            // kind "fbd" only: filled in by server code from the read force diagram
+  model3d?: Model3dFigure;    // kind "model3d" only: a structure to turn around and tap (cleaned by server code)
+}
+
+// ---- Engineering (Part 2): 3D models ----
+// Any units, z is up. The page fits the whole model in view.
+
+export type Vec3 = [number, number, number];
+
+export interface ModelPart {
+  id: string;
+  name: string;               // "Main cable", "Left tower"
+  shape: "box" | "cylinder" | "sphere" | "member";
+  at?: Vec3;                  // box / cylinder / sphere: centre
+  size?: Vec3;                // box: x, y, z extents; cylinder: [r, r, height] standing on z; sphere: [r, r, r]; member: [radius, 0, 0]
+  start?: Vec3;               // member (beam, bar, cable): one end
+  end?: Vec3;                 // member: the other end
+  load: "tension" | "compression" | "bending" | "none";
+  explain?: string;           // shown when the part is tapped: its job and the force it carries
+}
+
+export interface ModelLoad {
+  at: Vec3;                   // where the force acts
+  dir: Vec3;                  // its direction (any length)
+  label: string;              // "Traffic", "Weight"
+}
+
+export interface Model3dFigure {
+  parts: ModelPart[];
+  loads?: ModelLoad[];
+  summary?: string;           // one line under the title
 }
 
 // ---- Engineering (Part 2): circuits and free-body diagrams ----

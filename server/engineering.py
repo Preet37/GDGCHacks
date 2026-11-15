@@ -6,6 +6,8 @@ Positions are 0-1000 over the sent image. Anything malformed is dropped piece by
 label for that element), never raised: a misread position must not cost the student their feedback.
 """
 import json
+import math
+import re
 from typing import Any
 
 from models import ReadLine
@@ -274,3 +276,115 @@ def fix_missing_direction(drawn: dict, expected: list[dict], check: dict) -> tup
         return None
     fixed = [dict(e, angle_deg=round(float(angle), 1)) if e is f else e for e in expected]
     return fixed, f"{f['label']} must point at {round(float(angle))} degrees to balance (not {round(f['angle_deg'])}); use that"
+
+
+# ---- 3D models ----------------------------------------------------------------------------------------------------
+# The model describes a structure (a bridge, a truss, a crane) as parts; code checks every number and drops what can't
+# be drawn, so the page only ever gets a scene it can render. Nothing here is graded.
+
+MAX_PARTS = 40
+MAX_LOADS = 8
+MAX_COORD = 1000.0
+SHAPE_NAMES = {
+    "box": "box", "cube": "box", "block": "box", "slab": "box", "deck": "box", "plate": "box",
+    "cylinder": "cylinder", "column": "cylinder", "pillar": "cylinder", "pier": "cylinder", "tower": "cylinder",
+    "sphere": "sphere", "ball": "sphere", "joint": "sphere", "node": "sphere",
+    "member": "member", "beam": "member", "bar": "member", "rod": "member", "cable": "member", "strut": "member",
+    "tie": "member", "line": "member", "truss": "member", "hanger": "member",
+}
+LOAD_NAMES = {
+    "tension": "tension", "tensile": "tension", "pulled": "tension", "pull": "tension",
+    "compression": "compression", "compressive": "compression", "pushed": "compression", "push": "compression",
+    "bending": "bending", "bend": "bending", "shear": "bending",
+}
+
+
+def _vec(v) -> tuple[float, float, float] | None:
+    if isinstance(v, dict):
+        v = [v.get("x"), v.get("y"), v.get("z", 0)]
+    if not isinstance(v, (list, tuple)) or len(v) not in (2, 3):
+        return None
+    try:
+        out = [float(x) for x in v] + ([0.0] if len(v) == 2 else [])
+    except (TypeError, ValueError):
+        return None
+    if not all(math.isfinite(x) and abs(x) <= MAX_COORD for x in out):
+        return None
+    return (out[0], out[1], out[2])
+
+
+def _short(v, n: int) -> str | None:
+    if not isinstance(v, str) or not v.strip():
+        return None
+    v = " ".join(v.split())
+    return v if len(v) <= n else v[: n - 1].rstrip() + "…"
+
+
+def _part(raw, taken: set[str]) -> dict | None:
+    if not isinstance(raw, dict):
+        return None
+    shape = SHAPE_NAMES.get(str(raw.get("shape", "")).strip().lower())
+    name = _short(raw.get("name") or raw.get("id"), 40)
+    if shape is None or name is None:
+        return None
+    part: dict = {"name": name, "shape": shape,
+                  "load": LOAD_NAMES.get(str(raw.get("load", "")).strip().lower(), "none")}
+    size = _vec(raw.get("size")) if raw.get("size") is not None else None
+    if shape == "member":
+        start, end = _vec(raw.get("start") or raw.get("from")), _vec(raw.get("end") or raw.get("to"))
+        if start is None or end is None or math.dist(start, end) < 1e-6:
+            return None
+        part.update(start=start, end=end)
+        if size is not None and size[0] > 0:
+            part["size"] = (size[0], 0.0, 0.0)
+    else:
+        at = _vec(raw.get("at") or raw.get("center") or raw.get("centre"))
+        if at is None:
+            return None
+        if size is None:
+            num = raw.get("size")
+            size = (float(num),) * 3 if isinstance(num, (int, float)) and math.isfinite(num) else None
+        if size is None:
+            return None
+        size = tuple(abs(x) for x in size)
+        if shape == "sphere":
+            size = (size[0],) * 3
+        elif shape == "cylinder":
+            size = (size[0], size[0], size[2] if size[2] > 0 else size[1])
+        if min(size) <= 0:
+            return None
+        part.update(at=at, size=size)
+    explain = _short(raw.get("explain"), 300)
+    if explain:
+        part["explain"] = explain
+    base = re.sub(r"[^a-z0-9_]+", "_", str(raw.get("id") or name).lower()).strip("_") or "part"
+    pid, k = base, 2
+    while pid in taken:
+        pid, k = f"{base}_{k}", k + 1
+    taken.add(pid)
+    return {"id": pid, **part}
+
+
+def _load(raw) -> dict | None:
+    if not isinstance(raw, dict):
+        return None
+    at, d, label = _vec(raw.get("at")), _vec(raw.get("dir") or raw.get("direction")), _short(raw.get("label"), 30)
+    if at is None or d is None or label is None or math.hypot(*d) < 1e-9:
+        return None
+    return {"at": at, "dir": d, "label": label}
+
+
+def build_model3d(raw) -> dict | None:
+    """A clean Model3dFigure dict from what the model sent, or None if nothing in it can be drawn."""
+    if not isinstance(raw, dict):
+        return None
+    taken: set[str] = set()
+    parts = [p for p in (_part(r, taken) for r in (raw.get("parts") or [])[: MAX_PARTS * 2]) if p][:MAX_PARTS]
+    if not parts:
+        return None
+    out: dict = {"parts": parts,
+                 "loads": [l for l in (_load(r) for r in (raw.get("loads") or [])) if l][:MAX_LOADS]}
+    summary = _short(raw.get("summary"), 200)
+    if summary:
+        out["summary"] = summary
+    return out

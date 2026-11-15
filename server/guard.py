@@ -323,7 +323,7 @@ def merge(state: PageState, lines: list[ReadLine], result: TeachResult, mode: st
     # A circuit figure, like a lesson, is not feedback on a line: flagging its line would make later automatic checks
     # skip anything new about the circuit (a flagged, unchanged line gets no new actions).
     action_ids = [a.line_id for a in actions if a.line_id and a.type != "lesson"
-                  and not (a.type == "figure" and a.figure is not None and a.figure.kind in ("circuit", "fbd"))]
+                  and not (a.type == "figure" and a.figure is not None and a.figure.kind in ("circuit", "fbd", "model3d"))]
     flagged = [i for i in state.flagged_line_ids if i not in set(clear)] + action_ids
     flagged = _ordered_unique(flagged)
     gone = [i for i in flagged if i not in present]

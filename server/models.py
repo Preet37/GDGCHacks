@@ -80,8 +80,35 @@ class CircuitSolveRequest(BaseModel):
     elements: list[dict]  # loose on purpose: solve_circuit explains a bad element instead of a 422
 
 
+Vec3 = tuple[float, float, float]
+
+
+class ModelPart(BaseModel):
+    id: str
+    name: str
+    shape: Literal["box", "cylinder", "sphere", "member"]
+    at: Optional[Vec3] = None      # box / cylinder / sphere: centre
+    size: Optional[Vec3] = None    # box: full x, y, z extents; cylinder: [radius, radius, height] standing on z; sphere: [r, r, r]; member: [radius, 0, 0]
+    start: Optional[Vec3] = None   # member (a beam, bar, cable): one end
+    end: Optional[Vec3] = None     # member: the other end
+    load: Literal["tension", "compression", "bending", "none"] = "none"
+    explain: Optional[str] = None  # its job and the force it carries, one or two sentences
+
+
+class ModelLoad(BaseModel):
+    at: Vec3
+    dir: Vec3
+    label: str
+
+
+class Model3dFigure(BaseModel):
+    parts: list[ModelPart]
+    loads: list[ModelLoad] = Field(default_factory=list)
+    summary: Optional[str] = None
+
+
 class FigureSpec(BaseModel):
-    kind: Literal["plot2d", "surface3d", "circuit", "fbd"]
+    kind: Literal["plot2d", "surface3d", "circuit", "fbd", "model3d"]
     expressions: list[str]
     x_range: tuple[float, float]
     y_range: Optional[tuple[float, float]] = None
@@ -89,6 +116,7 @@ class FigureSpec(BaseModel):
     title: Optional[str] = None
     circuit: Optional[CircuitFigure] = None
     fbd: Optional[FbdFigure] = None
+    model3d: Optional[Model3dFigure] = None
 
 
 Color = Literal["red", "green", "blue", "black"]

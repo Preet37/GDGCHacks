@@ -1,0 +1,961 @@
+{
+ "lines": [
+  {
+   "line_id": "L1",
+   "problem_id": "P1",
+   "latex": "\\text{What is the physics of a bridge?}",
+   "plain": "What is the physics of a bridge?",
+   "box": [
+    100,
+    80,
+    160,
+    700
+   ],
+   "relation": "other",
+   "confidence": "high",
+   "source": "handwriting"
+  }
+ ],
+ "actions": [
+  {
+   "type": "note",
+   "color": "blue",
+   "side": "below",
+   "line_id": "L1",
+   "box": [
+    100,
+    80,
+    160,
+    700
+   ],
+   "text": "A suspension bridge hangs its deck from cables. The cables are pulled tight (tension) and rest on the towers, which are squeezed (compression) and pass the weight into the ground. Turn the model and tap a part to see its job."
+  },
+  {
+   "type": "figure",
+   "side": "right",
+   "line_id": "L1",
+   "box": [
+    100,
+    80,
+    160,
+    700
+   ],
+   "figure": {
+    "kind": "model3d",
+    "expressions": [],
+    "x_range": [
+     0,
+     1
+    ],
+    "title": "Suspension bridge",
+    "model3d": {
+     "parts": [
+      {
+       "id": "deck",
+       "name": "Deck",
+       "shape": "box",
+       "at": [
+        0,
+        0,
+        8.0
+       ],
+       "size": [
+        200,
+        12,
+        1.2
+       ],
+       "load": "bending",
+       "explain": "The road. It bends under the traffic between hangers and hands its weight to the hangers every few metres."
+      },
+      {
+       "id": "tower_left",
+       "name": "Left tower",
+       "shape": "cylinder",
+       "at": [
+        -60.0,
+        0,
+        19.0
+       ],
+       "size": [
+        1.6,
+        1.6,
+        38.0
+       ],
+       "load": "compression",
+       "explain": "The main cables rest on its top, so the whole deck's weight pushes straight down through it into the ground: compression."
+      },
+      {
+       "id": "anchor_left",
+       "name": "Left anchorage",
+       "shape": "box",
+       "at": [
+        -100,
+        0,
+        1.5
+       ],
+       "size": [
+        10,
+        16,
+        3
+       ],
+       "load": "none",
+       "explain": "A huge block of concrete that holds the cable ends down. Its weight resists the cable's pull."
+      },
+      {
+       "id": "tower_right",
+       "name": "Right tower",
+       "shape": "cylinder",
+       "at": [
+        60.0,
+        0,
+        19.0
+       ],
+       "size": [
+        1.6,
+        1.6,
+        38.0
+       ],
+       "load": "compression",
+       "explain": "The main cables rest on its top, so the whole deck's weight pushes straight down through it into the ground: compression."
+      },
+      {
+       "id": "anchor_right",
+       "name": "Right anchorage",
+       "shape": "box",
+       "at": [
+        100,
+        0,
+        1.5
+       ],
+       "size": [
+        10,
+        16,
+        3
+       ],
+       "load": "none",
+       "explain": "A huge block of concrete that holds the cable ends down. Its weight resists the cable's pull."
+      },
+      {
+       "id": "cable_north_0",
+       "name": "Main cable (north)",
+       "shape": "member",
+       "start": [
+        -60.0,
+        -6,
+        38.0
+       ],
+       "end": [
+        -45.0,
+        -6,
+        25.75
+       ],
+       "size": [
+        0.5,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "Hangs between the towers and is pulled tight by everything hanging from it, so it is in tension all along."
+      },
+      {
+       "id": "cable_north_1",
+       "name": "Main cable (north)",
+       "shape": "member",
+       "start": [
+        -45.0,
+        -6,
+        25.75
+       ],
+       "end": [
+        -30.0,
+        -6,
+        17.0
+       ],
+       "size": [
+        0.5,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "Hangs between the towers and is pulled tight by everything hanging from it, so it is in tension all along."
+      },
+      {
+       "id": "cable_north_2",
+       "name": "Main cable (north)",
+       "shape": "member",
+       "start": [
+        -30.0,
+        -6,
+        17.0
+       ],
+       "end": [
+        -15.0,
+        -6,
+        11.75
+       ],
+       "size": [
+        0.5,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "Hangs between the towers and is pulled tight by everything hanging from it, so it is in tension all along."
+      },
+      {
+       "id": "cable_north_3",
+       "name": "Main cable (north)",
+       "shape": "member",
+       "start": [
+        -15.0,
+        -6,
+        11.75
+       ],
+       "end": [
+        0.0,
+        -6,
+        10.0
+       ],
+       "size": [
+        0.5,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "Hangs between the towers and is pulled tight by everything hanging from it, so it is in tension all along."
+      },
+      {
+       "id": "cable_north_4",
+       "name": "Main cable (north)",
+       "shape": "member",
+       "start": [
+        0.0,
+        -6,
+        10.0
+       ],
+       "end": [
+        15.0,
+        -6,
+        11.75
+       ],
+       "size": [
+        0.5,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "Hangs between the towers and is pulled tight by everything hanging from it, so it is in tension all along."
+      },
+      {
+       "id": "cable_north_5",
+       "name": "Main cable (north)",
+       "shape": "member",
+       "start": [
+        15.0,
+        -6,
+        11.75
+       ],
+       "end": [
+        30.0,
+        -6,
+        17.0
+       ],
+       "size": [
+        0.5,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "Hangs between the towers and is pulled tight by everything hanging from it, so it is in tension all along."
+      },
+      {
+       "id": "cable_north_6",
+       "name": "Main cable (north)",
+       "shape": "member",
+       "start": [
+        30.0,
+        -6,
+        17.0
+       ],
+       "end": [
+        45.0,
+        -6,
+        25.75
+       ],
+       "size": [
+        0.5,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "Hangs between the towers and is pulled tight by everything hanging from it, so it is in tension all along."
+      },
+      {
+       "id": "cable_north_7",
+       "name": "Main cable (north)",
+       "shape": "member",
+       "start": [
+        45.0,
+        -6,
+        25.75
+       ],
+       "end": [
+        60.0,
+        -6,
+        38.0
+       ],
+       "size": [
+        0.5,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "Hangs between the towers and is pulled tight by everything hanging from it, so it is in tension all along."
+      },
+      {
+       "id": "backstay_north_0",
+       "name": "Back stay (north)",
+       "shape": "member",
+       "start": [
+        -60.0,
+        -6,
+        38.0
+       ],
+       "end": [
+        -100,
+        -6,
+        3
+       ],
+       "size": [
+        0.5,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "Carries the cable's pull from the tower top down to the anchorage, balancing the main span so the tower isn't pulled over."
+      },
+      {
+       "id": "backstay_north_1",
+       "name": "Back stay (north)",
+       "shape": "member",
+       "start": [
+        60.0,
+        -6,
+        38.0
+       ],
+       "end": [
+        100,
+        -6,
+        3
+       ],
+       "size": [
+        0.5,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "Carries the cable's pull from the tower top down to the anchorage, balancing the main span so the tower isn't pulled over."
+      },
+      {
+       "id": "hanger_north_1",
+       "name": "Hanger",
+       "shape": "member",
+       "start": [
+        -45.0,
+        -6,
+        25.75
+       ],
+       "end": [
+        -45.0,
+        -6,
+        8.6
+       ],
+       "size": [
+        0.15,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "A thin vertical cable: the deck hangs from it, so it is pulled (tension) and passes the deck's weight up to the main cable."
+      },
+      {
+       "id": "hanger_north_2",
+       "name": "Hanger",
+       "shape": "member",
+       "start": [
+        -30.0,
+        -6,
+        17.0
+       ],
+       "end": [
+        -30.0,
+        -6,
+        8.6
+       ],
+       "size": [
+        0.15,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "A thin vertical cable: the deck hangs from it, so it is pulled (tension) and passes the deck's weight up to the main cable."
+      },
+      {
+       "id": "hanger_north_3",
+       "name": "Hanger",
+       "shape": "member",
+       "start": [
+        -15.0,
+        -6,
+        11.75
+       ],
+       "end": [
+        -15.0,
+        -6,
+        8.6
+       ],
+       "size": [
+        0.15,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "A thin vertical cable: the deck hangs from it, so it is pulled (tension) and passes the deck's weight up to the main cable."
+      },
+      {
+       "id": "hanger_north_4",
+       "name": "Hanger",
+       "shape": "member",
+       "start": [
+        0.0,
+        -6,
+        10.0
+       ],
+       "end": [
+        0.0,
+        -6,
+        8.6
+       ],
+       "size": [
+        0.15,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "A thin vertical cable: the deck hangs from it, so it is pulled (tension) and passes the deck's weight up to the main cable."
+      },
+      {
+       "id": "hanger_north_5",
+       "name": "Hanger",
+       "shape": "member",
+       "start": [
+        15.0,
+        -6,
+        11.75
+       ],
+       "end": [
+        15.0,
+        -6,
+        8.6
+       ],
+       "size": [
+        0.15,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "A thin vertical cable: the deck hangs from it, so it is pulled (tension) and passes the deck's weight up to the main cable."
+      },
+      {
+       "id": "hanger_north_6",
+       "name": "Hanger",
+       "shape": "member",
+       "start": [
+        30.0,
+        -6,
+        17.0
+       ],
+       "end": [
+        30.0,
+        -6,
+        8.6
+       ],
+       "size": [
+        0.15,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "A thin vertical cable: the deck hangs from it, so it is pulled (tension) and passes the deck's weight up to the main cable."
+      },
+      {
+       "id": "hanger_north_7",
+       "name": "Hanger",
+       "shape": "member",
+       "start": [
+        45.0,
+        -6,
+        25.75
+       ],
+       "end": [
+        45.0,
+        -6,
+        8.6
+       ],
+       "size": [
+        0.15,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "A thin vertical cable: the deck hangs from it, so it is pulled (tension) and passes the deck's weight up to the main cable."
+      },
+      {
+       "id": "cable_south_0",
+       "name": "Main cable (south)",
+       "shape": "member",
+       "start": [
+        -60.0,
+        6,
+        38.0
+       ],
+       "end": [
+        -45.0,
+        6,
+        25.75
+       ],
+       "size": [
+        0.5,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "Hangs between the towers and is pulled tight by everything hanging from it, so it is in tension all along."
+      },
+      {
+       "id": "cable_south_1",
+       "name": "Main cable (south)",
+       "shape": "member",
+       "start": [
+        -45.0,
+        6,
+        25.75
+       ],
+       "end": [
+        -30.0,
+        6,
+        17.0
+       ],
+       "size": [
+        0.5,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "Hangs between the towers and is pulled tight by everything hanging from it, so it is in tension all along."
+      },
+      {
+       "id": "cable_south_2",
+       "name": "Main cable (south)",
+       "shape": "member",
+       "start": [
+        -30.0,
+        6,
+        17.0
+       ],
+       "end": [
+        -15.0,
+        6,
+        11.75
+       ],
+       "size": [
+        0.5,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "Hangs between the towers and is pulled tight by everything hanging from it, so it is in tension all along."
+      },
+      {
+       "id": "cable_south_3",
+       "name": "Main cable (south)",
+       "shape": "member",
+       "start": [
+        -15.0,
+        6,
+        11.75
+       ],
+       "end": [
+        0.0,
+        6,
+        10.0
+       ],
+       "size": [
+        0.5,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "Hangs between the towers and is pulled tight by everything hanging from it, so it is in tension all along."
+      },
+      {
+       "id": "cable_south_4",
+       "name": "Main cable (south)",
+       "shape": "member",
+       "start": [
+        0.0,
+        6,
+        10.0
+       ],
+       "end": [
+        15.0,
+        6,
+        11.75
+       ],
+       "size": [
+        0.5,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "Hangs between the towers and is pulled tight by everything hanging from it, so it is in tension all along."
+      },
+      {
+       "id": "cable_south_5",
+       "name": "Main cable (south)",
+       "shape": "member",
+       "start": [
+        15.0,
+        6,
+        11.75
+       ],
+       "end": [
+        30.0,
+        6,
+        17.0
+       ],
+       "size": [
+        0.5,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "Hangs between the towers and is pulled tight by everything hanging from it, so it is in tension all along."
+      },
+      {
+       "id": "cable_south_6",
+       "name": "Main cable (south)",
+       "shape": "member",
+       "start": [
+        30.0,
+        6,
+        17.0
+       ],
+       "end": [
+        45.0,
+        6,
+        25.75
+       ],
+       "size": [
+        0.5,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "Hangs between the towers and is pulled tight by everything hanging from it, so it is in tension all along."
+      },
+      {
+       "id": "cable_south_7",
+       "name": "Main cable (south)",
+       "shape": "member",
+       "start": [
+        45.0,
+        6,
+        25.75
+       ],
+       "end": [
+        60.0,
+        6,
+        38.0
+       ],
+       "size": [
+        0.5,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "Hangs between the towers and is pulled tight by everything hanging from it, so it is in tension all along."
+      },
+      {
+       "id": "backstay_south_0",
+       "name": "Back stay (south)",
+       "shape": "member",
+       "start": [
+        -60.0,
+        6,
+        38.0
+       ],
+       "end": [
+        -100,
+        6,
+        3
+       ],
+       "size": [
+        0.5,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "Carries the cable's pull from the tower top down to the anchorage, balancing the main span so the tower isn't pulled over."
+      },
+      {
+       "id": "backstay_south_1",
+       "name": "Back stay (south)",
+       "shape": "member",
+       "start": [
+        60.0,
+        6,
+        38.0
+       ],
+       "end": [
+        100,
+        6,
+        3
+       ],
+       "size": [
+        0.5,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "Carries the cable's pull from the tower top down to the anchorage, balancing the main span so the tower isn't pulled over."
+      },
+      {
+       "id": "hanger_south_1",
+       "name": "Hanger",
+       "shape": "member",
+       "start": [
+        -45.0,
+        6,
+        25.75
+       ],
+       "end": [
+        -45.0,
+        6,
+        8.6
+       ],
+       "size": [
+        0.15,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "A thin vertical cable: the deck hangs from it, so it is pulled (tension) and passes the deck's weight up to the main cable."
+      },
+      {
+       "id": "hanger_south_2",
+       "name": "Hanger",
+       "shape": "member",
+       "start": [
+        -30.0,
+        6,
+        17.0
+       ],
+       "end": [
+        -30.0,
+        6,
+        8.6
+       ],
+       "size": [
+        0.15,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "A thin vertical cable: the deck hangs from it, so it is pulled (tension) and passes the deck's weight up to the main cable."
+      },
+      {
+       "id": "hanger_south_3",
+       "name": "Hanger",
+       "shape": "member",
+       "start": [
+        -15.0,
+        6,
+        11.75
+       ],
+       "end": [
+        -15.0,
+        6,
+        8.6
+       ],
+       "size": [
+        0.15,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "A thin vertical cable: the deck hangs from it, so it is pulled (tension) and passes the deck's weight up to the main cable."
+      },
+      {
+       "id": "hanger_south_4",
+       "name": "Hanger",
+       "shape": "member",
+       "start": [
+        0.0,
+        6,
+        10.0
+       ],
+       "end": [
+        0.0,
+        6,
+        8.6
+       ],
+       "size": [
+        0.15,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "A thin vertical cable: the deck hangs from it, so it is pulled (tension) and passes the deck's weight up to the main cable."
+      },
+      {
+       "id": "hanger_south_5",
+       "name": "Hanger",
+       "shape": "member",
+       "start": [
+        15.0,
+        6,
+        11.75
+       ],
+       "end": [
+        15.0,
+        6,
+        8.6
+       ],
+       "size": [
+        0.15,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "A thin vertical cable: the deck hangs from it, so it is pulled (tension) and passes the deck's weight up to the main cable."
+      },
+      {
+       "id": "hanger_south_6",
+       "name": "Hanger",
+       "shape": "member",
+       "start": [
+        30.0,
+        6,
+        17.0
+       ],
+       "end": [
+        30.0,
+        6,
+        8.6
+       ],
+       "size": [
+        0.15,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "A thin vertical cable: the deck hangs from it, so it is pulled (tension) and passes the deck's weight up to the main cable."
+      },
+      {
+       "id": "hanger_south_7",
+       "name": "Hanger",
+       "shape": "member",
+       "start": [
+        45.0,
+        6,
+        25.75
+       ],
+       "end": [
+        45.0,
+        6,
+        8.6
+       ],
+       "size": [
+        0.15,
+        0,
+        0
+       ],
+       "load": "tension",
+       "explain": "A thin vertical cable: the deck hangs from it, so it is pulled (tension) and passes the deck's weight up to the main cable."
+      }
+     ],
+     "loads": [
+      {
+       "at": [
+        0,
+        0,
+        16.0
+       ],
+       "dir": [
+        0,
+        0,
+        -1
+       ],
+       "label": "Traffic"
+      },
+      {
+       "at": [
+        -60.0,
+        0,
+        -6
+       ],
+       "dir": [
+        0,
+        0,
+        1
+       ],
+       "label": "Ground pushes up"
+      },
+      {
+       "at": [
+        60.0,
+        0,
+        -6
+       ],
+       "dir": [
+        0,
+        0,
+        1
+       ],
+       "label": "Ground pushes up"
+      }
+     ],
+     "summary": "Deck \u2192 hangers \u2192 main cables \u2192 towers \u2192 ground"
+    }
+   }
+  }
+ ],
+ "clear_line_ids": [],
+ "state": {
+  "page_id": "example-bridge",
+  "lines": [
+   {
+    "line_id": "L1",
+    "problem_id": "P1",
+    "latex": "\\text{What is the physics of a bridge?}",
+    "plain": "What is the physics of a bridge?",
+    "box": [
+     100,
+     80,
+     160,
+     700
+    ],
+    "relation": "other",
+    "confidence": "high",
+    "source": "handwriting"
+   }
+  ],
+  "problems": [
+   {
+    "problem_id": "P1",
+    "hint_level": 0
+   }
+  ],
+  "flagged_line_ids": []
+ }
+}
