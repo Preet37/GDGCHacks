@@ -578,16 +578,18 @@ const flows = {
       let g = await geom()
       rec.ok(!!g.panel, `the docked lesson panel opened (${rec.timings.tap_to_panel_ms} ms after the tap; side ${g.side}; panel ${L.brief(g.panel)})`)
       // voice: wait for the /api/speak calls to come back
+      // the page asks for the first step's clip and the two after it; later ones as the lesson plays
+      const firstClips = Math.min(lesson.steps.length, 3)
       const speakDeadline = Date.now() + 40000
       while (Date.now() < speakDeadline) {
         const sp = s.api.filter((r) => r.path === '/api/speak')
-        if (sp.length >= lesson.steps.length && sp.every((r) => r.status !== undefined)) break
+        if (sp.length >= firstClips && sp.every((r) => r.status !== undefined)) break
         await L.sleep(300)
       }
       const sp = s.api.filter((r) => r.path === '/api/speak')
       rec.evidence.speak = sp.map((r) => ({ status: r.status, ms: r.ms, type: r.type, bytes: r.bytes, text: r.req?.text?.slice(0, 60) }))
       rec.timings.speak_ms = sp.map((r) => r.ms)
-      if (!NO_SPEAK) rec.ok(sp.length === lesson.steps.length, `/api/speak was called once per step (${sp.length} calls for ${lesson.steps.length} steps)`)
+      if (!NO_SPEAK) rec.ok(sp.length >= firstClips && sp.length <= lesson.steps.length, `/api/speak was called for the first steps only, not the whole lesson at once (${sp.length} calls so far for ${lesson.steps.length} steps)`)
       if (!NO_SPEAK) rec.ok(sp.length > 0 && sp.every((r) => r.status === 200 && /^audio\//.test(r.type ?? '')), `every /api/speak returned 200 audio (${sp.map((r) => `${r.status}${r.bytes ? ` ${Math.round(r.bytes / 1024)}k` : ''}`).join(', ')})`)
       await L.sleep(1500)
       g = await geom()
@@ -645,7 +647,9 @@ const flows = {
       }
       rec.evidence.walk = walk
       const stepsSeen = new Set(walk.map((x) => x.step))
-      rec.ok(stepsSeen.size === lesson.steps.length, `Next steps through every step (${[...stepsSeen].join(',')} of ${lesson.steps.length})`)
+      // the lesson plays by itself while the clips are awaited, so the walk may start a step or two in
+      const first = Math.min(...[...stepsSeen].map(Number))
+      rec.ok(stepsSeen.size === lesson.steps.length - first && [...stepsSeen].map(Number).includes(lesson.steps.length - 1), `Next steps through every remaining step (${[...stepsSeen].join(',')} of ${lesson.steps.length})`)
       rec.ok(walk.every((x, i) => norm(x.subs ?? '').length > 0 && norm(lesson.steps[Number(x.step)]?.say ?? '').startsWith(norm(x.subs ?? '').slice(0, 20))), 'each step shows its own narration as subtitles')
       // let the last step play out, then see what "practice" does
       const endDeadline = Date.now() + 45000
@@ -872,6 +876,75 @@ const flows = {
       await statusCheck(rec, s, help)
       await s.page.evaluate(() => document.querySelector('.tutor-next')?.click())
       await finish(rec, s, `f13${SUFFIX}-b-problem2`)
+      return s
+    },
+  },
+
+  16: {
+    name: 'Worksheet zoomed out: circle a printed problem, then Help',
+    async run(rec) {
+      const pdf = await makeWorksheet()
+      const s = await begin(16)
+      const input = await s.page.$('input[type=file]')
+      await input.uploadFile(pdf.file)
+      let sheets = []
+      for (let i = 0; i < 60 && !sheets.length; i++) {
+        await L.sleep(250)
+        sheets = (await L.shapes(s)).filter((x) => x.meta?.worksheet)
+      }
+      if (!rec.ok(sheets.length === 1, `the PDF was imported (${sheets.length} page image)`)) {
+        await finish(rec, s, `f16${SUFFIX}-import-failed`)
+        return s
+      }
+      await L.sleep(800)
+      // zoom far out, the way a whole page is looked at on the iPad
+      await s.page.evaluate(() => {
+        const ed = window.__e2e.editor
+        const z = 0.4
+        const b = ed.getCurrentPageBounds()
+        const v = ed.getViewportScreenBounds()
+        ed.setCamera({ x: v.w / 2 / z - (b.x + b.w / 2), y: v.h / 2 / z - (b.y + b.h / 2), z })
+      })
+      await L.sleep(400)
+      const v = await L.view(s)
+      rec.ok(v.zoom < 0.5, `zoomed out below 50% (${v.zoom})`)
+      const sheet = (await L.shapes(s)).find((x) => x.meta?.worksheet).screen
+      const at = (r) => ({ x: sheet.x + r.x * sheet.w, y: sheet.y + r.y * sheet.h, w: r.w * sheet.w, h: r.h * sheet.h })
+      const print = pdf.rects.map(at)
+      rec.note(`sheet on screen ${L.brief(sheet)}; problem 1 ${L.brief(print[0])}; problem 2 ${L.brief(print[1])}`)
+      await L.tool(s, 'draw')
+      // circle problem 2, then an arrow from it out past the edge of the page
+      const p = print[1]
+      const cx = p.x + p.w / 2, cy = p.y + p.h / 2, rx = p.w / 2 + 10, ry = p.h / 2 + 9
+      const ring = []
+      for (let i = 0; i <= 40; i++) {
+        const t = (i / 40) * Math.PI * 2.1
+        ring.push([cx + rx * Math.cos(t), cy + ry * Math.sin(t)])
+      }
+      await L.stroke(s, ring)
+      await L.stroke(s, [[cx + rx, cy], [sheet.x + sheet.w * 0.8, cy - 12], [sheet.x + sheet.w + 30, cy - 40]])
+      // the pause after drawing sends an auto check: let it finish before asking
+      await L.settle(s, 3500)
+      const before = await L.aiShapes(s)
+      const from = s.api.length
+      await L.tapHelp(s)
+      const help = await L.waitCheck(s, { from, mode: 'help', timeout: 60000 })
+      await L.sleep(1500)
+      rec.timings.help_ms = help?.ms
+      rec.ok(help?.status === 200, `Help returned 200 (${help?.status}, ${help?.ms} ms)`)
+      rec.ok((help?.ms ?? 1e9) < 20000, `Help answered in under 20 s (${help?.ms} ms)`)
+      const read = help?.res?.lines?.map((l) => ({ plain: l.plain, src: l.source })) ?? []
+      rec.evidence.help = { image: help?.image, help_box: help?.req?.help_box, read, actions: help?.res?.actions?.map((a) => ({ type: a.type, text: a.text })) }
+      rec.ok(!read.some((l) => /x\^3|x\*\*3/.test(l.plain)), `only the circled part of the sheet was sent, not problem 1 (${JSON.stringify(read.map((l) => l.plain))})`)
+      const hintText = (help?.res?.actions ?? []).map((a) => a.text ?? '').join(' ')
+      const aboutP2 = /3\s*x|7|11|18|add|both sides|isolate|subtract|divide/i.test(hintText) && !/deriv|power rule|x\^3|x\^\{?3/i.test(hintText)
+      rec.ok(aboutP2, `the hint is about the circled problem (3x - 7 = 11): "${hintText}"`)
+      const after = await L.aiShapes(s)
+      const fresh = notes(after).filter((x) => !before.some((b) => b.id === x.id))
+      rec.ok(fresh.length >= 1, `a hint was drawn (${fresh.length}${fresh[0] ? `: ${L.brief(fresh[0].screen)}` : ''})`)
+      await statusCheck(rec, s, help)
+      await s.page.evaluate(() => document.querySelector('.tutor-next')?.click())
+      await finish(rec, s, `f16${SUFFIX}-circled`)
       return s
     },
   },

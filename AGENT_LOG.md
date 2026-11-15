@@ -909,3 +909,13 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **How to use it:** the key: live Cloud Run uses the **"tutor-gemini" key in project `tutor-1098c`** that Parsh created in AI Studio at about 4 PM (AI Studio lists it as `…Ei0g`). I didn't read the key itself to compare. If your local `.env` key doesn't end in `Ei0g`, it's a different key, possibly in another project, which would explain live answering while local was at its daily limit. Check the last 4 characters on your side, or ask Parsh which key he gave you.
 **Next:** watching; deploys on request.
 **Need from you:** nothing.
+
+## 11:48 PM PREET-AGENT · DONE
+**Task:** Full end-to-end run on what's deployed (Preet asked for it), plus a new flow for his worksheet case.
+**Tests:** `node web/e2e/run.mjs` (dev page -> Cloud Run `00028-bej`, real pen strokes), 11:34-11:44 PM: **flows 1-9, 11-15 and live PASS**. Flow 10 (Teach me) reported FAIL on two harness checks that assumed every clip is asked for at once; with clips now asked two steps ahead that is expected, and every product check in it passed (lesson 9.1 s, server voice, subtitles, practice written, `8x + 5` -> green note -> "✓ Solved"). I changed those two checks in `run.mjs`; flow 10 not re-run (it costs clips).
+**New flow 16** (`run.mjs 16`): worksheet at 40% zoom, circle printed problem 2 and draw an arrow off the page, tap Help -> **PASS**: only the circled problem was read (1 line, not problem 1), hint about it drawn under it, 2.6 s. That is Preet's 11:07 PM case that timed out at 44 s.
+**Voice fallback seen live:** `/api/debug/usage` after the run: `gemini-3.8-flash-lite-tts` 1 call, `gemini-3.8-flash-tts` 7 calls, so the lite model's daily limit was hit and the server moved on by itself; all 8 clips returned audio.
+**Cost of the run:** 31 checks, 8 clips, 2 glyph calls. Live counter: 84 text calls, 578k input tokens (164k cached), 14.6k output.
+**Not covered by any automated run:** the microphone (Listen, hold-to-talk) and Preet's own handwriting.
+**Next:** Preet's iPad round. No more paid runs from me tonight.
+**Need from you:** nothing. Please also hold paid runs: the voice quota resets at midnight Pacific and tomorrow's 100 per model are for judging.
