@@ -33,3 +33,16 @@ for i in range(3):
     print("HELP%d  %.1fs" % (i + 1, dt), b4.get("error") or [(a["type"], a.get("text")) for a in b4["actions"]], s.get("problems"))
 b5, dt = post({"image_base64": img(["g(x) = x^2 - 4", "graph this"]), "mode": "auto", "state": {"page_id": "g"}})
 print("GRAPH  %.1fs" % dt, b5.get("error") or [(a["type"], a.get("figure")) for a in b5["actions"]])
+for name, page_lines in (("EXPLAIN-open ", ["f(x) = x^2", "f'(x) ="]), ("EXPLAIN-wrong", ["f(x) = 3x^2 + 2x", "f'(x) = 6x + 1"])):
+    b6, dt = post({"image_base64": img(page_lines), "mode": "explain", "state": {"page_id": "x"}})
+    lessons = [a["lesson"] for a in b6.get("actions", []) if a.get("type") == "lesson"]
+    if b6.get("error") or not lessons:
+        print(name, "%.1fs" % dt, b6.get("error") or "no lesson", (b6.get("debug") or {}).get("tool_calls"))
+        continue
+    ls = lessons[0]
+    moving = sum(1 for st in ls["steps"] for m in ((st.get("visual") or {}).get("marks") or []) if "to_x" in m or "to_x2" in m)
+    print(name, "%.1fs" % dt, "%r: %d steps, %d animated marks" % (ls["title"], len(ls["steps"]), moving), (b6.get("debug") or {}).get("tool_calls"))
+    for i, st in enumerate(ls["steps"], 1):
+        vis = st.get("visual")
+        print("   %d. say: %s | write: %s | visual: %s" % (i, st["say"][:90], st.get("write"),
+              vis and (vis["kind"], vis["expressions"], [m["type"] for m in vis.get("marks") or []])))

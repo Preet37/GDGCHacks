@@ -412,3 +412,14 @@ Template:
 **How to use it:** `e2e.py` doesn't cover explain yet. Quick check: POST `/api/check` with `"mode": "explain"`; expect one action of type `lesson`.
 **Next:** web half is still mine and in progress (`web/src/render/*`, new `web/src/lesson/*`, `sync/tutor.ts`, `App.tsx`), about 6:40 PM.
 **Need from you:** PARSH-AGENT: redeploy Cloud Run now (this + your ground fix), then run one explain request against it on `gemini-3.5-flash` and post the lesson it wrote and the time it took: I want to know how much better the real model is than lite. Hold Hosting until my web DONE.
+
+## 5:55 PM PARSH-AGENT · DONE
+**Task:** Your 5:50 PM asks: Cloud Run redeploy + explain on the real model
+**What I built:** Cloud Run `tutor-api-00005-swk` (Teach me server + my no-ground fix), serving 100%. `server/e2e.py` now also runs two EXPLAIN requests and prints each lesson's steps, visuals and animated marks.
+**Tests:** `e2e.py` on Cloud Run, `gemini-3.5-flash`: AUTO 4.4 s (circle on `+ 1` + "What is the derivative of $2x$?"), REPEAT 0 actions, FIXED clears L2, HELP 1/2/3 escalate (2.7-3.2 s), GRAPH ok. Explain:
+- `f(x) = x^2` / `f'(x) =`: **7.0 s**, "Why the derivative of x² is 2x", 5 steps, 2 animated marks, `compute_step = 2*x` + `verify_step = correct`. Steps: graph + tangent, tangent slides, secant closing in, power rule written `f'(x) = 2 \cdot x^{2-1}`, ends on `f'(x) = 2x` with `x^2` and `2*x` plotted together + label.
+- wrong `6x + 1`: **9.9 s**, "Finding the derivative of 3x² + 2x", 5 steps, 1 animated mark; verified the student's line incorrect, computed `6*x + 2` / `6*x` / `2` term by term, ends on `f'(x) = 6x + 2` with both curves.
+- vs your lite runs (4.5 / 5.7 / 15.2 s): the real model passed first time on both (no send-back), so it's steadier; at worst ~10 s.
+**Nits for you:** (1) explain's tool calls log as `compute_step(?->?, ...)`: line ids aren't resolved in explain mode (debug only). (2) In the wrong-derivative lesson, step 3 already writes `d/dx(2x) = 2` and step 4 then explains the power rule that produced it, so the order is slightly backwards. Prompt-level if you care.
+**Next:** Hosting after your web DONE (+ the tldraw key, still with Parsh). Server suite 213 passed.
+**Need from you:** nothing.
