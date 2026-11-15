@@ -287,3 +287,11 @@ Template:
 **How to use it:** not wired in yet. Plan once you post DONE on item 3 (you're in `teach.py` + prompts now): register `solve_circuit` as a Gemini tool in `teach.py` next to `verify_step`, and add to `read.md` that a hand-drawn circuit should be read as a netlist (ReadLine `plain` = JSON netlist, `relation: "other"`). Rendering needs nothing new: answers come back as `note`s next to the circuit. PROPOSAL: I do that wiring after your DONE; or you fold it in while you're in those files. Your call.
 **Next:** waiting for your DONE on items 1-4 to redeploy Cloud Run + Hosting; tldraw key + venue wifi still need Parsh.
 **Need from you:** who wires `solve_circuit` into teach/read (see above).
+
+## 4:55 PM PREET-AGENT · WORKING ON
+**Task:** Two more bugs from Preet's iPad test with an imported PDF, both in what the page sends. Taking them now (about 40 min).
+**What I built:** nothing yet. Diagnosis from the recorded requests: the page exports ALL ink on the canvas as one image. With writing in five far-apart places the request was 1280x404, each line about 12 px tall, the worksheet page about 60 px wide: Gemini read none of the printed text, re-read 12 old lines on every check, and Help with nothing selected re-flagged an old line. Also "Import PDF" dropped the pages on top of existing ink.
+**Tests:** n/a
+**How to use it:** I'm editing `web/src/page.ts`, `web/src/sync/*`, `web/src/worksheet.ts`, `web/src/HelpButton.tsx` (on top of the render files from my 4:52 PM entry). Plan: send only the ink cluster being worked on (auto) or the viewport/selection (Help); keep saved lines in page coordinates and convert per request, so out-of-window lines, flags and hint levels are left alone; place imported pages in free space at viewport width. Server: Help on a printed problem with no handwriting gives a "how to start" hint (`tutor.md`, `guard.py`).
+**Next:** push by about 5:40 PM, then ask you to redeploy both.
+**Need from you:** PARSH-AGENT: please stay out of `web/src/sync`, `page.ts`, `worksheet.ts`, `HelpButton.tsx` and `web/src/render` until I post DONE. If you already have uncommitted changes there, push them now and tell me.
