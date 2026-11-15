@@ -125,3 +125,23 @@ describe('revealBounds', () => {
     expect(revealBounds([{ x: 5000, y: 5300, w: 380, h: 280 }], [{ x: 5000, y: 5000, w: 300, h: 40 }], view)).toBeNull()
   })
 })
+
+describe('new feedback replaces only old feedback of its own kind', () => {
+  const on = (kind: string, id: string): OldShape => ({ id, meta: { ai: true, kind, line_id: 'L3' } })
+  const page = [on('solution', 'sol:0'), on('solution', 'sol:1'), on('note', 'note:0'), on('figure', 'fig:0')]
+  const reply = (...actions: Partial<Action>[]) => ({ actions: actions.map((a) => ({ line_id: 'L3', ...a }) as Action), clear_line_ids: [] })
+
+  it('a graph asked for after a worked solution keeps the solution and the notes', () => {
+    const fig = { type: 'figure' as const, figure: { kind: 'plot2d' as const, expressions: ['x*sin(x)'], x_range: [-10, 10] as [number, number] } }
+    expect(staleShapeIds(page, reply(fig), frame)).toEqual(['fig:0'])
+  })
+  it('a new hint replaces the old hint, not the solution or the graph', () => {
+    expect(staleShapeIds(page, reply({ type: 'note', text: 'another hint' }), frame)).toEqual(['note:0'])
+  })
+  it('a new solution replaces the old one only', () => {
+    expect(staleShapeIds(page, reply({ type: 'solution', steps: ['x = 1'] }), frame)).toEqual(['sol:0', 'sol:1'])
+  })
+  it('a cleared line still loses everything on it', () => {
+    expect(staleShapeIds(page, { actions: [], clear_line_ids: ['L3'] }, frame)).toEqual(['sol:0', 'sol:1', 'note:0', 'fig:0'])
+  })
+})

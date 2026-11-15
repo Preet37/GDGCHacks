@@ -142,14 +142,28 @@ export interface OldShape {
  *   lessons) anchored on the same writing as a new mark go too, whatever their id.
  * A practice problem is never replaced: it is what the student is working on, not feedback.
  */
+/** Which kind of feedback a shape or an action is, for replacing old with new: a figure, a solution, or a mark/note. */
+export function feedbackGroup(kind: unknown): 'figure' | 'solution' | 'mark' {
+  return kind === 'figure' ? 'figure' : kind === 'solution' ? 'solution' : 'mark'
+}
+
 export function staleShapeIds(
   shapes: OldShape[],
   response: Pick<CheckResponse, 'actions' | 'clear_line_ids'>,
   bounds: PageRect,
   ctx: RenderContext = { zoom: 1 },
 ): string[] {
-  const replace = lineIdsToReplace(response)
   const cleared = new Set(response.clear_line_ids)
+  // What a new action replaces on its line is the old feedback OF ITS OWN KIND: a new graph replaces the
+  // old graph, a new hint the old hint, a new solution the old solution. Asking for a graph after a worked
+  // solution keeps the solution; asking for a 3D model keeps the explanation written before it.
+  const incoming = new Map<string, Set<string>>()
+  for (const a of response.actions) {
+    if (!a.line_id || a.type === 'lesson' || a.type === 'speak') continue
+    const set = incoming.get(a.line_id) ?? new Set<string>()
+    set.add(feedbackGroup(a.type))
+    incoming.set(a.line_id, set)
+  }
   const newLessons = new Set(response.actions.flatMap((a) => (a.type === 'lesson' && a.line_id ? [a.line_id] : [])))
   const marked: PageRect[] = []
   for (const a of response.actions) {
@@ -163,7 +177,7 @@ export function staleShapeIds(
       const kind = s.meta.kind
       const id = s.meta.line_id
       if (typeof id === 'string') {
-        if (kind === 'lesson' ? cleared.has(id) || newLessons.has(id) : replace.has(id)) return true
+        if (kind === 'lesson' ? cleared.has(id) || newLessons.has(id) : cleared.has(id) || !!incoming.get(id)?.has(feedbackGroup(kind))) return true
       }
       if (typeof kind !== 'string' || !MARK_KINDS.has(kind)) return false
       const anchor = anchorOf(s) ?? (kind === 'circle' || kind === 'underline' ? s.rect : null)

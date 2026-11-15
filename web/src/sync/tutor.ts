@@ -228,13 +228,13 @@ export class Tutor {
    * or what is on screen). The reply's `lesson` action is drawn like any other action, as a card
    * that plays itself. Hints stop: the student asked to be taught, not nudged.
    */
-  async explain(area?: PageRect): Promise<ExplainResult> {
+  async explain(area?: PageRect, question?: string): Promise<ExplainResult> {
     this.hints.cancel()
     let out: SendOutcome | null = null
     let failed = false
     const ok = await this.scheduler.exclusive(async () => {
       try {
-        out = await this.send({ mode: 'explain', area })
+        out = await this.send({ mode: 'explain', area, question: question?.trim() || undefined })
       } catch {
         failed = true // send() has already shown why
       }

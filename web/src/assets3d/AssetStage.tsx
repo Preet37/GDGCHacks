@@ -1,6 +1,7 @@
 import { Component, lazy, Suspense, useEffect, useMemo, type ReactNode, type RefObject } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
 import { ACESFilmicToneMapping } from 'three'
+import { glQuality } from '../render/gl'
 import type { AssetEntry } from './catalog'
 
 /**
@@ -75,6 +76,8 @@ export default function AssetStage({ entry, params, running, orbit, onReady, onE
   const Model = useMemo(() => lazy(entry.load), [entry])
   const simConfig = useMemo(() => ({ constraints: entry.constraints ?? [] }), [entry])
   // some models set themselves up once; these parameters need a fresh one
+  // no antialiasing on a touch device (iPad memory); read once, the renderer is made once
+  const antialias = useMemo(() => glQuality().antialias, [])
   const modelKey = (entry.remountOn ?? []).map((k) => params[k]).join('|')
   return (
     <Boundary onError={onError}>
@@ -84,7 +87,7 @@ export default function AssetStage({ entry, params, running, orbit, onReady, onE
         // the card sits inside tldraw's zoomed page: measure the layout size, not the size on screen
         resize={{ offsetSize: true, scroll: false }}
         camera={{ fov: entry.fov, position: entry.camera, near: 0.1, far: 300 }}
-        gl={{ antialias: true, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.2 }}
+        gl={{ antialias, toneMapping: ACESFilmicToneMapping, toneMappingExposure: 1.2 }}
         style={{ position: 'absolute', inset: 0 }}
         onCreated={({ gl }) => {
           gl.domElement.addEventListener('webglcontextlost', (e) => {

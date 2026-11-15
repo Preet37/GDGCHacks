@@ -56,15 +56,20 @@ function Surface({ visual, spin, w, h }: { visual: LessonVisual; spin: boolean; 
     return trySampleSurface(spec)
   }, [key])
 
+  // One WebGL renderer per surface: made once the panel has a size, resized (not remade) when the size
+  // changes, freed when the surface changes or the step no longer shows one.
+  const size = useRef({ w, h })
+  size.current = { w, h }
+  const sized = w >= 40 && h >= 40
   useEffect(() => {
     const el = host.current
-    if (!el || !grid || w < 40 || h < 40) return
+    if (!el || !grid || !sized) return
     let cancelled = false
     let made: SurfaceView | null = null
     import('../render/figure3d/scene')
       .then(({ createSurfaceView }) => {
         if (cancelled) return
-        made = createSurfaceView(el, grid, w, h)
+        made = createSurfaceView(el, grid, size.current.w, size.current.h)
         view.current = made
       })
       .catch((err) => console.warn('lesson: 3D view failed', err))
@@ -73,7 +78,11 @@ function Surface({ visual, spin, w, h }: { visual: LessonVisual; spin: boolean; 
       made?.dispose()
       view.current = null
     }
-  }, [grid, w, h])
+  }, [grid, sized])
+
+  useEffect(() => {
+    if (w >= 40 && h >= 40) view.current?.resize(w, h)
+  }, [w, h])
 
   useEffect(() => {
     if (!spin) return

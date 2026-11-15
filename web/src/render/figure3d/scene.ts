@@ -1,4 +1,5 @@
 import * as THREE from 'three'
+import { glQuality } from '../gl'
 import { heightColor, surfaceIndices, tickLabel, type SurfaceGrid } from './sample'
 
 /** Half-height of the surface box in scene units (x and y span -1..1). */
@@ -41,9 +42,10 @@ function labelSprite(text: string, color: string, scale: number, disposables: { 
  * loop). Throws if WebGL isn't available. Call dispose() to free the GL context.
  */
 export function createSurfaceView(host: HTMLElement, grid: SurfaceGrid, w: number, h: number): SurfaceView {
-  const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false, powerPreference: 'low-power' })
+  const quality = glQuality() // lighter on a touch device (iPad memory)
+  const renderer = new THREE.WebGLRenderer({ antialias: quality.antialias, alpha: false, powerPreference: 'low-power' })
   const disposables: { dispose(): void }[] = []
-  renderer.setPixelRatio(Math.min(2, window.devicePixelRatio || 1))
+  renderer.setPixelRatio(quality.pixelRatio)
   renderer.setClearColor(0xffffff, 1)
   renderer.setSize(w, h, false)
   const canvas = renderer.domElement

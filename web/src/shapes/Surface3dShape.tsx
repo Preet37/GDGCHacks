@@ -3,12 +3,17 @@ import { BaseBoxShapeUtil, HTMLContainer, T, useEditor, useValue, type RecordPro
 import type { FigureSpec } from '../contract'
 import { trySampleSurface } from '../render/figure3d/sample'
 import type { SurfaceView } from '../render/figure3d/scene'
-import { isFresh } from './fresh3d'
+import { claimLive, isFresh } from './fresh3d'
 import { prettyMath } from '../render/text'
 
 export const SURFACE3D_TYPE = 'surface3d'
 /** Height of the title strip. It is not interactive, so it's where you grab the card to move it. */
 export const SURFACE3D_TITLE_H = 30
+/**
+ * The title is designed for a card this wide and grows with the card. A card made while the student is
+ * zoomed out is larger on the page, so its title stays readable at that zoom.
+ */
+const SURFACE3D_BASE_W = 380
 
 declare module 'tldraw' {
   interface TLGlobalShapePropsMap {
@@ -48,7 +53,6 @@ function Surface3dCard({ shape }: { shape: Surface3dShape }) {
   const liveRef = useRef(live)
   liveRef.current = live
   const zoom = useValue('zoom', () => editor.getZoomLevel(), [editor])
-  const hintScale = Math.min(2.5, Math.max(1, 0.8 / zoom))
 
   // Only the spec is stored; the grid is recomputed whenever it changes (and on page load).
   const specKey = JSON.stringify(spec)
@@ -56,7 +60,10 @@ function Surface3dCard({ shape }: { shape: Surface3dShape }) {
   const grid = useMemo(() => trySampleSurface(spec), [specKey])
 
   const viewW = Math.max(1, Math.round(w) - 2)
-  const viewH = Math.max(1, Math.round(h) - SURFACE3D_TITLE_H - 2)
+  const k = Math.max(1, w / SURFACE3D_BASE_W)
+  const titleH = Math.round(SURFACE3D_TITLE_H * k)
+  const hintScale = Math.max(k, Math.min(2.5, Math.max(1, 0.8 / zoom)))
+  const viewH = Math.max(1, Math.round(h) - titleH - 2)
 
   // One WebGL renderer per shape, created on mount and freed on unmount.
   useEffect(() => {
@@ -65,6 +72,8 @@ function Surface3dCard({ shape }: { shape: Surface3dShape }) {
     let cancelled = false
     let view: SurfaceView | null = null
     setGlFailed(false)
+    // keep the number of WebGL views small: the oldest live 3D card goes back to "Tap to show"
+    const unclaim = claimLive(shape.id, () => setLive(false))
     // three.js is loaded only when a surface is actually shown
     import('../render/figure3d/scene')
       .then(({ createSurfaceView }) => {
@@ -80,8 +89,9 @@ function Surface3dCard({ shape }: { shape: Surface3dShape }) {
       cancelled = true
       view?.dispose()
       viewRef.current = null
+      unclaim()
     }
-  }, [grid, live])
+  }, [grid, live, shape.id])
 
   useEffect(() => {
     viewRef.current?.resize(viewW, viewH)
@@ -172,13 +182,13 @@ function Surface3dCard({ shape }: { shape: Surface3dShape }) {
       <div style={cardStyle} data-surface3d={broken ? 'error' : 'ok'}>
         <div
           style={{
-            height: SURFACE3D_TITLE_H,
+            height: titleH,
             flex: 'none',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: 16,
-            padding: '0 8px',
+            fontSize: 16 * k,
+            padding: `0 ${8 * k}px`,
             whiteSpace: 'nowrap',
             overflow: 'hidden',
             textOverflow: 'ellipsis',
@@ -213,7 +223,7 @@ function Surface3dCard({ shape }: { shape: Surface3dShape }) {
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
-                  fontSize: 16,
+                  fontSize: 16 * k,
                   fontWeight: 600,
                   color: '#2563eb',
                   pointerEvents: 'none',

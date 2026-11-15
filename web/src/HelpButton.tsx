@@ -7,7 +7,7 @@ import { HandwritingToggle } from './handwriting'
 import { statusLine } from './sync/status'
 import type { Tutor } from './sync/tutor'
 import { HoldGesture, newRecognition, startListening, type Listening } from './voice'
-import { HandsFree, spokenText } from './handsfree'
+import { HandsFree, intentOf, spokenText } from './handsfree'
 import { setSpeaker } from './render/apply'
 import { hush, sayAloud, tutorIsLoud } from './sayAloud'
 import { importPdf } from './worksheet'
@@ -226,7 +226,8 @@ export function HelpButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) 
         quiet: () => !tutorIsLoud(),
         onIntent: async (intent, said) => {
           editor.selectNone()
-          if (intent === 'teach') await tutor.explain()
+          // what was said goes with the request, so the lesson is about what they asked for
+          if (intent === 'teach') await tutor.explain(undefined, said)
           else await tutor.help(undefined, said)
         },
       }),
@@ -257,8 +258,10 @@ export function HelpButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) 
   }
 
   const gesture = useMemo(() => {
-    const send = (question?: string) => {
+    const send = async (question?: string) => {
       editor.selectNone()
+      // asking out loud for a lesson or a course is Teach me, with the question as its subject
+      if (question && intentOf(question)?.intent === 'teach') return (await tutor.explain(area.current, question)) !== 'busy'
       return tutor.help(area.current, question || undefined)
     }
     return new HoldGesture({
@@ -293,6 +296,8 @@ export function HelpButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) 
   const down = () => {
     const sel = editor.getSelectionPageBounds()
     area.current = sel ? { x: sel.x, y: sel.y, w: sel.w, h: sel.h } : undefined
+    // a spoken request may come back as a lesson: sound has to be unlocked inside this press
+    primeSpeech()
     gesture.pointerDown()
   }
   const up = () => gesture.pointerUp()

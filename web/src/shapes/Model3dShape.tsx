@@ -4,7 +4,7 @@ import type { Model3dFigure } from '../contract'
 import { hasLooks, LOAD_COLORS, LOAD_WORDS, loadsUsed, partGroups, thinStroke, TL_COLORS, type ModelMark } from '../render/model3d/geometry'
 import type { ModelView } from '../render/model3d/scene'
 import { buildModel3d } from '../sync/api'
-import { isFresh } from './fresh3d'
+import { claimLive, isFresh } from './fresh3d'
 
 /**
  * Engineering (Part 2): a 3D model of a structure (a bridge, a truss, a crane) the student can turn and tap.
@@ -88,6 +88,8 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
     let cancelled = false
     let view: ModelView | null = null
     setGlFailed(false)
+    // keep the number of WebGL views small: the oldest live 3D card goes back to "Tap to show"
+    const unclaim = claimLive(shape.id, () => setLive(false))
     import('../render/model3d/scene')
       .then(({ createModelView }) => {
         if (cancelled) return
@@ -103,6 +105,7 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
       cancelled = true
       view?.dispose()
       viewRef.current = null
+      unclaim()
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [modelKey, live])
@@ -367,7 +370,8 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
           >
             {!live && !unbuilt && (
               <button
-                onClick={() => setLive(true)}
+                // like the card's other buttons: tldraw captures the pointer on a press it isn't told about, so a click never arrives
+                {...press(() => setLive(true))}
                 style={{ position: 'absolute', inset: 0, zIndex: 4, border: 0, background: 'rgba(255,255,255,0.6)', color: '#2563eb', fontSize: 16, fontWeight: 600, touchAction: 'manipulation' }}
               >
                 Tap to show the 3D model
