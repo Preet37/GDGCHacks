@@ -242,3 +242,23 @@ def test_schema_and_contract_example():
     checks = solution.check_chain(resp.lines[0].plain, solution.norm_steps(a.steps))
     assert [c["verdict"] for c in checks] == ["correct", "correct", "correct"]
     assert solution.requested_problems(resp.lines) == {"P1"}
+
+
+def test_printed_integral_problem_is_solved_and_checked():
+    """'1. Evaluate int(4*x^3 + 2*x) dx' on a worksheet: the integral is the math, and a tidied-up second
+    step labelled "integral" is the same answer, not an integral of the step before."""
+    import compute
+    import solution
+    assert solution.math_part("1. Evaluate int(4*x^3 + 2*x) dx") == "int(4*x^3 + 2*x) dx"
+    assert solution.math_part("Evaluate int(cos(x)) dx") == "int(cos(x)) dx"
+    assert solution.math_part("int(cos(x)) dx") == "int(cos(x)) dx"
+    assert solution.math_part("3. Sketch the graph of y = x^2 - 4 and mark its roots.") == ""
+    assert compute.operation("int(cos(x)) dx") == {"kind": "integral", "expr": "cos(x)", "var": "x", "limits": None}
+    assert compute.operation("int(a) + int(b) dx") is None
+    base = "int(4*x^3 + 2*x) dx"
+    steps = [{"plain": "4*x^4/4 + 2*x^2/2 + C", "relation": "integral"}, {"plain": "x^4 + x^2 + C", "relation": "integral"}]
+    assert [c["verdict"] for c in solution.check_chain(base, steps)] == ["correct", "correct"]
+    assert [c["verdict"] for c in solution.check_chain("int(cos(x)) dx", [{"plain": "sin(x) + C", "relation": "integral"}])] == ["correct"]
+    wrong = [{"plain": "4*x^4/4 + 2*x^2/2 + C", "relation": "integral"}, {"plain": "x^4 + 2*x^2 + C", "relation": "integral"}]
+    assert [c["verdict"] for c in solution.check_chain(base, wrong)] == ["correct", "incorrect"]
+    assert solution.check_chain("int(cos(x)) dx", [{"plain": "-sin(x) + C", "relation": "integral"}])[0]["verdict"] == "incorrect"
