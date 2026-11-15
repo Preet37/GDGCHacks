@@ -140,6 +140,73 @@ def _no_silence(lines: list[ReadLine], actions: list[Action], by_line: dict, set
     return out
 
 
+def _circle_for_red_notes(actions: list[Action], by_line: dict, verdicts: dict) -> list[Action]:
+    """A mistake is shown as a red circle AND a question. If the model sent only the question for a line the
+    checker called incorrect, the circle is added here around the whole line."""
+    circled = {a.line_id for a in actions if a.type in MARK_TYPES}
+    out = []
+    for a in actions:
+        line = by_line.get(a.line_id)
+        if (a.type == "note" and a.color == "red" and line is not None and a.line_id not in circled
+                and verdicts.get(a.line_id) == "incorrect"):
+            out.append(Action(type="circle", line_id=a.line_id, box=line.box, color="red"))
+            circled.add(a.line_id)
+    return out
+
+
+WELL_DONE = "Correct. You've got it."
+CHECK_AGAIN = "Check this step again. What changed from the line above?"
+
+
+def _well_done_notes(lines: list[ReadLine], result: TeachResult, kept: list[Action], finished: dict,
+                     settled: set) -> list[Action]:
+    """The verdict on a practice problem is known in code, so the green note does not depend on the model
+    sending it: one for the final line of each practice problem answered correctly (`finished`:
+    practice.done), unless that note is already going out or the line already has feedback and has not
+    changed. The words are the model's own if it praised that problem on some other line, else WELL_DONE."""
+    by_line = {l.line_id: l for l in lines}
+    out = []
+    for pid, line_id in finished.items():
+        line = by_line.get(line_id)
+        if line is None or line_id in settled:
+            continue
+        if any(a.type == "note" and a.color == "green" and a.line_id == line_id for a in kept):
+            continue
+        said = next((a.text for a in result.actions if a.type == "note" and a.color == "green" and a.text
+                     and a.side != "inline" and getattr(by_line.get(a.line_id), "problem_id", None) == pid), None)
+        out.append(Action(type="note", line_id=line_id, box=line.box, color="green", side="right",
+                          text=said or WELL_DONE))
+    return out
+
+
+def _missed_mistakes(lines: list[ReadLine], result: TeachResult, kept: list[Action], settled: set) -> list[Action]:
+    """Automatic check: the checker called a line incorrect and nothing is going out for it (the model sent
+    nothing, or only something the guard dropped). A silent tutor is the worst outcome, so the mark is
+    written here: a red circle on the line and one general question. Only the first such line of a
+    problem, and only when the model marked no line of that problem itself (a later line is often wrong
+    only because of an earlier one). Never an open line, printed text, a written request, a line the reader
+    was unsure of, or a line that already has feedback on the page and has not changed."""
+    by_line = {l.line_id: l for l in lines}
+
+    def marks(a: Action) -> bool:  # the model said something about a mistake (or about the reading) there
+        return a.line_id in by_line and (a.type in MARK_TYPES | {"ask"} or (a.type == "note" and a.color in ("red", None)))
+
+    spoken_for = {by_line[a.line_id].problem_id for a in result.actions if marks(a)}
+    answered = {a.line_id for a in kept}
+    out = []
+    for l in lines:
+        if result.verdicts.get(l.line_id) != "incorrect" or l.problem_id in spoken_for:
+            continue
+        if l.source == "printed" or _open(l) or solution.is_request(l) or l.confidence == "low":
+            continue
+        spoken_for.add(l.problem_id)
+        if l.line_id in settled or l.line_id in answered:
+            continue
+        out.append(Action(type="circle", line_id=l.line_id, box=l.box, color="red"))
+        out.append(Action(type="note", line_id=l.line_id, box=l.box, color="red", side="right", text=CHECK_AGAIN))
+    return out
+
+
 def _ordered_unique(items):
     seen, out = set(), []
     for x in items:
@@ -183,8 +250,15 @@ def merge(state: PageState, lines: list[ReadLine], result: TeachResult, mode: st
         asked = (question or "").strip()
         spoken = mode == "help" and bool(asked) and (result.solution_requested or solution.asks_aloud(asked))
         set_work = practice.line_ids(lines)
-        finished = frozenset(practice.done(lines, result.verdicts).values())
-        actions = [a for a in result.actions
+        done = practice.done(lines, result.verdicts)  # practice problem -> its final line, when answered correctly
+        finished = frozenset(done.values())
+        sent = list(result.actions)
+        if mode != "auto":
+            # Praise for a halfway step of a practice problem would tell the page it is solved: in help mode
+            # such a note is a hint, so it is shown as one.
+            sent = [a.model_copy(update={"color": "blue"}) if a.type == "note" and a.color == "green"
+                    and a.line_id in set_work and a.line_id not in finished else a for a in sent]
+        actions = [a for a in sent
                    if _keep(a, result.verdicts, by_line, state, mode, question, wanted, spoken, solved, set_work)]
         before = {l.line_id: l.plain for l in state.lines}
         settled = {i for i in state.flagged_line_ids if i in by_line and before.get(i) == by_line[i].plain}
@@ -199,8 +273,17 @@ def merge(state: PageState, lines: list[ReadLine], result: TeachResult, mode: st
             actions = [a for a in actions if a.line_id not in settled
                        or _new_mistake(a, by_line[a.line_id], result.verdicts, marked)
                        or _new_solution(a, by_line[a.line_id], solved)]
+        if mode == "auto":
+            actions += _missed_mistakes(lines, result, actions, settled)
+            actions += _circle_for_red_notes(actions, by_line, result.verdicts)
+        actions += _well_done_notes(lines, result, actions, done, settled)
         actions += _try_first(lines, actions, by_line, set_work, settled if mode == "auto" else set())
         actions += _no_silence(lines, actions, by_line, settled if mode == "auto" else set(), solved)
+        if mode == "help":
+            # A hint is always placed under its line, so the hints of one ladder do not jump about the page.
+            charted = {a.line_id for a in actions if a.type == "figure"}
+            actions = [a.model_copy(update={"side": "below"}) if a.type == "note" and a.color in ("blue", None)
+                       and a.side != "inline" and a.line_id not in charted else a for a in actions]
         clear = list(result.clear_line_ids)
         hint_updates = result.hint_updates if mode == "help" else []  # the hint ladder only moves when Help is tapped
     else:

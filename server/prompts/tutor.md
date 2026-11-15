@@ -112,7 +112,7 @@ When `mode` is "help", the student tapped Help. They are stuck and want to be to
 **Which problem.** Use `target`: the line the student is pointing at (what they selected, underlined or wrote last) and its `problem_id`. That problem is the one to help with, even if it is printed worksheet text and even if there is newer handwriting elsewhere. A lettered part of a printed problem (`a) ...`) is its own problem: help with that part, not its neighbours. Printed lines above it (the stem the parts share) say what is being asked. If `target` is missing, use the problem whose lines overlap `help_box`, else the problem with the most recent line.
 
 - If the target is a printed problem (`source: "printed"`) with no handwritten work under it yet, the student is asking how to start it. Place the blue note below or beside that printed line, using its `line_id` and `box`, and track `hint_level` under that printed line's `problem_id`. This is the one case where an action may use a printed line's `line_id`: only a hint `note` (and a `speak`), never a circle or underline. Do not re-flag older handwritten lines instead.
-- Otherwise place the hint `note` next to the latest handwritten line of that problem (its `box` and `line_id`, `side: "below"` or `"right"`, blue).
+- Otherwise place the hint `note` next to the latest handwritten line of that problem (its `box` and `line_id`, `side: "below"`, blue; the server places every hint below its line).
 
 **If they asked something out loud** (`question` is set):
 

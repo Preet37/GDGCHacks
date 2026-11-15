@@ -100,8 +100,25 @@ def _max_num(ids, prefix: str) -> int:
     return best
 
 
-def parse_lines(text: str, prev_lines: list[ReadLine]) -> list[ReadLine]:
-    """Turn the model's JSON into ReadLines. Malformed lines are dropped, not fatal."""
+def own_ink(lines: list[ReadLine]) -> list[ReadLine]:
+    """The page said there is no worksheet in the image, so nothing in it is print: every line is the
+    student's handwriting, whatever the reader called it. A line that was called printed lost its relation
+    (printed lines are always "other"); the first line of a problem is its `start` again."""
+    out, seen = [], set()
+    for l in lines:
+        if l.source == "printed":
+            update = {"source": "handwriting"}
+            if l.problem_id not in seen and l.relation == "other":
+                update["relation"] = "start"
+            l = l.model_copy(update=update)
+        seen.add(l.problem_id)
+        out.append(l)
+    return out
+
+
+def parse_lines(text: str, prev_lines: list[ReadLine], has_worksheet: bool | None = None) -> list[ReadLine]:
+    """Turn the model's JSON into ReadLines. Malformed lines are dropped, not fatal.
+    `has_worksheet` False = the page sent no worksheet: no line is printed (see own_ink)."""
     try:
         data = json.loads(text or "")
     except json.JSONDecodeError:
@@ -128,9 +145,11 @@ def parse_lines(text: str, prev_lines: list[ReadLine]) -> list[ReadLine]:
         if not line.line_id or not line.problem_id:
             continue
         _strip_legacy_marker(line)
-        if is_printed(line):
+        if is_printed(line) and has_worksheet is not False:
             line.relation = "other"
         out.append(line)
+    if has_worksheet is False:
+        out = own_ink(out)
 
     # Ids must be unique: a repeated line_id gets the next unused one.
     used: set[str] = set()
@@ -143,13 +162,22 @@ def parse_lines(text: str, prev_lines: list[ReadLine]) -> list[ReadLine]:
     return out
 
 
-def read_page(client, model: str, image_png: bytes, prev_lines: list[ReadLine]) -> list[ReadLine]:
+def read_page(client, model: str, image_png: bytes, prev_lines: list[ReadLine],
+              has_worksheet: bool | None = None) -> list[ReadLine]:
+    """`has_worksheet` is what the page said about the image: False = no imported worksheet in it, so every
+    line is handwriting (the reader is told, and the label is set in code); None = unknown, the reader decides."""
     prompt = PROMPT_PATH.read_text(encoding="utf-8")  # read every call so prompt edits need no restart
-    prev_json = json.dumps({"previous_lines": [l.model_dump(mode="json") for l in prev_lines]})
+    context: dict = {"previous_lines": [l.model_dump(mode="json") for l in prev_lines]}
+    if has_worksheet is False:
+        prev_lines = own_ink(prev_lines)
+        context = {"previous_lines": [l.model_dump(mode="json") for l in prev_lines], "has_worksheet": False}
+    elif has_worksheet:
+        context["has_worksheet"] = True
+    prev_json = json.dumps(context)
     contents = [
         types.Part.from_bytes(data=image_png, mime_type=_mime(image_png)),
         prompt,
         prev_json,
     ]
     resp = gemini.generate(client, model, contents, _build_config)
-    return parse_lines(getattr(resp, "text", None) or "", prev_lines)
+    return parse_lines(getattr(resp, "text", None) or "", prev_lines, has_worksheet)

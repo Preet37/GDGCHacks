@@ -218,7 +218,7 @@ def test_lesson_survives_the_guard_and_changes_nothing_else():
     assert failed.actions == [] and failed.state.problems[0].hint_level == 1
     # a lesson never rides along on a normal check
     r.finished = True
-    assert merge(state, lines, r, "auto").actions == []
+    assert all(a.type != "lesson" for a in merge(state, lines, r, "auto").actions)
 
 
 def test_contract_example_validates():

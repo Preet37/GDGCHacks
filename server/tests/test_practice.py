@@ -9,6 +9,7 @@ from google.genai import types
 from PIL import Image
 
 import explain as explain_mod
+import guard
 import memory
 import practice
 import teach as teach_mod
@@ -203,7 +204,8 @@ def test_work_under_a_given_line_is_verified_against_it():
     g = lines[2]
     resp, result, client = _run(lines, _submit())          # the model checks nothing itself
     assert result.tool_calls[0] == f"verify_step({g.line_id}->L4, derivative) = correct"
-    assert result.verdicts == {"L4": "correct"} and resp.actions == []
+    assert result.verdicts == {"L4": "correct"}
+    assert [(a.type, a.color, a.line_id) for a in resp.actions] == [("note", "green", "L4")]   # written in code
     sent = json.loads(client.calls[0][0].parts[0].text)
     assert [l.get("given") for l in sent["lines"]] == [None, None, True, None]
     (p,) = sent["practice"]
@@ -295,7 +297,9 @@ def test_solve_under_practice_is_refused():
     steps = [{"latex": "g'(x) = 3x^2 - 5", "plain": "g'(x) = 3*x^2 - 5", "relation": "derivative"}]
     resp, result, client = _run(lines, _submit({"type": "solution", "line_id": "L4", "color": "black", "steps": steps}))
     assert len(client.calls) == 1                                                  # not sent back to be fixed either
-    assert [(a.type, a.color, a.line_id, a.text) for a in resp.actions] == [("note", "blue", "L5", practice.TRY_FIRST)]
+    # their line is wrong and the model said nothing about it: the server marks it, and turns the request down
+    assert [(a.type, a.color, a.line_id, a.text) for a in resp.actions] == [
+        ("circle", "red", "L4", None), ("note", "red", "L4", guard.CHECK_AGAIN), ("note", "blue", "L5", practice.TRY_FIRST)]
     assert any(c.startswith("practice: 1 action") for c in result.tool_calls)
     # not repeated on the next automatic check, and the model's own blue refusal is used when it sends one
     assert _run(lines, _submit(), state=resp.state)[0].actions == []
@@ -378,3 +382,62 @@ def test_pipeline_sets_grades_and_remembers_practice(monkeypatch):
     assert recent[0]["practice"][0]["status"] == "correct" and recent[0]["given"][0]["plain"] == GIVEN.plain
     assert recent[2]["practice"][0]["status"] == "set" and recent[2]["given"] == []
     assert recent[2]["actions_sent"][0]["lesson"]["practice"]["ask"] == "g'(x) ="
+
+
+# ---- the verdict is known in code, so the reply does not depend on the model sending it ----
+
+def test_green_note_is_written_in_code_once_and_not_for_halfway_steps():
+    # the live failure: g(x) = 4x^2 + 5x, the answer written under it, and the model sends nothing
+    g = GivenLine(box=(400, 80, 450, 420), latex="g(x) = 4x^2 + 5x", plain="g(x) = 4*x^2 + 5*x")
+    lines = _page(("g'(x) = 8*x + 5", "derivative", "P3"), given=(g,), read_given=False)
+    resp, result, _ = _run(lines, _submit())
+    assert result.tool_calls == [f"verify_step({lines[2].line_id}->L4, derivative) = correct", "submit_feedback(0/0 actions kept)"]
+    assert [(a.type, a.color, a.line_id, a.side, a.text) for a in resp.actions] == [
+        ("note", "green", "L4", "right", guard.WELL_DONE)]
+    assert resp.actions[0].box == (470, 80, 520, 420) and resp.state.flagged_line_ids == ["L4"]
+    # once per page state: the unchanged, already-flagged line gets nothing new, from the server or the model
+    assert _run(lines, _submit(), state=resp.state)[0].actions == []
+    assert _run(lines, _submit(_note("L4", "green", "Yes!")), state=resp.state)[0].actions == []
+    assert _run(lines, _submit(), state=resp.state, mode="help")[0].actions == []
+    # the model's own green note is the one that is used, and there is still only one
+    assert [a.text for a in _run(lines, _submit(_note("L4", "green", "Yes, that's it!")))[0].actions] == ["Yes, that's it!"]
+    # ... also when it put its praise on another line of that problem
+    resp, _, _ = _run(lines, _submit(_note(lines[2].line_id, "green", "Nicely done!")))
+    assert [(a.line_id, a.text) for a in resp.actions] == [("L4", "Nicely done!")]
+    # a correct step that does not give the value yet gets nothing; the final line does
+    eq = GivenLine(box=(400, 80, 450, 420), latex="2x + 6 = 14", plain="2*x + 6 = 14")
+    half = _page(("2*x = 8", "solve", "P3"), given=(eq,), read_given=False)
+    resp, result, _ = _run(half, _submit())
+    assert result.verdicts == {"L4": "correct"} and resp.actions == []
+    # (in help mode praise for the halfway step would read as "solved": it is shown as a hint instead)
+    resp, _, _ = _run(half, _submit(_note("L4", "green", "Good so far. Now divide both sides by 2.")), mode="help")
+    assert [(a.color, a.line_id) for a in resp.actions] == [("blue", "L4")]
+    full = _page(("2*x = 8", "solve", "P3"), ("x = 4", "solve", "P3"), given=(eq,), read_given=False)
+    assert [(a.color, a.line_id) for a in _run(full, _submit())[0].actions] == [("green", "L5")]
+    # an open last line, or a wrong line above the last one: no green note
+    still = _page(("2*x = 8", "solve", "P3"), ("x =", "solve", "P3"), given=(eq,), read_given=False)
+    assert _run(still, _submit())[0].actions == []
+    slip = _page(("2*x = 20", "solve", "P3"), ("x = 10", "solve", "P3"), given=(eq,), read_given=False)
+    assert all(a.color != "green" for a in _run(slip, _submit())[0].actions)
+    # the student's own correct work (no practice problem) still gets nothing
+    assert _run(list(OWN), _submit())[0].actions == []
+
+
+def test_silent_model_still_gets_the_mistake_marked():
+    lines = _page(("g'(x) = 3*x^2 - 5*x", "derivative", "P3"))
+    resp, result, _ = _run(lines, _submit())
+    assert result.verdicts == {"L4": "incorrect"}
+    assert [(a.type, a.color, a.line_id, a.text) for a in resp.actions] == [
+        ("circle", "red", "L4", None), ("note", "red", "L4", guard.CHECK_AGAIN)]
+    assert resp.actions[0].box == (470, 80, 520, 420) and resp.state.flagged_line_ids == ["L4"]
+    # not again while the line is unchanged
+    assert _run(lines, _submit(), state=resp.state)[0].actions == []
+    # the model marked it: its mark is the only one
+    circle = {"type": "circle", "line_id": "L4", "color": "red", "box": [470, 80, 520, 420]}
+    resp, _, _ = _run(lines, _submit(circle, _note("L4", "red", "What is the derivative of $5x$?")))
+    assert [(a.type, a.text) for a in resp.actions] == [("circle", None), ("note", "What is the derivative of $5x$?")]
+    resp, _, _ = _run(lines, _submit(_note("L4", "red", "What is the derivative of $5x$?")))
+    assert [(a.type, a.text) for a in resp.actions] == [("note", "What is the derivative of $5x$?")]
+    # help mode is the model's to answer: nothing is added there
+    hint = _note("L4", "blue", "The derivative of a term like 5x is just the number in front. Try that term again.")
+    assert [a.color for a in _run(lines, _submit(hint), mode="help")[0].actions] == ["blue"]

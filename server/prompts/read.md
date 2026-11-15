@@ -20,7 +20,7 @@ Return JSON `{"lines": [...]}`. One entry per written line, in reading order (to
   - `integral`: an antiderivative or integral of the previous line.
   - `solve`: a step in solving an equation (both sides changed, or `x = ...` found).
   - `other`: anything else: words, labels, instructions like "graph this" or "plot", printed text, a line you can't relate.
-- `source`: `"printed"` for typed worksheet text (see Printed worksheets below), `"handwriting"` for everything the student wrote.
+- `source`: `"printed"` for typed worksheet text (see Printed worksheets below), `"handwriting"` for everything the student wrote. When unsure, it is `"handwriting"`.
 - `confidence`: `"high"` when you are sure of every symbol. `"low"` when any symbol is ambiguous (smudged, a 1 that could be a 7, an unclear exponent, a cut-off line). When unsure, still write your best reading and mark it low.
 
 ## Transcribe, never fix
@@ -60,6 +60,19 @@ The page may have a printed worksheet (typed text from an imported PDF) undernea
 - Skip printed headers, page numbers, names, logos and instructions not tied to any problem.
 - Printed lines do not count when choosing relations: the first handwritten line under a printed problem is `start`.
 - Only typed text gets `source: "printed"`. Handwriting is always `source: "handwriting"`, even when it copies the problem.
+
+### Telling print from handwriting
+
+Along with `previous_lines` you may get `has_worksheet`:
+
+- `has_worksheet: false`: there is no worksheet in this image. Nothing in it is printed. Every line is `source: "handwriting"`, however neat it looks, and gets its normal `relation` (`start`, `derivative`, ...). Do not spend any effort on this question.
+- `has_worksheet: true` or missing: decide line by line, from how the marks were made, never from what the line says:
+  - **Printed** text is typeset: every copy of a letter is identical, strokes have an even, thin, machine-made width, letters sit exactly on a straight baseline with even spacing, and the text is part of a laid-out document (aligned margins, problem numbers, paragraphs, usually dark gray or black type).
+  - **Handwriting** is pen strokes: the same letter differs a little each time, lines wobble, the baseline drifts, sizes and spacing vary, strokes are thicker and rounder with pen-like ends, and it is in the student's pen colour and thickness, which is usually different from the type. It sits in the blank space under, beside or between printed problems.
+  - Neat handwriting is still handwriting. Tidy, evenly sized letters do not make a line printed if it is drawn with pen strokes.
+  - A line with the same stroke colour and thickness as lines you are sure are handwritten is handwriting too.
+  - If the image shows no worksheet layout at all (no typeset paragraphs, numbering or margins: just a few lines on a blank page), everything is handwriting.
+  - **When unsure, a line is handwriting.** Calling the student's own work printed means it is never checked, which is the worse mistake.
 
 ## Circuit diagrams
 

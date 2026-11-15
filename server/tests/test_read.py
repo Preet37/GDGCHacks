@@ -154,3 +154,25 @@ def test_open_line_is_kept_as_its_own_unfinished_line():
         [("L1", "g(x) = 6*x^2", "start"), ("L2", "g'(x) =", "derivative")]
     prompt = read_mod.PROMPT_PATH.read_text()
     assert "## Unfinished lines" in prompt and "`g'(x) =`" in prompt
+
+
+def test_no_worksheet_means_every_line_is_handwriting():
+    # the live failure: neat handwriting on an empty page came back as printed, relation "other"
+    payload = {"lines": [line(source="printed", relation="other", plain="g(x) = 6*x^2"),
+                         line(line_id="L2", source="printed", relation="derivative", plain="g'(x) ="),
+                         line(line_id="L3", problem_id="P2", plain="2*x = 8")]}
+    client = FakeClient(payload)
+    prev = [ReadLine(**line(source="printed", relation="other"))]
+    out = read_page(client, "gemini-test", b"\x89PNG fake", prev, has_worksheet=False)
+    assert [(l.source, l.relation) for l in out] == [("handwriting", "start"), ("handwriting", "derivative"), (None, "start")]
+    # the reader is told, and is not shown its own earlier "printed" label
+    sent = json.loads(next(c for c in client.models.calls[0]["contents"] if isinstance(c, str) and c.startswith('{"previous_lines"')))
+    assert sent["has_worksheet"] is False and sent["previous_lines"][0]["source"] == "handwriting"
+    assert "has_worksheet: false" in next(c for c in client.models.calls[0]["contents"] if isinstance(c, str) and "Transcribe" in c)
+    # unknown (an older page) or a worksheet in view: the reader decides, as before
+    for known, key in ((None, False), (True, True)):
+        client = FakeClient(payload)
+        out = read_page(client, "gemini-test", b"\x89PNG fake", prev, **({} if known is None else {"has_worksheet": known}))
+        assert [(l.source, l.relation) for l in out] == [("printed", "other"), ("printed", "other"), (None, "start")]
+        sent = json.loads(next(c for c in client.models.calls[0]["contents"] if isinstance(c, str) and c.startswith('{"previous_lines"')))
+        assert ("has_worksheet" in sent) is key and sent["previous_lines"][0]["source"] == "printed"

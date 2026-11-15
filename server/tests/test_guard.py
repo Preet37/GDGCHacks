@@ -1,3 +1,4 @@
+import guard
 from guard import merge
 from internal import HintUpdate, TeachResult
 from models import Action, PageState, ProblemState, ReadLine
@@ -284,3 +285,57 @@ def test_a_solve_request_never_gets_silence():
         assert again.actions == []
     plain = merge(state, [l1], TeachResult(), "auto")                   # no request: still nothing
     assert plain.actions == []
+
+
+def test_a_checked_mistake_is_marked_when_the_model_says_nothing():
+    lines = [start(), wrong()]
+    quiet = lambda **kw: TeachResult(verdicts={"L2": "incorrect"}, **kw)
+    out = merge(state(), lines, quiet(), "auto", marked={})
+    assert [(a.type, a.color, a.line_id, a.text) for a in out.actions] == [
+        ("circle", "red", "L2", None), ("note", "red", "L2", guard.CHECK_AGAIN)]
+    assert out.actions[0].box == wrong().box and out.state.flagged_line_ids == ["L2"]
+    # a hint the guard drops on an automatic check is still silence for the student
+    hint = quiet(actions=[Action(type="note", line_id="L2", color="blue", text="Try the power rule on each term.")])
+    assert [(a.type, a.color) for a in merge(state(), lines, hint, "auto").actions] == [("circle", "red"), ("note", "red")]
+    # never twice: not beside the model's own mark, and not on a line that already has feedback and is unchanged
+    assert [a.text for a in merge(state(), lines, mistake(), "auto").actions] == [None, "What is the derivative of $3x$?"]
+    st = state(lines=lines, flagged_line_ids=["L2"])
+    for marked in (None, {}, {"L2": wrong().plain}):
+        assert merge(st, lines, quiet(), "auto", marked=marked).actions == []
+    # only an automatic check, only a checked `incorrect`, and only a finished model turn
+    assert merge(state(), lines, quiet(), "help").actions == []
+    for verdict in ("unknown", "correct"):
+        assert merge(state(), lines, TeachResult(verdicts={"L2": verdict}), "auto").actions == []
+    assert merge(state(), lines, TeachResult(), "auto").actions == []
+    assert merge(state(), lines, quiet(finished=False), "auto").actions == []
+    # never an open line, printed text, a line read with low confidence, or the word "solve"
+    for other in (open_line(), wrong().model_copy(update={"source": "printed"}),
+                  wrong().model_copy(update={"confidence": "low"}), wrong().model_copy(update={"plain": "solve"})):
+        assert all(a.color != "red" for a in merge(state(), [start(), other], quiet(), "auto").actions)
+    # one mark per problem: the first wrong line, and none where the model marked another line of that problem
+    third = wrong("L3").model_copy(update={"plain": "f''(x) = 6*x - 3", "box": (40, 0, 50, 10)})
+    both = TeachResult(verdicts={"L2": "incorrect", "L3": "incorrect"})
+    assert [a.line_id for a in merge(state(), lines + [third], both, "auto").actions] == ["L2", "L2"]
+    both.actions = [Action(type="circle", line_id="L3", color="red")]
+    assert [a.line_id for a in merge(state(), lines + [third], both, "auto").actions] == ["L3"]
+
+
+def test_help_hints_always_go_below_their_line():
+    acts = [Action(type="note", line_id="L2", color="blue", side="right", text="Bring the power down on each term."),
+            Action(type="note", line_id="L2", color="red", side="right", text="What is the derivative of $3x$?"),
+            Action(type="note", line_id="L1", color="green", side="right", text="Correct so far.")]
+    out = merge(state(), [start(), wrong()], TeachResult(actions=acts, verdicts={"L2": "incorrect"}), "help")
+    assert [(a.color, a.side) for a in out.actions] == [("blue", "below"), ("red", "right"), ("green", "right")]
+
+
+def test_a_red_question_without_a_circle_gets_one_when_the_checker_agrees():
+    from internal import TeachResult
+    from models import Action, PageState, ReadLine
+    from guard import merge
+    l1 = ReadLine(line_id="L1", problem_id="P1", latex="2x+6=14", plain="2*x + 6 = 14", box=(100, 50, 200, 500), relation="start", confidence="high")
+    l2 = ReadLine(line_id="L2", problem_id="P1", latex="2x=20", plain="2*x = 20", box=(250, 50, 350, 400), relation="solve", confidence="high")
+    note = Action(type="note", line_id="L2", color="red", side="right", text="What happens to the 6?", box=l2.box)
+    r = merge(PageState(page_id="t"), [l1, l2], TeachResult(actions=[note], verdicts={"L2": "incorrect"}), "auto")
+    assert sorted((a.type, a.line_id) for a in r.actions) == [("circle", "L2"), ("note", "L2")]
+    r = merge(PageState(page_id="t"), [l1, l2], TeachResult(actions=[note], verdicts={"L2": "unknown"}), "auto")
+    assert [(a.type) for a in r.actions] == ["note"]   # the checker did not confirm it: no circle added

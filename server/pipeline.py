@@ -26,6 +26,7 @@ def begin(req: CheckRequest) -> dict:
         "help_box": list(req.help_box) if req.help_box else None,
         "question": req.question,
         "given": [{"plain": g.plain, "box": list(g.box)} for g in req.given or []],
+        "has_worksheet": req.has_worksheet,
         "state_in": {"lines": len(req.state.lines), "flagged_line_ids": list(req.state.flagged_line_ids),
                      "problems": [p.model_dump() for p in req.state.problems]},
     }
@@ -145,7 +146,10 @@ def _run_check(req: CheckRequest, entry: dict) -> CheckResponse:
     page_id = req.state.page_id
     # The reader is not shown the tutor-written problem lines of last time: they come from the page (`given`),
     # and are put in place of whatever the reader read at that spot.
-    lines = read.read_page(client, model, image_png, [l for l in req.state.lines if not practice.is_given(l)])
+    # `has_worksheet: false` = no worksheet in the image, so the reader is told that nothing is print and any
+    # "printed" label is undone in code (a printed line is never graded or finished: the tutor would go silent).
+    known = {"has_worksheet": req.has_worksheet} if req.has_worksheet is not None else {}
+    lines = read.read_page(client, model, image_png, [l for l in req.state.lines if not practice.is_given(l)], **known)
     lines = practice.merge_given(lines, req.given, memory.practice_tasks(page_id))
     read_ms = _ms(t0)
     entry.update(model=model, read_ms=read_ms, lines=[_line_summary(l) for l in lines])
