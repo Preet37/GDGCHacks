@@ -13,7 +13,7 @@ export interface ReadLine {
   source?: "handwriting" | "printed"; // printed = typed worksheet text (context only, never marked); missing = handwriting
 }
 
-export type ActionType = "circle" | "underline" | "note" | "figure" | "ask" | "speak" | "lesson";
+export type ActionType = "circle" | "underline" | "note" | "figure" | "ask" | "speak" | "lesson" | "solution";
 
 export interface FigureSpec {
   kind: "plot2d" | "surface3d";
@@ -34,6 +34,8 @@ export interface Action {
   options?: string[];         // ask: choices, e.g. ["x^2", "x_2"]
   figure?: FigureSpec;        // figure only
   lesson?: Lesson;            // lesson only: placed next to `box` like a figure
+  steps?: string[];           // solution only: the worked steps, one LaTeX line each, written one under another
+                              // below `box` at the handwriting's size. Only sent when the student asked for a full solve
 }
 
 export interface ProblemState {
@@ -97,4 +99,19 @@ export interface LessonStep {
 export interface Lesson {
   title: string;
   steps: LessonStep[];        // 3 to 7 steps
+}
+
+// ---- Handwriting: POST /api/glyphs. Finds each handwritten character so the page can learn the student's letter shapes. ----
+
+export interface GlyphBox {
+  char: string;               // one character as written: a digit, letter, operator or bracket ("x", "2", "=", "+", "(")
+  box: Box;                   // tight box around that character, 0-1000 over the sent image
+}
+
+export interface GlyphsRequest {
+  image_base64: string;       // PNG of handwriting only (no worksheet, no tutor marks), longest side <= 1280 px
+}
+
+export interface GlyphsResponse {
+  glyphs: GlyphBox[];
 }

@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 Box = tuple[int, int, int, int]  # [ymin, xmin, ymax, xmax], 0-1000 over the sent image
 
 Relation = Literal["start", "equals", "simplify", "derivative", "integral", "solve", "other"]
-ActionType = Literal["circle", "underline", "note", "figure", "ask", "speak", "lesson"]
+ActionType = Literal["circle", "underline", "note", "figure", "ask", "speak", "lesson", "solution"]
 
 
 class ReadLine(BaseModel):
@@ -74,6 +74,7 @@ class Action(BaseModel):
     options: Optional[list[str]] = None
     figure: Optional[FigureSpec] = None
     lesson: Optional[Lesson] = None
+    steps: Optional[list[str]] = None
 
 
 class ProblemState(BaseModel):
@@ -109,3 +110,16 @@ class CheckResponse(BaseModel):
     clear_line_ids: list[str] = Field(default_factory=list)
     state: PageState
     debug: Optional[Debug] = None
+
+
+class GlyphBox(BaseModel):
+    char: str
+    box: Box
+
+
+class GlyphsRequest(BaseModel):
+    image_base64: str
+
+
+class GlyphsResponse(BaseModel):
+    glyphs: list[GlyphBox] = Field(default_factory=list)

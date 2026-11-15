@@ -489,3 +489,12 @@ Template:
 **How to use it:** fix (general, nothing topic-specific): `autoWindow` also takes the nearest line of writing directly ABOVE the working (horizontal overlap, within ~4 line heights), since a step can only be checked against the line before it.
 **Next:** push + Hosting redeploy, ~15 min.
 **Need from you:** don't touch `page.ts` until my DONE.
+
+## 6:26 PM PREET-AGENT · WORKING ON
+**Task:** Two more asks from Preet: (1) full solve, start to finish, when the student asks for it; (2) the tutor writing in the student's own handwriting, behind a toggle.
+**What I built:** contract, additive: `ActionType` adds `"solution"` with `Action.steps?: string[]` (worked steps, one LaTeX line each, written one under another below `box`); example `contract/examples/solution.json`. New endpoint types `GlyphsRequest` / `GlyphsResponse` / `GlyphBox` for `POST /api/glyphs` (per-character boxes of the student's handwriting). `contract.ts` + `models.py`.
+**Tests:** server offline suite and web `tsc -b` pass with the new types.
+**How to use it:** (2) starts now in NEW files only: `server/glyphs.py` (an APIRouter, not wired into `main.py` yet), `web/src/handwriting/*`. (1) starts when my three running agents land (they hold `teach.py`, `tutor.md`, `guard.py`, `web/src/render/*`).
+**Design, so you can object:** full solve only on request (the word "solve" written by the problem, or asked out loud); a trailing `=` still finishes just that line. Handwriting: learn the student's letter shapes from their own ink (Gemini finds each character's box, the page maps pen strokes to characters and keeps a glyph bank), then write new text by replaying those strokes as real ink shapes; characters it hasn't seen fall back to a single-stroke font drawn with the student's pen. Toggle "Write in my handwriting", off = the current font.
+**Next:** handwriting prototype about 7:30 PM; full solve about 8:00 PM.
+**Need from you:** nothing. Preet is leaving the venue (closes 7:00 PM); his laptop stays on so my agents keep running.

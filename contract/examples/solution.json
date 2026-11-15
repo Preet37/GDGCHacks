@@ -1,0 +1,93 @@
+{
+  "lines": [
+    {
+      "line_id": "L1",
+      "problem_id": "P1",
+      "latex": "3x^2 - 3 = 0",
+      "plain": "3*x^2 - 3 = 0",
+      "box": [
+        150,
+        80,
+        230,
+        420
+      ],
+      "relation": "start",
+      "confidence": "high"
+    },
+    {
+      "line_id": "L2",
+      "problem_id": "P1",
+      "latex": "\\text{solve}",
+      "plain": "solve",
+      "box": [
+        150,
+        460,
+        220,
+        620
+      ],
+      "relation": "other",
+      "confidence": "high"
+    }
+  ],
+  "actions": [
+    {
+      "type": "solution",
+      "box": [
+        150,
+        80,
+        230,
+        420
+      ],
+      "line_id": "L1",
+      "color": "black",
+      "steps": [
+        "3x^2 = 3",
+        "x^2 = 1",
+        "x = \\pm 1"
+      ]
+    }
+  ],
+  "clear_line_ids": [],
+  "state": {
+    "page_id": "demo",
+    "lines": [
+      {
+        "line_id": "L1",
+        "problem_id": "P1",
+        "latex": "3x^2 - 3 = 0",
+        "plain": "3*x^2 - 3 = 0",
+        "box": [
+          150,
+          80,
+          230,
+          420
+        ],
+        "relation": "start",
+        "confidence": "high"
+      },
+      {
+        "line_id": "L2",
+        "problem_id": "P1",
+        "latex": "\\text{solve}",
+        "plain": "solve",
+        "box": [
+          150,
+          460,
+          220,
+          620
+        ],
+        "relation": "other",
+        "confidence": "high"
+      }
+    ],
+    "problems": [
+      {
+        "problem_id": "P1",
+        "hint_level": 0
+      }
+    ],
+    "flagged_line_ids": [
+      "L1"
+    ]
+  }
+}
