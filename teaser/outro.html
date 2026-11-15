@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Socra: closing cut</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=block" rel="stylesheet">
+<style>
+:root{--paper:#F7F5F1;--ink:#16151A;--muted:#7A756D;--line:#E4DED4;--red:#e03131;--blue:#2563eb;--green:#1E9E5A;
+  --serif:'Instrument Serif',Georgia,serif;--sans:'Inter',-apple-system,Arial,sans-serif;--mono:'JetBrains Mono',Menlo,monospace;
+  --shadow:0 1px 2px rgba(40,32,20,.05),0 10px 30px -10px rgba(60,46,28,.14),0 34px 90px -30px rgba(60,46,28,.16)}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);overflow:hidden}
+body{width:1920px;height:1080px;font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased}
+#grid{position:absolute;inset:0;background-image:linear-gradient(to right,rgba(22,21,26,.05) 1px,transparent 1px),linear-gradient(to bottom,rgba(22,21,26,.05) 1px,transparent 1px);background-size:48px 48px}
+.cap{position:absolute;left:0;width:1920px;top:70px;text-align:center;font-family:var(--serif);font-size:74px;letter-spacing:-.01em}
+.box{position:absolute;top:330px;width:330px;height:300px;background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:28px 26px}
+.box .k{font-family:var(--mono);font-size:17px;color:var(--muted);letter-spacing:.04em;text-transform:uppercase}
+.box h3{margin:12px 0 10px;font-family:var(--serif);font-weight:400;font-size:46px;line-height:1.02}
+.box p{margin:0;font-size:21px;line-height:1.35;color:#3A3730}
+.box .tag{position:absolute;left:26px;bottom:22px;font-family:var(--mono);font-size:17px;padding:6px 12px;border-radius:999px}
+.g{background:#EEF3FE;color:#1d4ed8}.c{background:#EAF6EF;color:#17603a}
+.arr{position:absolute;top:462px;width:60px;height:36px}
+.arr svg{width:60px;height:36px}
+.rule{position:absolute;left:0;width:1920px;top:740px;text-align:center;font-family:var(--serif);font-size:58px}
+.rule em{font-style:italic;color:var(--red)}
+.foot{position:absolute;left:0;width:1920px;top:850px;text-align:center;font-family:var(--mono);font-size:22px;color:var(--muted)}
+#B .mark{position:absolute;left:0;width:1920px;top:330px;text-align:center;font-family:var(--serif);font-size:230px;letter-spacing:-.02em;line-height:1}
+#B .mark i{display:inline-block;width:150px;height:150px;border:9px solid var(--red);border-radius:50%;margin-right:38px;vertical-align:14px;font-style:italic;font-size:120px;line-height:124px;color:var(--ink)}
+#B .tl{position:absolute;left:0;width:1920px;top:600px;text-align:center;font-family:var(--serif);font-size:74px;color:var(--ink)}
+#B .url{position:absolute;left:0;width:1920px;top:740px;text-align:center;font-family:var(--mono);font-size:30px;color:var(--blue)}
+#B .by{position:absolute;left:0;width:1920px;top:820px;text-align:center;font-family:var(--mono);font-size:21px;color:var(--muted)}
+</style>
+</head>
+<body>
+<div id="grid"></div>
+<div id="A">
+  <div class="cap">Gemini reads and explains. Code does the math.</div>
+  <div class="box" id="b1" style="left:110px"><div class="k">1 · capture</div><h3>Your page</h3><p>Only the ink near your pen is sent.</p><span class="tag c">in the browser</span></div>
+  <div class="arr" id="a1" style="left:455px"><svg viewBox="0 0 60 36"><path d="M4 18H50M36 6l16 12-16 12" stroke="#16151A" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="box" id="b2" style="left:530px"><div class="k">2 · read</div><h3>Gemini vision</h3><p>Handwriting and diagrams become structured lines.</p><span class="tag g">Gemini 3.5 Flash</span></div>
+  <div class="arr" id="a2" style="left:875px"><svg viewBox="0 0 60 36"><path d="M4 18H50M36 6l16 12-16 12" stroke="#16151A" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="box" id="b3" style="left:950px"><div class="k">3 · check</div><h3>Math engines</h3><p>SymPy, a circuit solver, units and force balance, called as tools.</p><span class="tag c">deterministic code</span></div>
+  <div class="arr" id="a3" style="left:1295px"><svg viewBox="0 0 60 36"><path d="M4 18H50M36 6l16 12-16 12" stroke="#16151A" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="box" id="b4" style="left:1370px;width:440px"><div class="k">4 · teach</div><h3>Back on your page</h3><p>A circle, a hint, a lesson with Gemini's voice, a graph, a 3D model.</p><span class="tag g">Gemini + TTS</span></div>
+  <div class="rule" id="rule">A red mark is <em>never a guess</em>.</div>
+  <div class="foot" id="foot">React · tldraw · KaTeX · Three.js · FastAPI · Cloud Run · Firebase</div>
+</div>
+<div id="B">
+  <div class="mark" id="mark"><i>x</i>Socra</div>
+  <div class="tl" id="tl">The tutor that's already on your page.</div>
+  <div class="url" id="url">tutor-1098c.web.app</div>
+  <div class="by" id="by">Built at Google DevFest 2026 · UC Santa Cruz · Preet + Parsh</div>
+</div>
+<script>
+const SPLIT = (window.TIMELINE && window.TIMELINE.meta.split) || 6.8
+const $ = (id) => document.getElementById(id)
+const ease = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x) }
+const ramp = (t, t0, d = 0.4) => ease((t - t0) / d)
+const show = (el, o, dy = 0) => { el.style.opacity = o; el.style.transform = `translateY(${dy}px)` }
+window.renderFrame = function (ms) {
+  const t = ms / 1000
+  $('A').style.display = t < SPLIT + 0.35 ? 'block' : 'none'
+  $('A').style.opacity = 1 - ramp(t, SPLIT, 0.35)
+  $('B').style.display = t >= SPLIT ? 'block' : 'none'
+  const seq = ['b1', 'a1', 'b2', 'a2', 'b3', 'a3', 'b4']
+  seq.forEach((id, i) => show($(id), ramp(t, 0.3 + i * 0.32), (1 - ramp(t, 0.3 + i * 0.32)) * 16))
+  show(document.querySelector('.cap'), ramp(t, 0.05), (1 - ramp(t, 0.05)) * 12)
+  show($('rule'), ramp(t, 3.0), (1 - ramp(t, 3.0)) * 14)
+  show($('foot'), ramp(t, 3.8), 0)
+  show($('mark'), ramp(t, SPLIT + 0.2), (1 - ramp(t, SPLIT + 0.2)) * 20)
+  show($('tl'), ramp(t, SPLIT + 0.7), (1 - ramp(t, SPLIT + 0.7)) * 14)
+  show($('url'), ramp(t, SPLIT + 1.2), 0)
+  show($('by'), ramp(t, SPLIT + 1.5), 0)
+}
+document.fonts.ready.then(() => { window.renderFrame(0); window.__ready = true })
+</script>
+</body>
+</html>

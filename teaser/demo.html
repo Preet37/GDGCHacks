@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><title>Socra: demo frame (left panel, captions, figures)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=block" rel="stylesheet">
+<style>
+:root{--paper:#F7F5F1;--ink:#16151A;--muted:#7A756D;--line:#E4DED4;--red:#e03131;--blue:#2563eb;
+ --serif:'Instrument Serif',Georgia,serif;--sans:'Inter',-apple-system,Arial,sans-serif;--mono:'JetBrains Mono',Menlo,monospace;
+ --shadow:0 1px 2px rgba(40,32,20,.05),0 10px 30px -10px rgba(60,46,28,.14),0 34px 90px -30px rgba(60,46,28,.16)}
+*{box-sizing:border-box}html,body{margin:0;background:var(--paper);overflow:hidden}
+body{width:1920px;height:1080px;font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased}
+#grid{position:absolute;inset:0;background-image:linear-gradient(to right,rgba(22,21,26,.05) 1px,transparent 1px),linear-gradient(to bottom,rgba(22,21,26,.05) 1px,transparent 1px);background-size:48px 48px}
+#brand{position:absolute;left:90px;top:64px;font-family:var(--serif);font-size:46px;display:flex;align-items:center;gap:14px}
+#brand i{width:40px;height:40px;border:3.5px solid var(--red);border-radius:50%;display:inline-block;text-align:center;font-size:30px;line-height:31px;font-style:italic}
+#kick{position:absolute;left:92px;top:250px;font-family:var(--mono);font-size:22px;letter-spacing:.08em;color:var(--muted);text-transform:uppercase}
+#title{position:absolute;left:88px;top:296px;width:900px;font-family:var(--serif);font-size:98px;line-height:1.0;letter-spacing:-.015em}
+#chips{position:absolute;left:92px;top:560px;width:900px;display:flex;flex-direction:column;gap:14px;align-items:flex-start}
+.chip{font-size:27px;line-height:1.25;padding:13px 22px;border-radius:16px;background:#fff;border:1px solid var(--line);box-shadow:0 6px 20px -12px rgba(60,46,28,.25);max-width:880px}
+.chip b{font-weight:600}.chip.g{background:#EEF3FE;border-color:#d5e0fb;color:#173a9e}.chip.c{background:#EAF6EF;border-color:#c7e6d4;color:#14532d}
+#sub{position:absolute;left:92px;bottom:74px;width:900px;font-size:31px;line-height:1.3;color:#3A3730;font-weight:500}
+#dev{position:absolute;left:1110px;top:50px;width:750px;height:980px;border-radius:26px;background:#f9fafb;border:1px solid #D9D2C6;box-shadow:var(--shadow)}
+#note{position:absolute;left:1110px;top:1040px;width:750px;text-align:center;font-family:var(--mono);font-size:16px;color:var(--muted)}
+/* full-screen figure: the handwriting model that is being built */
+#model{position:absolute;inset:0;background:var(--paper)}
+#model .g2{position:absolute;inset:0;background-image:linear-gradient(to right,rgba(22,21,26,.05) 1px,transparent 1px),linear-gradient(to bottom,rgba(22,21,26,.05) 1px,transparent 1px);background-size:48px 48px}
+#badge{position:absolute;left:0;width:1920px;top:92px;text-align:center}
+#badge span{display:inline-block;font-family:var(--mono);font-size:24px;letter-spacing:.1em;padding:10px 22px;border-radius:999px;background:#FFF4E5;border:1.5px solid #F2C27A;color:#8a4b00}
+#mt{position:absolute;left:0;width:1920px;top:160px;text-align:center;font-family:var(--serif);font-size:88px;letter-spacing:-.015em}
+.mb{position:absolute;top:400px;width:370px;height:280px;background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);padding:28px 26px}
+.mb .k{font-family:var(--mono);font-size:17px;color:var(--muted);letter-spacing:.05em;text-transform:uppercase}
+.mb h3{margin:12px 0 10px;font-family:var(--serif);font-weight:400;font-size:44px;line-height:1.03}
+.mb p{margin:0;font-size:21px;line-height:1.35;color:#3A3730}
+.ma{position:absolute;top:522px;width:60px;height:36px}
+#mf{position:absolute;left:0;width:1920px;top:760px;text-align:center;font-size:30px;line-height:1.4;color:#3A3730}
+#mf b{font-weight:600}
+#msub{position:absolute;left:260px;width:1400px;bottom:70px;text-align:center;font-size:31px;line-height:1.3;color:#3A3730;font-weight:500}
+</style></head><body>
+<div id="grid"></div>
+<div id="panel">
+  <div id="brand"><i>x</i>Socra</div>
+  <div id="kick"></div><div id="title"></div><div id="chips"></div><div id="sub"></div>
+  <div id="dev"></div><div id="note">iPad screen recording of the live app · sped up</div>
+</div>
+<div id="model"><div class="g2"></div>
+  <div id="badge"><span>IN DEVELOPMENT · NOT IN THE APP YET</span></div>
+  <div id="mt">Next: a model of your handwriting</div>
+  <div class="mb" id="m1" style="left:120px"><div class="k">input</div><h3>A few lines of your writing</h3><p>Pen strokes from your own page.</p></div>
+  <div class="ma" id="x1" style="left:508px"><svg viewBox="0 0 60 36"><path d="M4 18H50M36 6l16 12-16 12" stroke="#16151A" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="mb" id="m2" style="left:586px"><div class="k">1</div><h3>Style encoder</h3><p>Captures how you form your letters as a style vector.</p></div>
+  <div class="ma" id="x2" style="left:974px"><svg viewBox="0 0 60 36"><path d="M4 18H50M36 6l16 12-16 12" stroke="#16151A" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="mb" id="m3" style="left:1052px"><div class="k">2</div><h3>Stroke generator</h3><p>Pretrained on public handwriting data, conditioned on your style.</p></div>
+  <div class="ma" id="x3" style="left:1440px"><svg viewBox="0 0 60 36"><path d="M4 18H50M36 6l16 12-16 12" stroke="#16151A" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="mb" id="m4" style="left:1518px;width:290px"><div class="k">output</div><h3>Any math, in your hand</h3><p>No training per user.</p></div>
+  <div id="mf"><b>Today</b> Socra replays the pen strokes it finds on your page. This model is what we are building next.</div>
+  <div id="msub"></div>
+</div>
+<script>
+const SEG = [
+  { a: 0.0, b: 8.0, k: '01 · find the step', t: 'It finds the step you got wrong.', c: [['g', '<b>Gemini 3.5 Flash</b> reads the handwriting'], ['c', 'A math engine (<b>SymPy</b>) checks each step'], ['', 'It asks a question. It does not hand over the answer.']] },
+  { a: 8.0, b: 15.0, k: '02 · help', t: 'Stuck? A hint, not the answer.', c: [['g', 'The tutor answers through <b>function calls</b>'], ['', 'Stay stuck and the next hint goes further']] },
+  { a: 15.0, b: 21.6, k: '03 · see it', t: "It's visual.", c: [['c', 'Graphs and 3D surfaces drawn in the browser from the checked formula'], ['g', 'Ask out loud for a <b>3D model</b> you can turn']] },
+  { a: 21.6, b: 31.2, k: '04 · teach me', t: 'A lesson about your mistake.', c: [['g', 'Lesson written by <b>Gemini</b>, voiced by <b>Gemini text-to-speech</b>'], ['', 'Then it is your turn, checked the same way']] },
+  { a: 31.2, b: 36.6, k: '05 · your handwriting', t: 'It writes back in your hand.', c: [['g', 'Gemini finds each letter on your page'], ['c', 'Socra replays your own pen strokes']] },
+  { a: 51.5, b: 59.3, k: '06 · engineering', t: 'Engineering, too.', c: [['c', 'A <b>circuit solver</b> checks your answer'], ['c', 'Voltages and currents labelled on your own drawing'], ['', 'Change a value: re-solved in code, no AI call']] },
+  { a: 59.3, b: 68.3, k: '07 · real homework', t: 'It works on real homework.', c: [['', 'Import the PDF, circle a problem'], ['c', 'Every step of the solution is re-checked by code']] },
+]
+const MODEL = [36.6, 51.5]
+const SUBS = [
+  [0.0, 'This is Socra.'], [1.3, 'I just write.'], [2.2, 'It reads my handwriting and finds the exact step I got wrong.'], [5.1, "It asks me a question. It doesn't just hand me the answer."],
+  [8.1, "If I'm stuck, I tap Help and get a hint."], [10.9, 'Stay stuck, and the next one goes even further.'], [15.1, "It's visual."], [16.2, 'Any equation becomes a graph I can turn,'], [18.5, 'and I can ask for a model of the real thing.'],
+  [21.8, 'When I want to really understand it, Teach me builds a lesson around my mistake.'], [26.6, "Then it's my turn, and it tells me when I've got it."],
+  [31.4, 'It even learns my own handwriting. It picks out my letters and writes the answer back in my own hand.'],
+  [36.8, 'A style encoder reads a few lines of your writing and captures how you form your letters.'], [41.5, 'A stroke generation model, pretrained on public handwriting datasets,'], [45.4, 'then writes anything in that style, including math, with no per-user training.'],
+  [51.6, 'For engineering, it checks my circuit, labels my own drawings,'], [55.4, 'and lets me change a value and watch everything else update.'],
+  [59.5, 'And it works on real homework, too.'], [61.3, 'I import the PDF of my own problem set, circle a problem, and it writes out every step.'], [66.7, ''],
+]
+const $ = (id) => document.getElementById(id)
+const ease = (x) => { x = Math.max(0, Math.min(1, x)); return x * x * (3 - 2 * x) }
+const ramp = (t, t0, d = 0.35) => ease((t - t0) / d)
+let lastSeg = -2
+window.renderFrame = function (ms) {
+  const t = ms / 1000
+  const inModel = t >= MODEL[0] && t < MODEL[1]
+  $('model').style.display = inModel ? 'block' : 'none'
+  $('panel').style.display = inModel ? 'none' : 'block'
+  const sub = SUBS.filter((s) => t >= s[0]).at(-1)
+  const subText = sub ? sub[1] : ''
+  if (inModel) {
+    const m = t - MODEL[0]
+    ;['m1', 'x1', 'm2', 'x2', 'm3', 'x3', 'm4'].forEach((id, i) => { const o = ramp(m, 0.5 + i * 0.45); $(id).style.opacity = o; $(id).style.transform = `translateY(${(1 - o) * 16}px)` })
+    $('mt').style.opacity = ramp(m, 0.1); $('badge').style.opacity = ramp(m, 0.0, 0.25); $('mf').style.opacity = ramp(m, 4.2)
+    $('msub').textContent = subText
+    $('model').style.opacity = Math.min(ramp(m, 0, 0.3), 1 - ramp(t, MODEL[1] - 0.3, 0.3))
+    return
+  }
+  const i = SEG.findIndex((s) => t >= s.a && t < s.b)
+  const s = SEG[i]
+  if (i !== lastSeg) {
+    lastSeg = i
+    $('kick').textContent = s ? s.k : ''
+    $('title').textContent = s ? s.t : ''
+    $('chips').innerHTML = s ? s.c.map(([cls, html]) => `<div class="chip ${cls}">${html}</div>`).join('') : ''
+  }
+  if (s) {
+    const u = t - s.a
+    const out = 1 - ramp(t, s.b - 0.25, 0.25)
+    $('kick').style.opacity = ramp(u, 0.05) * out
+    $('title').style.opacity = ramp(u, 0.12) * out; $('title').style.transform = `translateY(${(1 - ramp(u, 0.12)) * 16}px)`
+    ;[...$('chips').children].forEach((el, k) => { const o = ramp(u, 0.9 + k * 0.9) * out; el.style.opacity = o; el.style.transform = `translateY(${(1 - ramp(u, 0.9 + k * 0.9)) * 12}px)` })
+  }
+  $('sub').textContent = subText
+}
+document.fonts.ready.then(() => { window.renderFrame(0); window.__ready = true })
+</script></body></html>

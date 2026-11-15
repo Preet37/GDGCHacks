@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Socra: the problem (opening cut)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Caveat:wght@500;600;700&display=block" rel="stylesheet">
+<style>
+:root{--paper:#F7F5F1;--ink:#16151A;--muted:#7A756D;--line:#E4DED4;--soft:#F3F0EA;--red:#e03131;--blue:#2563eb;--green:#1E9E5A;
+  --serif:'Instrument Serif',Georgia,serif;--sans:'Inter',-apple-system,Arial,sans-serif;--mono:'JetBrains Mono',Menlo,monospace;--hand:'Caveat',cursive;
+  --shadow:0 1px 2px rgba(40,32,20,.05),0 10px 30px -10px rgba(60,46,28,.14),0 34px 90px -30px rgba(60,46,28,.16)}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--paper);overflow:hidden}
+body{width:1920px;height:1080px;font-family:var(--sans);color:var(--ink);-webkit-font-smoothing:antialiased}
+#grid{position:absolute;inset:0;background-image:linear-gradient(to right,rgba(22,21,26,.05) 1px,transparent 1px),linear-gradient(to bottom,rgba(22,21,26,.05) 1px,transparent 1px);background-size:48px 48px}
+.cap{position:absolute;left:0;width:1920px;top:64px;text-align:center;font-family:var(--serif);font-size:74px;line-height:1.05;letter-spacing:-.01em}
+.card{position:absolute;background:#fff;border:1px solid var(--line);border-radius:22px;box-shadow:var(--shadow);overflow:hidden}
+.tbar{height:46px;border-bottom:1px solid #EDE8E0;display:flex;align-items:center;padding:0 18px;background:#FBFAF8;position:relative}
+.tbar i{width:12px;height:12px;border-radius:50%;display:inline-block;margin-right:8px}
+.tbar i:nth-child(1){background:#FF5F57}.tbar i:nth-child(2){background:#FEBC2E}.tbar i:nth-child(3){background:#28C840}
+.tbar span{position:absolute;left:0;right:0;text-align:center;font-family:var(--mono);font-size:16px;color:var(--muted)}
+/* the homework page */
+#hw{left:150px;top:250px;width:720px;height:640px}
+#hw .body{padding:38px 46px;font-family:var(--hand);font-weight:600;color:#1d1d1d}
+#hw .q{font-family:var(--sans);font-weight:600;font-size:22px;color:var(--muted);margin-bottom:18px}
+#hw .l{font-size:76px;line-height:1.15;white-space:nowrap}
+#hw .stuck{position:absolute;left:46px;top:330px;font-size:54px;color:var(--red)}
+#hw .copied{position:absolute;left:46px;top:216px;font-size:76px;line-height:1.15;color:#1d1d1d;white-space:nowrap}
+#snap{position:absolute;left:26px;top:118px;width:668px;height:270px;border:4px dashed var(--blue);border-radius:14px;background:rgba(37,99,235,.06)}
+#flash{position:absolute;inset:0;background:#fff}
+/* the chat tab */
+#chat{left:1050px;top:250px;width:720px;height:640px}
+#chat .body{padding:30px 36px}
+#ask{margin-left:auto;width:max-content;display:flex;align-items:center;gap:16px;padding:12px 18px 12px 12px;border-radius:20px;background:var(--soft);border:1px solid #EDE8E0;font-size:21px}
+#ask .ph{width:170px;height:76px;border-radius:10px;background:#fff;border:1px solid var(--line);padding:8px 10px;font-family:var(--hand);font-weight:600;font-size:22px;line-height:1.1}
+#rep{margin-top:26px;font-size:21px;line-height:1.5}
+#rep .who{display:flex;align-items:center;gap:10px;font-family:var(--mono);font-size:15px;color:var(--muted);margin-bottom:8px}
+#rep .who b{width:22px;height:22px;border-radius:7px;background:var(--ink);display:block}
+#rep .m{font-family:var(--mono);font-size:21px;color:#3A3730;height:42px;display:flex;align-items:center}
+#rep .ans{margin-top:12px;width:max-content;padding:12px 20px;border-radius:14px;background:#EAF6EF;border:1px solid #BFE3CE;font-family:var(--mono);font-size:24px;font-weight:600;color:#17603a}
+/* the arrow between the two */
+#arrow{position:absolute;left:880px;top:520px;width:160px;height:100px}
+#arrow svg{width:160px;height:100px;overflow:visible}
+.step{position:absolute;left:0;width:1920px;top:930px;text-align:center;font-family:var(--mono);font-size:30px;color:var(--muted);letter-spacing:.02em}
+.step b{color:var(--ink);font-weight:600}
+/* the exam */
+#exam{left:560px;top:250px;width:800px;height:640px}
+#exam .body{padding:46px 56px}
+#exam h3{margin:0 0 6px;font-family:var(--serif);font-size:54px;font-weight:400}
+#exam .sub{font-family:var(--mono);font-size:18px;color:var(--muted);margin-bottom:34px}
+#exam .q{font-size:30px;margin-bottom:18px}
+#exam .blank{height:3px;background:#E4DED4;margin:46px 0}
+#exam .cur{position:absolute;left:58px;top:318px;width:3px;height:44px;background:var(--ink)}
+/* the turn */
+.big{position:absolute;left:0;width:1920px;text-align:center;font-family:var(--serif);letter-spacing:-.015em}
+#t1{top:330px;font-size:128px}
+#t2{top:520px;font-size:104px;color:var(--muted)}
+#t2 em{font-style:italic;color:var(--red)}
+#t3{top:700px;font-size:60px;color:var(--ink)}
+</style>
+</head>
+<body>
+<div id="grid"></div>
+
+<div id="A">
+  <div class="cap" id="capA"></div>
+  <div class="card" id="hw">
+    <div class="tbar"><i></i><i></i><i></i><span>Homework 6</span></div>
+    <div class="body">
+      <div class="q">3. Find the derivative.</div>
+      <div class="l">f(x) = 3x² + 2x</div>
+      <div class="l" id="try">f'(x) = </div>
+      <div class="stuck" id="stuck">??</div>
+      <div class="copied" id="copied">f'(x) = 6x + 2</div>
+    </div>
+    <div id="snap"></div>
+    <div id="flash"></div>
+  </div>
+  <div id="arrow"><svg viewBox="0 0 160 100"><path id="ap" d="M8 50 H140" stroke="#16151A" stroke-width="5" fill="none" stroke-linecap="round"/><path id="ah" d="M118 26 L146 50 L118 74" stroke="#16151A" stroke-width="5" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+  <div class="card" id="chat">
+    <div class="tbar"><i></i><i></i><i></i><span>AI chat · another tab</span></div>
+    <div class="body">
+      <div id="ask"><div class="ph">f(x) = 3x² + 2x<br>f'(x) = ??</div><span>solve this</span></div>
+      <div id="rep">
+        <div class="who"><b></b>assistant</div>
+        <div class="m" id="m1">Apply the power rule to each term.</div>
+        <div class="m" id="m2">d/dx (3x²) = 6x</div>
+        <div class="m" id="m3">d/dx (2x) = 2</div>
+        <div class="ans" id="ans">f'(x) = 6x + 2</div>
+      </div>
+    </div>
+  </div>
+  <div class="step" id="step"></div>
+</div>
+
+<div id="B">
+  <div class="cap">It feels like learning.</div>
+  <div class="card" id="exam">
+    <div class="tbar"><i></i><i></i><i></i><span>Midterm 2</span></div>
+    <div class="body">
+      <h3>Midterm 2</h3><div class="sub">No notes. No devices.</div>
+      <div class="q">1. Find g'(x) for g(x) = 4x² + 5x.</div>
+      <div class="cur" id="cur"></div>
+      <div class="blank"></div><div class="blank"></div><div class="blank"></div>
+    </div>
+  </div>
+  <div class="step" id="stepB"><b>Until the exam.</b></div>
+</div>
+
+<div id="C">
+  <div class="big" id="t1">The AI isn't the problem.</div>
+  <div class="big" id="t2">It's in <em>another tab</em>.</div>
+  <div class="big" id="t3">That friction is the problem.</div>
+</div>
+
+<script>
+// Cue times (seconds) from the narration "Problem.m4a".
+const T = { stuck: 2.2, shot: 3.1, paste: 4.3, read: 5.8, copy: 7.1, feels: 8.4, exam: 9.6, turn: 10.9, tab: 12.3, friction: 13.9, end: 16.8 }
+const $ = (id) => document.getElementById(id)
+const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v))
+const ease = (x) => { x = clamp(x); return x * x * (3 - 2 * x) }
+/** 0 -> 1 over `d` seconds starting at `t0` */
+const ramp = (t, t0, d = 0.35) => ease((t - t0) / d)
+const show = (el, o, dy = 0, s = 1) => { el.style.opacity = o; el.style.transform = `translateY(${dy}px) scale(${s})` }
+
+window.renderFrame = function (ms) {
+  const t = ms / 1000
+  const inA = t < T.feels, inB = t >= T.feels && t < T.turn, inC = t >= T.turn
+  $('A').style.opacity = inA ? 1 : 1 - ramp(t, T.feels, 0.3); $('A').style.display = t < T.feels + 0.3 ? 'block' : 'none'
+  $('B').style.display = t >= T.feels && t < T.turn + 0.3 ? 'block' : 'none'; $('B').style.opacity = inB ? ramp(t, T.feels + 0.15, 0.35) : 1 - ramp(t, T.turn, 0.3)
+  $('C').style.display = t >= T.turn ? 'block' : 'none'
+
+  // A: the round trip
+  $('capA').textContent = 'How homework gets done now'
+  show($('capA'), ramp(t, 0.1), (1 - ramp(t, 0.1)) * 14)
+  show($('hw'), ramp(t, 0.25), (1 - ramp(t, 0.25)) * 26)
+  show($('stuck'), t < T.copy ? ramp(t, T.stuck, 0.25) : 0, 0, 0.8 + 0.2 * ramp(t, T.stuck, 0.25))
+  // screenshot: a dashed frame, then a flash
+  const snap = ramp(t, T.shot, 0.3)
+  $('snap').style.opacity = t < T.paste ? snap : 1 - ramp(t, T.paste, 0.25)
+  $('snap').style.transform = `scale(${1.08 - 0.08 * snap})`
+  const f = (t - (T.shot + 0.45)) / 0.3
+  $('flash').style.opacity = f > 0 && f < 1 ? 0.85 * (1 - f) : 0
+  // the other tab
+  show($('chat'), ramp(t, T.paste - 0.25), (1 - ramp(t, T.paste - 0.25)) * 26)
+  $('arrow').style.opacity = ramp(t, T.paste - 0.15) * (t < T.copy ? 1 : 1)
+  $('arrow').style.transform = t >= T.copy ? `scaleX(${1 - 2 * ramp(t, T.copy, 0.3)})` : 'scaleX(1)'
+  show($('ask'), ramp(t, T.paste, 0.3), (1 - ramp(t, T.paste, 0.3)) * 12)
+  $('rep').style.opacity = ramp(t, T.read - 0.1, 0.2)
+  ;['m1', 'm2', 'm3'].forEach((id, i) => show($(id), ramp(t, T.read + i * 0.28, 0.22), (1 - ramp(t, T.read + i * 0.28, 0.22)) * 8))
+  show($('ans'), ramp(t, T.read + 0.9, 0.25), 0, 0.92 + 0.08 * ramp(t, T.read + 0.9, 0.25))
+  // copied back
+  show($('copied'), ramp(t, T.copy + 0.25, 0.3), (1 - ramp(t, T.copy + 0.25, 0.3)) * 10)
+  $('try').style.opacity = t >= T.copy + 0.25 ? 0 : 1
+  const steps = [[T.stuck, 'you get <b>stuck</b>'], [T.shot, '<b>screenshot</b> it'], [T.paste, '<b>paste</b> it into a chat'], [T.read, '<b>read</b> a full solution'], [T.copy, '<b>copy</b> it down']]
+  const cur = steps.filter((s) => t >= s[0]).at(-1)
+  $('step').innerHTML = cur ? cur[1] : ''
+  $('step').style.opacity = cur ? ramp(t, cur[0], 0.2) : 0
+
+  // B: the exam
+  $('cur').style.opacity = Math.floor(t * 2.4) % 2 ? 1 : 0
+  show($('stepB'), ramp(t, T.exam, 0.3), (1 - ramp(t, T.exam, 0.3)) * 10)
+
+  // C: the turn
+  show($('t1'), ramp(t, T.turn + 0.1, 0.35), (1 - ramp(t, T.turn + 0.1, 0.35)) * 18)
+  show($('t2'), ramp(t, T.tab, 0.35), (1 - ramp(t, T.tab, 0.35)) * 18)
+  show($('t3'), ramp(t, T.friction + 0.2, 0.4), (1 - ramp(t, T.friction + 0.2, 0.4)) * 14)
+}
+document.fonts.ready.then(() => { window.renderFrame(0); window.__ready = true })
+</script>
+</body>
+</html>
