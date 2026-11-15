@@ -73,11 +73,18 @@ def _open(line: ReadLine) -> bool:
     return line.plain.strip().endswith("=")
 
 
+_OPERATION_START = re.compile(r"\b(?:int|integral|integrate|antiderivative|diff|derivative)\s*\(|∫|\bd\s*/\s*d[A-Za-z]\b", re.I)
+
+
 def math_part(plain: str) -> str:
     """The math of a line, without a part label ('a) ') or words in front ('Solve: '). '' if it is not math."""
     s = re.sub(r"^\s*\(?[A-Za-z0-9]{1,2}[).]\s+", "", (plain or "").strip())
     if s and not compute._has_words(s):
         return s
+    # 'Evaluate int(4*x^3 + 2*x) dx': the operation is the math, the words in front of it are not
+    at = _OPERATION_START.search(s)
+    if at and compute.operation(s[at.start():].strip()) is not None:
+        return s[at.start():].strip()
     s = re.sub(r"^(?:[A-Za-z]+\b[\s,]*)+:", "", s)                 # 'solve for x: 2*x + 5 = 11'
     s = re.sub(r"^(?:[A-Za-z]{2,}\b[\s:,]*)+", "", s).strip()      # 'Solve 3*x^2 - 3 = 0'
     return s if s and not compute._has_words(s) else ""
@@ -184,6 +191,16 @@ def check_chain(base: str, steps: list[dict]) -> list[dict]:
     for s in steps:
         v = judge(prev, s["plain"], s["relation"])
         rewriting = s["relation"] not in ("derivative", "integral")
+        if not rewriting and v["verdict"] != "correct" and prev != base:
+            # A later step labelled "integral"/"derivative" is usually the same answer tidied up
+            # (x^4 + x^2 + C after 4*x^4/4 + 2*x^2/2 + C). It is right if it equals the step before,
+            # or if it is itself a result of the operation the problem asks for.
+            same = judge(prev, s["plain"], "equals")
+            of_base = judge(base, s["plain"], s["relation"]) if compute.operation(base) is not None else None
+            if same["verdict"] == "correct":
+                v = same
+            elif of_base is not None:
+                v = of_base
         if v["verdict"] == "unknown" and rewriting and good and good != prev:
             # the step before couldn't be read: rewriting steps can be checked against the last line that could
             again = judge(good, s["plain"], s["relation"])

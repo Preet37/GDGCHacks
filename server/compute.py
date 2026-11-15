@@ -62,6 +62,8 @@ def _tidy(expr: sp.Expr) -> sp.Expr:
 
 _INT_CALL = re.compile(r"^(?:int|integral|integrate|antiderivative)\s*\((.*)\)$", re.I | re.S)
 _DIFF_CALL = re.compile(r"^(?:diff|derivative|differentiate)\s*\((.*)\)$", re.I | re.S)
+# 'int(cos(x)) dx': the call with the dx written after it, the way it is read off a page
+_INT_CALL_DX = re.compile(r"^((?:int|integral|integrate|antiderivative)\s*\(.*\))\s*\*?\s*d([A-Za-z])$", re.I | re.S)
 _INT_SIGN = re.compile(r"^∫\s*(.+)$", re.S)
 _INT_WORDS = re.compile(r"^(?:the\s+)?(?:integral|antiderivative)\s+of\s+(.+)$", re.I | re.S)
 _DIFF_WORDS = re.compile(r"^(?:the\s+)?derivative\s+of\s+(.+)$", re.I | re.S)
@@ -93,12 +95,16 @@ def _operation(segment: str) -> dict | None:
     seg = segment.strip().rstrip(".").strip()
     if not seg:
         return None
+    after_dx = None
+    m = _INT_CALL_DX.match(seg)
+    if m and _INT_CALL.match(m.group(1)) and _top_level_args(_INT_CALL.match(m.group(1)).group(1)) is not None:
+        seg, after_dx = m.group(1), m.group(2)
     m = _INT_CALL.match(seg)
     if m:
         args = _top_level_args(m.group(1))
         if not args or not args[0]:
             return None
-        expr, var, limits = args[0], None, None
+        expr, var, limits = args[0], after_dx, None
         rest = args[1:]
         if rest and _VAR.match(rest[0]):
             var, rest = rest[0], rest[1:]

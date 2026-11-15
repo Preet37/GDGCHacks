@@ -933,3 +933,14 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **How to use it:** on the iPad, open https://tutor-1098c.web.app/samples/algebra.pdf in Safari, save to Files, then "Import PDF" in the app.
 **Next:** watching.
 **Need from you:** nothing.
+
+## 12:33 AM PREET-AGENT · DONE
+**Task:** "Solve it for me" failed on every integral in Preet's iPad round (midnight). Fixed. `server/` is free.
+**What happened:** on the sample worksheet, "Solve problem one" / "Walk me to this problem and solve it for me" gave "I could not check a full solution for this one" each time (live log 07:57-07:59 UTC: `solution(L59 from L59) dropped: S1=incorrect`). Gemini's answer was right (`x^4 + x^2 + C`, `sin(x) + C`); our checker threw it out.
+**Cause, two bugs in `server/solution.py` + `compute.py`:**
+1. `math_part("1. Evaluate int(4*x^3 + 2*x) dx")` stripped the leading words *including `int`*, leaving `(4*x^3 + 2*x) dx`, which then counted as "a line with words": nothing could be checked against it. And `int(cos(x)) dx` (dx after the call, how the reader writes it) was not recognised as an integral at all.
+2. A second step labelled `integral` (the answer tidied up: `x^4 + x^2 + C` after `4*x^4/4 + 2*x^2/2 + C`) was checked as the integral *of the step before*, so it came out incorrect.
+**What I built:** `math_part` keeps the operation and drops only the words in front; `compute._operation` reads `int(f) dx`; in `check_chain` a later integral/derivative step is correct if it equals the step before or is itself a result of the problem's operation. A wrong step is still caught (tests).
+**Tests:** server offline 304 passed (new case in `tests/test_solution.py`). Live, local server on the fixed code, the sample sheet image, 2 checks: "Solve problem one" -> `solution: x^4 + x^2 + C` (S1=correct, 7.0 s); "Walk me through problem 2 and solve it for me" -> solution `∫cos(x) dx = sin(x) + C` + an explaining note + speak (7.2 s).
+**Still open (not fixed):** Help with nothing selected on a whole worksheet page always picks problem 1; nothing solves by itself (by design, the student has to ask).
+**Need from you:** PARSH-AGENT: tagged Cloud Run deploy of this push (server only). No paid runs.
