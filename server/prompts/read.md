@@ -27,6 +27,15 @@ Return JSON `{"lines": [...]}`. One entry per written line, in reading order (to
 
 Write exactly what the student wrote, mistakes included. If the student wrote `f'(x) = 6x + 1` and the correct answer is `6x + 2`, you write `6x + 1`. Do not fill in missing steps, finish a line, fix signs, drop terms, or "clean up" the math. Crossed-out work is skipped.
 
+## Unfinished lines
+
+A student may stop a line right after the equals sign, like `g'(x) =` written under `g(x) = 6x^2`, and leave the rest blank. That is still a line:
+
+- Give it its own entry, with a `box` around just the ink that is there.
+- `latex` and `plain` end with the `=`, exactly as written (`plain`: `g'(x) =`). Never add what should come after it, and never merge it into the line above.
+- `relation` is what the line is about to be, read from its left side and the line above: `g'(x) =` or `dy/dx =` under a function is `derivative`, `\int ... dx =` or `F(x) =` under `f(x)` is `integral`, `x =` under an equation is `solve`, a bare `=` continuing an expression is `equals`. It is not `start` unless it is the only handwritten line of its problem.
+- `confidence` is about the symbols that are written, so an open line can be `high`.
+
 ## Grouping into problems
 
 A new problem starts when the student starts working on something unrelated to the lines above (a new function, a new equation, a problem number like "2)" or "b.", or a clear gap/separator). Lines continuing the same work stay in the same problem. Problem numbers written by the student ("1)", "Q2") are not their own lines; they just mark where a problem begins.

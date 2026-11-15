@@ -6,6 +6,7 @@ from types import SimpleNamespace
 import pytest
 
 from models import ReadLine
+import read as read_mod
 from read import is_printed, read_page, parse_lines, RESPONSE_SCHEMA
 
 
@@ -143,3 +144,13 @@ def test_live_derivative_page():
     assert out[1].relation == "derivative"
     assert out[1].box[0] > out[0].box[0]
     assert "6*x+1" in out[1].plain.replace(" ", "")  # mistake kept, not fixed
+
+
+def test_open_line_is_kept_as_its_own_unfinished_line():
+    raw = [line(latex="g(x) = 6x^2", plain="g(x) = 6*x^2"),
+           line(line_id="L2", latex="g'(x) = ", plain="g'(x) = ", box=[260, 80, 340, 300], relation="derivative")]
+    out = parse_lines(json.dumps({"lines": raw}), [])
+    assert [(l.line_id, l.plain, l.relation) for l in out] == \
+        [("L1", "g(x) = 6*x^2", "start"), ("L2", "g'(x) =", "derivative")]
+    prompt = read_mod.PROMPT_PATH.read_text()
+    assert "## Unfinished lines" in prompt and "`g'(x) =`" in prompt

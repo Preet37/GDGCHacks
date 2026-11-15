@@ -6,12 +6,30 @@ MARK_TYPES = {"circle", "underline"}
 PRINTED_BLOCKED_TYPES = {"circle", "underline", "note"}
 
 
-def _keep(action: Action, verdicts: dict, printed_ids: set[str]) -> bool:
-    """Safety net: never mark printed worksheet text, never mark a line red that verify_step called correct."""
-    if action.type in PRINTED_BLOCKED_TYPES and action.line_id in printed_ids:
+def _open(line: ReadLine | None) -> bool:
+    """A line the student stopped right after '=': unfinished, which is not a mistake."""
+    return line is not None and line.plain.strip().endswith("=")
+
+
+def _keep(action: Action, verdicts: dict, by_id: dict, state: PageState, mode: str) -> bool:
+    """Safety net, the same for any subject:
+    - printed worksheet text is never marked; the one thing allowed on it is a blue hint note in help mode
+      (the student asked how to start a printed problem);
+    - a line verify_step called correct is never marked red;
+    - an unfinished line is never marked red;
+    - on an automatic check, a line that already has feedback is not finished inline again while it is unchanged
+      (in help mode the student asked, so it goes through).
+    """
+    line = by_id.get(action.line_id)
+    if line is not None and line.source == "printed" and action.type in PRINTED_BLOCKED_TYPES:
+        return action.type == "note" and mode == "help" and action.color in ("blue", None) and action.side != "inline"
+    if action.color == "red" and action.type in MARK_TYPES | {"note"} and _open(line):
         return False
     if action.type in MARK_TYPES and action.color == "red" and action.line_id:
         return verdicts.get(action.line_id) != "correct"
+    if action.side == "inline" and mode == "auto" and line is not None and action.line_id in state.flagged_line_ids:
+        before = next((l for l in state.lines if l.line_id == action.line_id), None)
+        return before is None or before.plain.replace(" ", "") != line.plain.replace(" ", "")
     return True
 
 
@@ -24,10 +42,18 @@ def _ordered_unique(items):
     return out
 
 
-def merge(state: PageState, lines: list[ReadLine], result: TeachResult) -> CheckResponse:
+def merge(state: PageState, lines: list[ReadLine], result: TeachResult, mode: str = "auto") -> CheckResponse:
+    """`mode` is the request's mode ("auto" or "help")."""
     if result.finished:
-        printed_ids = {l.line_id for l in lines if l.source == "printed"}
-        actions = [a for a in result.actions if _keep(a, result.verdicts, printed_ids)]
+        by_line = {l.line_id: l for l in lines}
+        actions = [a for a in result.actions if _keep(a, result.verdicts, by_line, state, mode)]
+        if mode == "auto":
+            # No repeats: a line that already has feedback on the page and reads exactly as it did last
+            # time gets nothing new from an automatic check. (Help may add to it: that's the hint ladder.)
+            before = {l.line_id: l.plain for l in state.lines}
+            settled = {i for i in state.flagged_line_ids
+                       if i in by_line and before.get(i) == by_line[i].plain}
+            actions = [a for a in actions if a.line_id not in settled]
         clear = list(result.clear_line_ids)
         hint_updates = result.hint_updates
     else:

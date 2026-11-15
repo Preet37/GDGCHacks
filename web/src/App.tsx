@@ -3,10 +3,12 @@ import { Tldraw, type Editor } from 'tldraw'
 import 'tldraw/tldraw.css'
 import { DevPanel } from './DevPanel'
 import { HelpButton } from './HelpButton'
+import { Surface3dShapeUtil } from './shapes/Surface3dShape'
 import { pageIdFromUrl, restorePage, startAutosave } from './persist/saver'
 import { Tutor } from './sync/tutor'
 import { TutorOverlay } from './TutorOverlay'
 
+const shapeUtils = [Surface3dShapeUtil]
 const DEV = new URLSearchParams(location.search).has('dev')
 
 export default function App() {
@@ -39,6 +41,7 @@ export default function App() {
     <div style={{ position: 'fixed', inset: 0 }}>
       <Tldraw
         persistenceKey="tutor-notebook"
+        shapeUtils={shapeUtils}
         // required on https production hosts (tutor-1098c.web.app); dev and plain http work without it
         licenseKey={import.meta.env.VITE_TLDRAW_LICENSE_KEY}
         onMount={(e) => {

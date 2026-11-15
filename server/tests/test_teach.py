@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from google.genai import types
 
 import teach as teach_mod
+from guard import merge
 import verify
 from models import CheckRequest, PageState, ReadLine
 
@@ -107,6 +108,127 @@ def test_verify_and_submit_same_turn(incorrect):
                                ("submit_feedback", {"actions": [CIRCLE], "clear_line_ids": [], "hint_updates": []}))])
     r = teach_mod.teach(client, "fake", _lines(), _req())
     assert r.finished and r.verdicts == {"L2": "incorrect"} and len(r.actions) == 1
+
+
+# --- finishing a line the student left open -------------------------------------------------------
+
+def _open_lines():
+    return [
+        ReadLine(line_id="L1", problem_id="P1", latex="g(x) = 6x^2", plain="g(x) = 6*x^2",
+                 box=(150, 80, 230, 420), relation="start", confidence="high"),
+        ReadLine(line_id="L2", problem_id="P1", latex="g'(x) =", plain="g'(x) =",
+                 box=(260, 80, 340, 300), relation="derivative", confidence="high"),
+    ]
+
+
+COMPUTE_ARGS = {"before": "g(x) = 6*x^2", "relation": "derivative", "before_line_id": "L1", "after_line_id": "L2"}
+INLINE = {"type": "note", "line_id": "L2", "box": [260, 80, 340, 300], "color": "black", "side": "inline",
+          "text": "$12 x$"}
+
+
+def _submit(*actions, hints=()):
+    return _resp(("submit_feedback", {"actions": list(actions), "clear_line_ids": [], "hint_updates": list(hints)}))
+
+
+def test_tools_and_schema_cover_finishing_a_line():
+    tools = teach_mod._build_config().tools[0].function_declarations
+    assert [t.name for t in tools] == ["verify_step", "compute_step", "submit_feedback"]
+    assert "inline" in teach_mod._ACTION["properties"]["side"]["enum"]
+    assert "black" in teach_mod._ACTION["properties"]["color"]["enum"]
+
+
+def test_open_line_flow():
+    client = FakeClient([_resp(("compute_step", COMPUTE_ARGS)), _submit(INLINE)])
+    r = teach_mod.teach(client, "fake", _open_lines(), _req())
+    assert r.finished and r.verdicts == {}
+    assert r.tool_calls == ["compute_step(L1->L2, derivative) = 12*x", "submit_feedback(1/1 actions kept)"]
+    reply = client.calls[1][-1].parts[0].function_response
+    assert reply.name == "compute_step" and reply.response["latex"] == "12 x"
+    (a,) = r.actions
+    assert (a.type, a.side, a.color, a.line_id, a.text, a.box) == \
+        ("note", "inline", "black", "L2", "$12 x$", (260, 80, 340, 300))
+    # end to end through the guard: the answer is sent once, and the line is never treated as a mistake
+    out = merge(PageState(page_id="t"), _open_lines(), r)
+    assert [x.side for x in out.actions] == ["inline"] and out.state.flagged_line_ids == ["L2"]
+
+
+def test_spoken_question_flow():
+    """Help mode, "can you finish this?": the line need not end with '='."""
+    lines = _open_lines()
+    lines[1] = lines[1].model_copy(update={"latex": "g'(x)", "plain": "g'(x)"})
+    req = CheckRequest(image_base64="", mode="help", question="can you finish this?",
+                       state=PageState(page_id="t", lines=lines, flagged_line_ids=["L2"]))
+    client = FakeClient([_resp(("compute_step", COMPUTE_ARGS)), _submit(INLINE)])
+    r = teach_mod.teach(client, "fake", lines, req)
+    assert '"question": "can you finish this?"' in client.calls[0][0].parts[0].text
+    assert r.tool_calls[0] == "compute_step(L1->L2, derivative) = 12*x"
+    assert r.hint_updates == []
+    out = merge(req.state, lines, r, "help")      # asked for out loud: sent even though L2 already had feedback
+    assert [(x.side, x.color, x.text) for x in out.actions] == [("inline", "black", "$12 x$")]
+
+
+def test_compute_came_back_empty_model_hints_instead():
+    args = dict(COMPUTE_ARGS, before="graph this")
+    hint = {"type": "note", "line_id": "L2", "box": [260, 80, 340, 300], "color": "blue", "side": "right",
+            "text": "Which rule handles a power of $x$?"}
+    client = FakeClient([_resp(("compute_step", args)), _submit(hint)])
+    r = teach_mod.teach(client, "fake", _open_lines(), _req())
+    assert r.tool_calls[0] == "compute_step(L1->L2, derivative) = nothing"
+    assert client.calls[1][-1].parts[0].function_response.response["result"] == ""
+    assert [(a.color, a.side) for a in r.actions] == [("blue", "right")]
+
+
+def test_compute_uses_the_line_when_the_model_sends_only_ids():
+    client = FakeClient([_resp(("compute_step", dict(COMPUTE_ARGS, before=""))), _submit(INLINE)])
+    r = teach_mod.teach(client, "fake", _open_lines(), _req())
+    assert r.tool_calls[0] == "compute_step(L1->L2, derivative) = 12*x"
+
+
+def test_compute_bug_does_not_break_the_request(monkeypatch):
+    monkeypatch.setattr(teach_mod.compute, "compute_step", lambda b, r: 1 / 0)
+    client = FakeClient([_resp(("compute_step", COMPUTE_ARGS)), _submit()])
+    r = teach_mod.teach(client, "fake", _open_lines(), _req())
+    assert r.finished and r.tool_calls[0].endswith("= nothing")
+
+
+def test_open_line_is_never_verified_or_marked_wrong(monkeypatch):
+    def boom(*a):
+        raise AssertionError("verify_step must not run on an open line")
+    monkeypatch.setattr(verify, "verify_step", boom)
+    args = {"before": "g(x) = 6*x^2", "after": "g'(x) =", "relation": "derivative",
+            "before_line_id": "L1", "after_line_id": "L2"}
+    red = [{"type": "circle", "line_id": "L2", "box": [260, 80, 340, 300], "color": "red", "focus": "="},
+           {"type": "underline", "line_id": "L2", "box": [260, 80, 340, 300], "color": "red"},
+           {"type": "note", "line_id": "L2", "box": [260, 80, 340, 300], "color": "red", "side": "right",
+            "text": "This line is not finished."}]
+    client = FakeClient([_resp(("verify_step", args)), _submit(*red)])
+    r = teach_mod.teach(client, "fake", _open_lines(), _req())
+    assert r.verdicts == {}
+    assert r.tool_calls[0] == "verify_step(L1->L2, derivative) = skipped (open line)"
+    assert client.calls[1][-1].parts[0].function_response.response["verdict"] == "unknown"
+    out = merge(PageState(page_id="t"), _open_lines(), r)
+    assert out.actions == [] and out.state.flagged_line_ids == []
+
+
+def test_inline_shape_fixes():
+    raw = [dict(INLINE, color="red", box=[0, 0, 5, 5]),                      # wrong colour, made-up box
+           {"type": "ask", "line_id": "L1", "side": "inline", "text": "Did you mean $6x^2$?"},
+           dict(INLINE, line_id="L9")]                                        # no such line
+    a, b, c = teach_mod._parse_actions(raw, _open_lines())
+    assert (a.color, a.box, a.side) == ("black", (260, 80, 340, 300), "inline")
+    assert b.side == "right" and c.side == "right"
+
+
+def test_figure_window_is_fixed_on_submit():
+    fig = {"type": "figure", "line_id": "L1", "box": [150, 80, 230, 420], "side": "right",
+           "figure": {"kind": "plot2d", "expressions": ["x^2 - 4"], "x_range": [-5, 5]}}
+    surf = {"type": "figure", "line_id": "L1", "figure": {"kind": "surface3d", "expressions": ["x*y"], "y_range": [-2, 2]}}
+    bad = {"type": "figure", "line_id": "L1", "figure": {"kind": "plot2d", "expressions": ["?? (("], "x_range": [-5, 5]}}
+    client = FakeClient([_submit(fig, surf, bad)])
+    a, b, c = teach_mod.teach(client, "fake", _open_lines(), _req()).actions
+    assert a.figure.y_range[0] < -4 and a.figure.y_range[1] > 20
+    assert b.figure.x_range == (-2, 2)
+    assert c.figure.y_range is None
 
 
 def test_verify_contract():

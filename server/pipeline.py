@@ -71,7 +71,7 @@ def run_check(req: CheckRequest) -> CheckResponse:
     result = teach.teach(client, model, lines, req)
     teach_ms = _ms(t1)
 
-    resp = merge(req.state, lines, result)
+    resp = merge(req.state, lines, result, req.mode)
     resp.debug = Debug(model=model, read_ms=read_ms, teach_ms=teach_ms, tool_calls=list(result.tool_calls))
     _trace(req, image_png, lines, result, resp)
     log.info("read_ms=%d teach_ms=%d lines=%d actions=%d finished=%s",

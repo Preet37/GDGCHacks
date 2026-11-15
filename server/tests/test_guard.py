@@ -80,3 +80,66 @@ def test_unfinished_returns_no_actions():
     assert out.actions == []
     assert out.state.flagged_line_ids == ["L1"]
     assert out.state.problems[0].hint_level == 1
+
+
+def test_help_mode_allows_a_blue_hint_on_a_printed_problem():
+    printed = line("L1").model_copy(update={"source": "printed"})
+    acts = [Action(type="note", line_id="L1", color="blue", side="below", text="Which rule fits a product?"),
+            Action(type="speak", line_id="L1", text="which rule fits a product"),
+            Action(type="note", line_id="L1", color="red", text="wrong"),
+            Action(type="note", line_id="L1", color="black", side="inline", text="$3$"),
+            Action(type="circle", line_id="L1", color="red"),
+            Action(type="circle", line_id="L1", color="blue"),
+            Action(type="underline", line_id="L1", color="green")]
+    res = TeachResult(actions=acts, hint_updates=[HintUpdate(problem_id="P1", hint_level=1)])
+    out = merge(state(), [printed], res, "help")
+    assert [(a.type, a.color) for a in out.actions] == [("note", "blue"), ("speak", None)]
+    assert out.state.flagged_line_ids == ["L1"]
+    assert out.state.problems[0].hint_level == 1
+    # the same actions on an automatic check: nothing is written on printed text
+    auto = merge(state(), [printed], res)
+    assert [a.type for a in auto.actions] == ["speak"]
+
+
+def open_line(i="L2"):
+    return line(i).model_copy(update={"plain": "g'(x) =", "relation": "derivative"})
+
+
+def test_open_line_never_gets_a_red_mark():
+    res = TeachResult(actions=[Action(type="circle", line_id="L2", color="red"),
+                               Action(type="underline", line_id="L2", color="red"),
+                               Action(type="note", line_id="L2", color="red", text="unfinished?"),
+                               Action(type="note", line_id="L2", color="black", side="inline", text="$12x$")],
+                      verdicts={"L2": "incorrect"})
+    out = merge(state(), [line("L1"), open_line()], res)
+    assert [(a.type, a.side) for a in out.actions] == [("note", "inline")]
+    assert out.state.flagged_line_ids == ["L2"]
+
+
+def test_inline_answer_is_not_sent_again_while_the_line_is_unchanged():
+    inline = Action(type="note", line_id="L2", color="black", side="inline", text="$12x$")
+    lines = [line("L1"), open_line()]
+    st = state(lines=lines, flagged_line_ids=["L2"])
+    out = merge(st, lines, TeachResult(actions=[inline]))
+    assert out.actions == [] and out.clear_line_ids == []
+    assert out.state.flagged_line_ids == ["L2"]            # the answer stays on the page
+    # the student changed the line: a new inline answer goes through
+    changed = [line("L1"), open_line().model_copy(update={"plain": "g''(x) ="})]
+    assert len(merge(st, changed, TeachResult(actions=[inline])).actions) == 1
+    # asked for in help mode: goes through too
+    assert len(merge(st, lines, TeachResult(actions=[inline]), "help").actions) == 1
+
+
+def test_auto_check_does_not_repeat_feedback_on_an_unchanged_flagged_line():
+    from internal import TeachResult
+    from models import Action, PageState, ReadLine
+    from guard import merge
+    line = ReadLine(line_id="L2", problem_id="P1", latex="g'(x) =", plain="g'(x) =", box=(1, 2, 3, 4),
+                    relation="derivative", confidence="high")
+    state = PageState(page_id="t", lines=[line], flagged_line_ids=["L2"])
+    again = TeachResult(actions=[Action(type="note", line_id="L2", color="black", side="right", text="$12x$", box=line.box)])
+    assert merge(state, [line], again, "auto").actions == []
+    assert merge(state, [line], again, "auto").state.flagged_line_ids == ["L2"]   # still flagged, not cleared
+    assert len(merge(state, [line], again, "help").actions) == 1                   # Help may add a hint
+    changed = line.model_copy(update={"plain": "g'(x) = 6*x"})
+    assert len(merge(state, [changed], again, "auto").actions) == 1                # the line changed: new feedback is fine

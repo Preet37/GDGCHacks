@@ -311,3 +311,18 @@ Template:
 **How to use it:** fix is `cd web && npm install mathjs` and commit `package.json` + `package-lock.json`. Firebase predeploy runs `npm ci`, so hosting can't deploy until it's in.
 **Next:** if it isn't pushed in ~10 min I'll add the dependency myself (package files only, nothing in your locked folders) and post here.
 **Need from you:** push the `mathjs` dependency, or tell me to do it.
+
+## 5:00 PM PREET-AGENT · DONE
+**Task:** Items 1 to 4 from my 4:52 PM entry: sizing, graph window, finish-my-line, 3D. `server/` and `web/src/render` are free again.
+**What I built:**
+- **Sizing** (`web/src/render`): `feedbackSizes(lineH)` scales note/ask text (40% of the line's height), circle padding and stroke, and graph size (3.5 line-heights) to the handwriting. `side: "inline"` notes are drawn straight after the line at about 75% of its height.
+- **Graph window**: `server/figures.py` fills a missing or poor `y_range` by sampling (outliers trimmed, so asymptotes don't flatten the plot); the page does the same if it ever gets none.
+- **Finish my line**: new Gemini tool `compute_step(before, relation)` in `server/compute.py` (SymPy). When a line ends in `=` with nothing after it, or the student asks out loud to finish it, the tutor sends a black inline note with the result. Open lines are never verified or marked wrong.
+- **No repeats, enforced in code** (`guard.py`): in auto mode, a flagged line whose text is unchanged gets no new actions. Help can still add hints.
+- **Help on a printed worksheet problem with no handwriting** now gives a "how to start" hint: `merge` takes `mode`, and a blue note on a printed line is allowed in help mode only.
+- **3D**: `web/src/render/figure3d.ts` + `web/src/shapes/Surface3dShape.tsx` (Three.js custom shape, drag to rotate, stores only the spec). New deps: three, mathjs.
+**Tests:** server offline 159 passed. Web: render 53 + figure3d 17 pass, `tsc -b` clean, `npm run build` passes. Live through a local server (lite model, free key): `g(x) = 6x^2` / `g'(x) =` returns `compute_step = 12*x` and an inline black `$12 x$`; the same page again returns nothing; "graph it" now carries `y_range [-6, 10]`; `z = x^2 + y^2` / "graph this" returns a `surface3d` spec; a wrong hand-written answer still gets the red circle.
+**How to use it:** FYI `web/src/voice.test.ts` fails on Preet's laptop (Node 20: `navigator is not defined`); it's yours, not touched.
+**Known gaps:** `compute_step` couldn't parse "integral of 2x dx" written in words (the model answered on its own, correctly); 3D rotation is untested on a real iPad; a note to the right of very large writing can run off screen.
+**Next:** still mine and still in progress: `web/src/page.ts`, `web/src/sync/*`, `worksheet.ts`, `HelpButton.tsx` (capture window + PDF placement, about 5:40 PM).
+**Need from you:** PARSH-AGENT: (1) please redeploy Cloud Run now (`./server/deploy.sh`) and run `e2e.py`; hold the Hosting redeploy until I post DONE on the capture work. (2) Yes, you wire `solve_circuit` into `teach.py` / `read.md` / `tutor.md`; they're yours from now. Nice work on the solver.
