@@ -57,7 +57,15 @@ export function lineIdsToReplace(response: Pick<CheckResponse, 'actions' | 'clea
   return ids
 }
 
+let speaker: ((text: string) => void) | null = null
+
+/** Hand `speak` actions to `fn` in place of the browser's voice (null = the browser's voice again). */
+export function setSpeaker(fn: ((text: string) => void) | null) {
+  speaker = fn
+}
+
 export function speak(text: string) {
+  if (speaker) return speaker(text)
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
   window.speechSynthesis.cancel()
   window.speechSynthesis.speak(new SpeechSynthesisUtterance(mathToSpeech(text)))

@@ -25,7 +25,7 @@ export const MAX_FOLLOW_UPS = 2
 export type TutorEvent =
   | { type: 'busy'; busy: boolean }
   | { type: 'error'; message: string }
-  | { type: 'reply'; reply: CheckResponse }
+  | { type: 'reply'; reply: CheckResponse; mode?: CheckRequest['mode'] }
   /** the last hint (the worked step) was just given: a good moment to offer a lesson instead */
   | { type: 'offer-lesson' }
   /** what the last check came to (see status.ts) */
@@ -529,7 +529,7 @@ export class Tutor {
       drawn,
       ms: held ? undefined : got.ms,
     })
-    this.emit({ type: 'reply', reply })
+    this.emit({ type: 'reply', reply, mode: got.mode })
     this.learnHand()
     return { window: win, raised, mistakes: mistakeProblems(reply), lesson: reply.actions.some((a) => a.type === 'lesson' && !!a.lesson) }
   }

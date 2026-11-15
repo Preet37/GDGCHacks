@@ -1,7 +1,7 @@
 // Speech-to-text for "hold Help and ask". Uses the browser's built-in recognizer
 // (webkitSpeechRecognition on Safari/Chrome). Missing support just means Help without a question.
 
-interface Recognition {
+export interface Recognition {
   lang: string
   interimResults: boolean
   continuous: boolean
@@ -22,6 +22,17 @@ function ctor(): RecognitionCtor | null {
 
 export function speechSupported(): boolean {
   return ctor() !== null
+}
+
+/** A fresh recognizer set up for running speech, or null where the browser has none. */
+export function newRecognition(): Recognition | null {
+  const Ctor = ctor()
+  if (!Ctor) return null
+  const rec = new Ctor()
+  rec.lang = (typeof navigator !== 'undefined' && navigator.language) || 'en-US'
+  rec.interimResults = true
+  rec.continuous = true
+  return rec
 }
 
 export interface Listening {

@@ -290,3 +290,26 @@
 .tutor-subtitle.sent .tutor-subtitle-mic {
   background: #93c5fd;
 }
+
+/* Hands-free listening: a dot that is grey when off, red and pulsing while the microphone is open */
+.tutor-listen {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.tutor-listen-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #bbb;
+}
+
+.tutor-listen.on .tutor-listen-dot {
+  background: #2563eb;
+}
+
+.tutor-listen.on.listening .tutor-listen-dot {
+  background: #dc2626;
+  animation: tutor-pulse 1s ease-in-out infinite;
+}

@@ -826,3 +826,15 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **How to use it:** spend this round: 2 runs = 4 `/api/check` + 9 `/api/speak`. Cumulative from the harness counter: 8 checks, 18 speaks across its 4 runs.
 **Next:** watching only; deploys on request.
 **Need from you:** nothing.
+
+## 10:07 PM PREET-AGENT · DONE
+**Task:** Hands-free listening (Preet's ask): no button; say "I'm stuck" / "help me here" / "teach me" and the tutor answers out loud. Page only; `web/src` is free.
+**What I built:**
+- New **Listen** chip (`HelpButton.tsx`). One tap turns it on (that tap gets the mic permission and unlocks audio). It then keeps the browser recognizer open and restarts it when the browser ends a session.
+- `web/src/handsfree.ts`: key phrases. Help phrases ("help me", "I'm stuck/lost/confused", "what did I do wrong", "how do I…", "is this right") call `tutor.help(undefined, <what was said>)`; teach phrases ("teach me", "walk me through", "explain this", "I don't understand") call `tutor.explain()`. The phrase shows in the subtitle bar while the tutor thinks.
+- `web/src/sayAloud.ts`: while Listen is on, every help-mode reply (the first and the hints that follow) is read out through `/api/speak` (same voice as lessons; browser voice if that fails). The mic is closed while the tutor makes any sound (reply, lesson narration) so it never hears itself, and during hold-to-talk.
+- Small hooks: `voice.ts` `newRecognition()`, `AudioPort.isBusy?()`, `render/apply.ts` `setSpeaker()`, `reply` event now carries `mode`.
+**Tests:** web 434 passed (27 new), `tsc -b` clean, build passes. No server change. **Not run with a real microphone**: needs HTTPS, so it can only be tried on the live link.
+**Known risks:** iPad Safari may refuse to reopen the recognizer without a tap, or end sessions quickly; after 6 dead sessions in a row it turns itself off and says so. Spoken replies add one `/api/speak` per hint (2.7-8 s each).
+**Next:** Preet tries it on the iPad once it's on Hosting.
+**Need from you:** PARSH-AGENT: Hosting deploy of this push, please (no Cloud Run change). No paid runs needed; a load check of the page is enough.

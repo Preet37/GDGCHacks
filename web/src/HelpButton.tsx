@@ -6,7 +6,10 @@ import type { HintChain } from './sync/hintChain'
 import { HandwritingToggle } from './handwriting'
 import { statusLine } from './sync/status'
 import type { Tutor } from './sync/tutor'
-import { HoldGesture, startListening, type Listening } from './voice'
+import { HoldGesture, newRecognition, startListening, type Listening } from './voice'
+import { HandsFree, spokenText } from './handsfree'
+import { setSpeaker } from './render/apply'
+import { hush, sayAloud, tutorIsLoud } from './sayAloud'
 import { importPdf } from './worksheet'
 
 const RING = 2 * Math.PI * 9
@@ -164,6 +167,44 @@ export function HelpButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) 
     return () => void off()
   }, [tutor])
 
+  // hands-free: keeps listening; "I'm stuck" / "help me here" asks for help, "teach me" for a lesson
+  const hands = useMemo(
+    () =>
+      new HandsFree({
+        make: newRecognition,
+        quiet: () => !tutorIsLoud(),
+        onIntent: async (intent, said) => {
+          editor.selectNone()
+          if (intent === 'teach') await tutor.explain()
+          else await tutor.help(undefined, said)
+        },
+      }),
+    [editor, tutor],
+  )
+  useEffect(() => () => hands.dispose(), [hands])
+  const free = useSyncExternalStore(hands.subscribe, () => hands.snapshot)
+  useEffect(() => {
+    if (!free.on) return
+    // while hands-free is on, every hint is read out in the tutor's own voice
+    setSpeaker(() => {})
+    const off = tutor.on((e) => {
+      if (e.type !== 'reply' || e.mode !== 'help') return
+      const text = spokenText(e.reply)
+      if (text) void sayAloud(text)
+    })
+    return () => {
+      off()
+      setSpeaker(null)
+      hush()
+    }
+  }, [free.on, tutor])
+  const toggleHands = () => {
+    if (free.on) return hands.stop()
+    // sound may only start inside a tap: unlock it now for the answers that come later
+    primeSpeech()
+    hands.start()
+  }
+
   const gesture = useMemo(() => {
     const send = (question?: string) => {
       editor.selectNone()
@@ -173,6 +214,7 @@ export function HelpButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) 
       onTap: () => void send(),
       onHoldStart: () => {
         const turn = ++asked.current
+        hands.hold(true)
         mic.current = startListening((text) => {
           if (asked.current === turn) setHeard({ text, sent: false })
         })
@@ -185,6 +227,7 @@ export function HelpButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) 
         const m = mic.current
         mic.current = null
         const question = m ? await m.stop() : undefined
+        hands.hold(false)
         // the question stays on screen until the tutor has answered it
         if (asked.current === turn) setHeard(question ? { text: question, sent: true } : null)
         try {
@@ -194,7 +237,7 @@ export function HelpButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) 
         }
       },
     })
-  }, [editor, tutor])
+  }, [editor, tutor, hands])
 
   const down = () => {
     const sel = editor.getSelectionPageBounds()
@@ -226,7 +269,7 @@ export function HelpButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) 
 
   return (
     <>
-    {heard && <Subtitle heard={heard} />}
+    {heard ? <Subtitle heard={heard} /> : free.heard ? <Subtitle heard={{ text: free.heard, sent: true }} /> : null}
     <div className="tutor-controls">
       <input
         ref={fileInput}
@@ -242,6 +285,20 @@ export function HelpButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) 
         Show what AI read
       </button>
       <HandwritingToggle editor={editor} />
+      <button
+        className={'tutor-chip tutor-listen' + (free.on ? ' on ' + free.phase : '')}
+        onClick={toggleHands}
+        aria-pressed={free.on}
+        aria-label={free.on ? 'Listening for "I\'m stuck" or "teach me". Tap to stop' : 'Listen: say "I\'m stuck" or "teach me" and the tutor answers out loud'}
+      >
+        <span className="tutor-listen-dot" aria-hidden="true" />
+        {!free.on ? 'Listen' : free.phase === 'thinking' ? 'Thinking…' : free.phase === 'speaking' ? 'Speaking…' : 'Listening'}
+      </button>
+      {free.error && (
+        <div className="tutor-status" role="status">
+          {free.error}
+        </div>
+      )}
       {reading && (
         <div className="tutor-status" role="status">
           {status ? statusLine(status) : 'no check yet'}

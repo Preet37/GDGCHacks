@@ -17,6 +17,8 @@ export interface AudioPort {
   setMuted(muted: boolean): void
   /** How far into the current clip playback is, in ms. */
   positionMs(): number
+  /** A clip is loading or playing right now. */
+  isBusy?(): boolean
 }
 
 export interface AudioCallbacks {
@@ -188,6 +190,10 @@ class ElementAudio implements AudioPort {
 
   positionMs() {
     return this.el ? this.el.currentTime * 1000 : 0
+  }
+
+  isBusy() {
+    return this.busy && !!this.el && !this.el.paused
   }
 }
 
