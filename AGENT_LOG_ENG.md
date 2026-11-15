@@ -86,3 +86,22 @@ Template:
 **How to try it:** `docs/DEMO.md` section (e).
 **Next:** 10. Merge gate (merge Preet's 7ccc1fa first)
 **Need from Parsh:** nothing yet; task 10 needs you on the iPad for E-1, E-2, E-3.
+
+## 1:00 AM PARSH-ENG-AGENT · WORKING ON
+**Task:** 10. Merge gate: **4 of 5 met. Not READY TO MERGE yet: waiting for Parsh's iPad run of E-1, E-2, E-3.**
+**What I built:** merged `origin/main` @ 7ccc1fa into `engineering` (one conflict in `web/src/render/figure.ts`, both sides' imports kept). `tutor-api-eng` redeployed from the merged branch (`00006-67x`). Dev page for the iPad is running: `http://10.0.0.65:5174/?page=eng-1` (laptop, same wifi; `API_TARGET` = tutor-api-eng).
+**Tests / gate:**
+- [x] `engineering` merged up to date with `origin/main`; server 377 passed / 5 live skipped; web 463 passed; `tsc -b` clean; `npm run build` exit 0.
+- [x] Part 1's demo set against `tutor-api-eng` (`node web/e2e/demo.mjs` with `API_TARGET`): **5/5 PASS** (wrong derivative, sign error, wrong integral, correct work, graph), same feedback as production. Part 2 doesn't break Part 1.
+- [ ] Demos E-1, E-2, E-3 on the iPad through the dev page: **Parsh**, steps in `docs/DEMO.md` section (e). (The harness passed them live; see `web/e2e/RESULTS_ENG.md`.)
+- [x] Old saved pages + pages with no engineering content load without errors on the engineering page: a Part 1 page saved by main at 4:45 PM (`e2e_mwgztebm`) loads (draw + note + circle), no check sent on load, no console errors; a Part 1 page saved by the engineering page reloads; a page with a circuit card reloads with the card and its 5 labels.
+- [x] **What changes on the live site if merged** (below).
+**What would change on the live site if merged** (humans decide):
+1. **Hosting first** (`firebase deploy --only hosting` from the merged `main`), **then Cloud Run** `tutor-api` (tagged no-traffic, test, promote). Hosting first so the page already knows the new `circuitcard` shape and the `circuit`/`fbd` figure kinds when the server starts sending them. (The current live page ignores unknown figure kinds, so neither order crashes.)
+2. Cloud Run `tutor-api`: new `POST /api/circuit/solve` (no Gemini); new tools `check_units`, `check_forces`; `read.md` additions (circuit element boxes + node points, units kept in `plain`, force diagrams as one line); `tutor.md` sections (Units, Force diagrams, Circuit figures); `guard.py` builds circuit/fbd figures in code. No new env vars, no new Python packages (`sympy.physics.units` ships with SymPy). Firestore rules unchanged.
+3. Hosting: new tldraw shape `circuitcard` (what-if card), x-ray labels, `fbd` diagrams; `firebase.json` unchanged.
+4. **Saved pages:** today, a page that was used on the engineering dev page (has a `circuitcard`) opens EMPTY on the live site (tldraw can't load an unknown shape). It is NOT overwritten (checked: the card was still in Firestore after the live page opened it). After the Hosting deploy it loads normally. Until then use separate `?page=` names for engineering rehearsals.
+5. Rollback: Cloud Run to the previous revision; Hosting to the previous release (Firebase console -> Hosting -> release history).
+**Paid calls:** 5 this task, **22 of 40 total**.
+**Next:** stop. When Parsh posts that E-1..E-3 passed on the iPad, I post READY TO MERGE. If one fails, I fix it on this branch.
+**Need from Parsh:** run E-1, E-2, E-3 on the iPad at http://10.0.0.65:5174/?page=eng-1 (steps: `docs/DEMO.md` (e)) and tell me what you see.
