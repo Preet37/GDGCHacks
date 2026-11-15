@@ -30,3 +30,11 @@ Template:
 **How to try it:** `curl -X POST <server>/api/circuit/solve -H 'Content-Type: application/json' -d '{"elements":[{"id":"V1","kind":"vsource","a":"n1","b":"0","value":"9"},{"id":"R1","kind":"resistor","a":"n1","b":"n2","value":"1k"},{"id":"R2","kind":"resistor","a":"n2","b":"0","value":"2k"}]}'`
 **Next:** 3. Read: where each part is drawn
 **Need from Parsh:** nothing
+
+## 12:12 AM PARSH-ENG-AGENT · DONE
+**Task:** 3. Read: where each part is drawn
+**What I built:** `server/prompts/read.md` "Circuit diagrams": every element gets `box` (tight around its SYMBOL only: zigzag / plates / circle, not its written label, not wires), and the JSON gets `"nodes": [{"id", "at": [y, x]}]` (a point on each node's wire away from symbols, ground included). New `server/engineering.py`: `parse_circuit(plain)` -> (elements with cleaned boxes, nodes with cleaned points); bad boxes/points are dropped one by one, never raised; old lines without positions still parse. `circuit_lines(lines)`.
+**Tests:** `server/tests/test_engineering_read.py` (+7 offline). Paid check on `tests/data/circuit_series.png` (sketch: 9 V, R1 = 1k top, R2 = 2k right): 1st read put the written labels inside R1/R2's boxes (R2 off by 84/1000 sideways), so I tightened the rule to "symbol only, not the label"; 2nd read: **V1 off (0, 0), R1 (2, 1), R2 (4, 2)** in 0-1000 units, so **3 of 3 within 0.5%** (target 5%); nodes n1, n2, 0 each on their wire. 2nd reply stored as `tests/data/circuit_series_read.json`; the box and wire checks now run offline. Server 323 passed / 5 live skipped. · paid calls: 2 this task, 2 total
+**How to try it:** `pytest tests/test_engineering_read.py`
+**Next:** 4. Circuit figure from code
+**Need from Parsh:** nothing

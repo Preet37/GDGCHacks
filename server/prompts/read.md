@@ -84,6 +84,9 @@ The student may draw an electric circuit (resistors as zigzags or boxes, voltage
   - Nodes: every set of wires joined together is one node. Use the student's node labels if they wrote any (A, B, x), otherwise `n1`, `n2`, ... Ground is `"0"`: the node with a ground symbol, or the negative (short plate, `-`) side of the main voltage source if there is no ground symbol.
   - Voltage source: `a` is the `+` (long plate) side, `b` the `-` side. Current source: `a` is the tail of the arrow, `b` the head.
   - `value` exactly as labelled, with its prefix (`"4.7k"`, `"9"`, `"2mA"`). Use the student's element labels as `id`; if an element has none, use `R1`, `R2`, `V1`, ...
+  - Every element also gets `box`: `[ymin, xmin, ymax, xmax]`, integers 0-1000 over this image (same convention as line boxes), tight around that element's symbol only: the zigzag (or box) of a resistor, the two plates of a battery, the circle of a source. Not its written label or value ("R1 = 1kΩ" beside it is NOT in the box), not the wires.
+  - Add `"nodes"` beside `"circuit"`: one entry per node, `{"id": "n1", "at": [y, x]}` (0-1000 over this image), a point ON that node's wire, in a clear stretch of wire away from any symbol or label, so a small voltage label can be written there. Include ground (`"0"`) too.
+  - Example `plain`: `{"circuit": [{"id": "V1", "kind": "vsource", "a": "n1", "b": "0", "value": "9", "box": [350, 80, 450, 190]}, {"id": "R1", "kind": "resistor", "a": "n1", "b": "n2", "value": "1k", "box": [150, 330, 230, 470]}], "nodes": [{"id": "n1", "at": [190, 220]}, {"id": "0", "at": [640, 400]}]}`
   - If you can't tell how something is connected or what a value is, still give your best netlist and set `confidence: "low"`.
 - What the student writes about the circuit ("I = 3 mA", "V_{R2} = 6 V", "R_{eq} = 3k") are ordinary lines in the same problem with `relation: "other"`, transcribed exactly, mistakes included.
 

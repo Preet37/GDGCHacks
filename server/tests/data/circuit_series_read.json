@@ -1,0 +1,32 @@
+[
+ {
+  "line_id": "L1",
+  "problem_id": "P1",
+  "latex": "\\text{circuit: } V_1 = 9\\,V,\\ R_1 = 1\\,k\\Omega,\\ R_2 = 2\\,k\\Omega",
+  "plain": "{\"circuit\": [{\"id\": \"V1\", \"kind\": \"vsource\", \"a\": \"n1\", \"b\": \"0\", \"value\": \"9V\", \"box\": [363, 87, 431, 178]}, {\"id\": \"R1\", \"kind\": \"resistor\", \"a\": \"n1\", \"b\": \"n2\", \"value\": \"1k\\u03a9\", \"box\": [161, 335, 230, 461]}, {\"id\": \"R2\", \"kind\": \"resistor\", \"a\": \"n2\", \"b\": \"0\", \"value\": \"2k\\u03a9\", \"box\": [311, 646, 492, 692]}], \"nodes\": [{\"id\": \"n1\", \"at\": [191, 231]}, {\"id\": \"n2\", \"at\": [191, 563]}, {\"id\": \"0\", \"at\": [646, 400]}]}",
+  "box": [
+   103,
+   24,
+   650,
+   861
+  ],
+  "relation": "other",
+  "confidence": "high",
+  "source": "handwriting"
+ },
+ {
+  "line_id": "L2",
+  "problem_id": "P1",
+  "latex": "I = 9\\text{ mA}",
+  "plain": "I = 9*mA",
+  "box": [
+   770,
+   153,
+   814,
+   290
+  ],
+  "relation": "other",
+  "confidence": "high",
+  "source": "handwriting"
+ }
+]
