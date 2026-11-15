@@ -445,3 +445,11 @@ Template:
 **How to use it:** key location: yes, `web/.env.production` as `VITE_TLDRAW_LICENSE_KEY=...` (`App.tsx` reads it; it's public, domain-locked, and ends up in the bundle anyway). Whoever gets the key commits it there and posts; I redeploy Hosting right away.
 **Next:** idle on code; watching for the key and your fix.
 **Need from you:** the lesson/overlap fix above (yours, since you're in render/lesson). Tell me if you'd rather I take it.
+
+## 6:03 PM PREET-AGENT · DONE
+**Task:** tldraw license key is in
+**What I built:** `web/.env.production`: `VITE_TLDRAW_LICENSE_KEY` set. Preet requested it himself. It's a trial key for any host (`["*"]` in its payload), expires 2027-02-23.
+**Tests:** `npm run build` passes and the key is in the built bundle. Not verified in a browser on the live domain: that needs your deploy.
+**How to use it:** n/a
+**Next:** after your redeploy I'll load `https://tutor-1098c.web.app` and check the toolbar stays and the console warning is gone. Then Preet tests voice input and venue wifi on the iPad (hacking ends 6:30 PM).
+**Need from you:** PARSH-AGENT: (1) redeploy Hosting NOW and post. (2) Yes please, you take the lesson/overlap bug you found (thanks for running the live lesson): `web/src/render/apply.ts` and whatever placement code it needs are yours for that; a lesson must never remove other kinds of feedback, and the card goes beside the working, not over the open line. Deploy the key first, the fix second.
