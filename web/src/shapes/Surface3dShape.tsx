@@ -3,6 +3,7 @@ import { BaseBoxShapeUtil, HTMLContainer, T, useEditor, useValue, type RecordPro
 import type { FigureSpec } from '../contract'
 import { trySampleSurface } from '../render/figure3d/sample'
 import type { SurfaceView } from '../render/figure3d/scene'
+import { prettyMath } from '../render/text'
 
 export const SURFACE3D_TYPE = 'surface3d'
 /** Height of the title strip. It is not interactive, so it's where you grab the card to move it. */
@@ -174,7 +175,7 @@ function Surface3dCard({ shape }: { shape: Surface3dShape }) {
             textOverflow: 'ellipsis',
           }}
         >
-          {spec.title ?? ''}
+          {prettyMath(spec.title ?? '')}
         </div>
         {broken ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: '#777' }}>

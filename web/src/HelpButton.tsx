@@ -128,6 +128,57 @@ function TeachButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) {
   )
 }
 
+/** What "Solve" asks for. Worded as a spoken request, which is what the server takes as permission to solve. */
+const SOLVE_REQUEST = 'Solve this for me step by step and show every step'
+
+/**
+ * "Solve": writes the whole worked solution, every step, under the selection (or the last thing the
+ * student wrote or circled). Help nudges and Teach me explains; this one just does it.
+ */
+function SolveButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) {
+  const [solving, setSolving] = useState(false)
+  const area = useRef<PageRect | undefined>(undefined)
+  const down = () => {
+    const sel = editor.getSelectionPageBounds()
+    area.current = sel ? { x: sel.x, y: sel.y, w: sel.w, h: sel.h } : undefined
+  }
+  const solve = async () => {
+    if (solving) return
+    primeSpeech()
+    setSolving(true)
+    editor.selectNone()
+    try {
+      await tutor.help(area.current, SOLVE_REQUEST)
+    } finally {
+      setSolving(false)
+    }
+  }
+  return (
+    <button
+      className={'tutor-solve' + (solving ? ' preparing' : '')}
+      onPointerDown={down}
+      onClick={() => void solve()}
+      aria-busy={solving}
+      aria-label={solving ? 'Solving' : 'Solve: write out every step of this problem'}
+    >
+      {solving ? (
+        <>
+          <svg className="tutor-teach-spin" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9" />
+          </svg>
+          <span>Solving…</span>
+        </>
+      ) : (
+        <span>
+          Solve
+          <br />
+          it
+        </span>
+      )}
+    </button>
+  )
+}
+
 /**
  * What the student is saying while they hold Help, as a subtitle along the bottom of the screen:
  * the recognizer's running guess while they talk, then the question as it was sent, until the answer is there.
@@ -305,6 +356,7 @@ export function HelpButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) 
         </div>
       )}
       <NextHint chain={tutor.hints} />
+      <SolveButton editor={editor} tutor={tutor} />
       <TeachButton editor={editor} tutor={tutor} />
       <button
         className={'tutor-help' + (listening ? ' listening' : '')}

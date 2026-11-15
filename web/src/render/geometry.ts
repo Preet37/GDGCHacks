@@ -81,6 +81,25 @@ export interface RenderContext {
   sheets?: PageRect[]
   /** parts of the page that are under buttons and panels right now (page units): nothing is placed there */
   chrome?: PageRect[]
+  /** readable text of the problem each read line belongs to, by line_id (for "Solution to: ...") */
+  problems?: Map<string, string>
+  /** headings of solutions that were moved off the worksheet, by action: filled by solutionLayout, drawn by the caller */
+  headings?: Map<unknown, SolutionHeading>
+}
+
+/** The small line above a worked solution that was written away from its problem. */
+export interface SolutionHeading {
+  text: string
+  /** top-left, page units */
+  x: number
+  y: number
+  /** font size, page units */
+  font: number
+  /** estimated width, page units */
+  w: number
+  /** the student's line the solution is for */
+  anchor: PageRect
+  line_id?: string
 }
 
 /** Viewport assumed when none is known, in screen px. */

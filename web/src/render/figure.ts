@@ -5,6 +5,7 @@ import { compile } from 'mathjs'
 import { aiMeta, cardRect, lineRect, sizesFor } from './actions'
 import { renderCircuit } from './circuit'
 import { fbdToDataUrl } from './fbd'
+import { prettyMath } from './text'
 import { DEFAULT_CONTEXT, FIGURE_BASE_H, FIGURE_BASE_W, type PageRect, type RenderContext } from './geometry'
 
 /** Size the plot is rendered at; the image shape then scales it to the handwriting. */
@@ -107,7 +108,7 @@ export function plot2dToDataUrl(spec: FigureSpec, w = FIGURE_W, h = FIGURE_H): s
       height: h,
       grid: true,
       disableZoom: true,
-      title: spec.title,
+      title: spec.title ? prettyMath(spec.title) : spec.title,
       xAxis: xLog ? { type: 'log', domain: spec.x_range } : { domain: spec.x_range },
       yAxis: yRange ? { domain: yRange } : undefined,
       data: spec.expressions.map((e) => ({ fn: toPlotExpr(e), graphType: 'polyline' as const, sampler: 'builtIn' as const })),

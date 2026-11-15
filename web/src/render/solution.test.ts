@@ -4,7 +4,7 @@ import solutionJson from '../../../contract/examples/solution.json'
 import { INLINE_LETTER_EM } from './actions'
 import { drawnByHand, staleShapeIds, wantsHand, type OldShape } from './apply'
 import { CHAR_EM, TEXT_LINE_HEIGHT, type PageRect, type RenderContext } from './geometry'
-import { STEP_PITCH_EM, equalsSignX, solutionLayout, solutionShapes } from './solution'
+import { STEP_PITCH_EM, besideSheets, equalsSignX, headingShape, headingText, solutionLayout, solutionShapes } from './solution'
 
 const frame = { x: 0, y: 0, w: 1000, h: 1000 }
 const reply = solutionJson as unknown as CheckResponse
@@ -200,5 +200,71 @@ describe('no room below', () => {
     expect(lay.moved).toBe(true)
     for (const o of [...ink, below, word]) expect(overlap(lay.rect, o)).toBe(false)
     expect(lay.rect.x + lay.rect.w).toBeLessThanOrEqual(700)
+  })
+})
+
+describe('a solution with no room on the worksheet', () => {
+  const sheet: PageRect = { x: 0, y: 0, w: 800, h: 1100 }
+  const next: PageRect = { x: 90, y: 420, w: 500, h: 40 } // printed problem 2, under the student's line
+  const printedArea = (r: PageRect) => (overlap(r, next) ? 1 : 0)
+  const onSheet = (extra: Partial<RenderContext> = {}) => ctxOf({ sheets: [sheet], headings: new Map(), ...extra })
+
+  it('stays under the line when it fits there', () => {
+    const two = { ...action, steps: ['x = 1'] }
+    const ctx = onSheet({ printedArea })
+    const lay = solutionLayout(two, frame, ctx)!
+    expect(lay.moved).toBe(false)
+    expect(lay.heading).toBeUndefined()
+    expect(ctx.headings!.size).toBe(0)
+    expect(lay.rect.y + lay.rect.h).toBeLessThan(next.y)
+  })
+
+  it('goes right of the page, level with the line, under a heading naming the problem', () => {
+    const ctx = onSheet({ printedArea, problems: new Map([['L1', '1. Solve 3x² − 3 = 0']]) })
+    const lay = solutionLayout(action, frame, ctx)!
+    expect(lay.moved).toBe(true)
+    expect(lay.rect.x).toBeGreaterThan(sheet.x + sheet.w)
+    expect(lay.rect.y).toBeCloseTo(line.y)
+    expect(lay.heading).toMatchObject({ text: 'Solution to: 1. Solve 3x² − 3 = 0', x: lay.rect.x, y: lay.rect.y })
+    expect(ctx.headings!.get(action)).toBe(lay.heading)
+    // the steps are under the heading, inside the block
+    expect(lay.steps[0].y).toBeGreaterThanOrEqual(lay.heading!.y + lay.heading!.font * TEXT_LINE_HEIGHT)
+    for (const s of lay.steps) expect(s.x).toBeGreaterThanOrEqual(lay.rect.x - 1e-6)
+    expect(lay.steps.at(-1)!.y + lay.font * TEXT_LINE_HEIGHT).toBeLessThanOrEqual(lay.rect.y + lay.rect.h + 1e-6)
+    expect(headingShape(lay.heading!).meta).toMatchObject({ ai: true, kind: 'solution', line_id: 'L1' })
+  })
+
+  it('student ink under the line on a worksheet sends it beside the page too', () => {
+    const lay = solutionLayout(action, frame, onSheet({ ink: [...ink, { x: 90, y: 300, w: 200, h: 50 }] }))!
+    expect(lay.moved).toBe(true)
+    expect(lay.rect.x).toBeGreaterThan(sheet.x + sheet.w)
+    expect(lay.heading!.text).toBe('Solution (continued from the problem on the left)')
+  })
+
+  it('a second moved solution stacks under the first', () => {
+    const ctx = onSheet({ printedArea })
+    const a = solutionLayout(action, frame, ctx)!
+    const b = solutionLayout({ ...action }, frame, ctx)!
+    expect(b.rect.x).toBeCloseTo(a.rect.x)
+    expect(b.rect.y).toBeGreaterThanOrEqual(a.rect.y + a.rect.h)
+    expect(overlap(a.rect, b.rect)).toBe(false)
+  })
+
+  it('besideSheets: right of every page in the way, below what is already there', () => {
+    const page2 = { x: 840, y: 0, w: 800, h: 1100 } // a page beside the first
+    const r = besideSheets(300, 200, line, [sheet, page2], [], 20)
+    expect(r).toEqual({ x: 1660, y: 150, w: 300, h: 200 })
+    const taken = { x: 1660, y: 100, w: 300, h: 200 }
+    expect(besideSheets(300, 200, line, [sheet, page2], [taken], 20).y).toBe(320)
+    // a page stacked under the first is not in the way
+    expect(besideSheets(300, 200, line, [sheet, { x: 0, y: 1140, w: 800, h: 1100 }], [], 20).x).toBe(820)
+  })
+
+  it('headingText quotes about 40 characters of the problem', () => {
+    expect(headingText('  Find  dy/dx ')).toBe('Solution to: Find dy/dx')
+    const long = headingText('Find the derivative of the function f(x) = 3x² + 2x − 7 at x = 2')
+    expect(long.endsWith('…')).toBe(true)
+    expect(long.length).toBeLessThanOrEqual('Solution to: '.length + 41)
+    expect(headingText(undefined)).toMatch(/^Solution \(continued/)
   })
 })

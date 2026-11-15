@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { mathToPlain, mathToSpeech } from './text'
+import { mathToPlain, mathToSpeech, prettyMath } from './text'
 
 describe('mathToPlain', () => {
   it('strips dollars and common LaTeX', () => {
@@ -100,5 +100,28 @@ describe('LaTeX in worked solution steps', () => {
     expect(mathToPlain('\\displaystyle x &= \\boxed{2}')).toBe('x = 2')
     expect(mathToPlain('\\begin{aligned} x &= 1 \\end{aligned}')).toBe('x = 1')
     expect(mathToPlain('x = \\pm 1')).toBe('x = ±1')
+  })
+})
+
+describe('prettyMath (graph titles)', () => {
+  it('writes calculator syntax the way it is written by hand', () => {
+    expect(prettyMath('y = x^2 - 4')).toBe('y = x² − 4')
+    expect(prettyMath('z = x^2 + y^2')).toBe('z = x² + y²')
+    expect(prettyMath('y = x^3 - 4*x')).toBe('y = x³ − 4x')
+    expect(prettyMath('y = x^{10}')).toBe('y = x¹⁰')
+    expect(prettyMath('y = x^(-1)')).toBe('y = x⁻¹')
+    expect(prettyMath('y = sqrt(x)')).toBe('y = √x')
+    expect(prettyMath('y = sqrt(x + 1)')).toBe('y = √(x + 1)')
+    expect(prettyMath('y = sin(2*pi*x)')).toBe('y = sin(2π·x)')
+    expect(prettyMath('z = x*y')).toBe('z = x·y')
+    expect(prettyMath('x^2 <= 4, x >= -2')).toBe('x² ≤ 4, x ≥ −2')
+  })
+
+  it('leaves what it cannot write properly, and plain words, alone', () => {
+    expect(prettyMath('y = e^(x/2)')).toBe('y = e^(x/2)')
+    expect(prettyMath('y = 2^x')).toBe('y = 2^x')
+    expect(prettyMath('Parabola and its tangent')).toBe('Parabola and its tangent')
+    expect(prettyMath('Graph of y = x^2')).toBe('Graph of y = x²')
+    expect(prettyMath('')).toBe('')
   })
 })
