@@ -17,6 +17,12 @@ type Surface3dModule = { renderSurface3d: (editor: Editor, action: Action, rect:
 // nothing if that module isn't there, so the page still builds without it.
 const figure3d = import.meta.glob<Surface3dModule>('./figure3d.ts')
 
+/** Must match Model3dShapeUtil.type (web/src/shapes/Model3dShape.tsx, registered in App.tsx). */
+export const MODEL3D_TYPE = 'model3d'
+/** A model needs room to be turned and read: never smaller than this. */
+export const MODEL3D_MIN_W = 520
+export const MODEL3D_MIN_H = 460
+
 // function-plot ships CommonJS with `exports.default`; depending on the bundler's interop the
 // default import is either the function or the whole exports object.
 type PlotFn = typeof functionPlotModule
@@ -133,6 +139,37 @@ export function plot2dToDataUrl(spec: FigureSpec, w = FIGURE_W, h = FIGURE_H): s
   }
 }
 
+/** Put a model3d card on the page. Never throws; false if the action has no model to show. */
+export function drawModel3d(editor: Editor, action: Action, rect: PageRect): boolean {
+  const model = action.figure?.model3d
+  if (!model || !Array.isArray(model.parts) || !model.parts.length) return false
+  try {
+    editor.run(
+      () =>
+        editor.createShapes([
+          {
+            id: createShapeId(),
+            type: MODEL3D_TYPE,
+            x: rect.x,
+            y: rect.y,
+            meta: aiMeta('figure', action.line_id),
+            props: {
+              w: Math.max(MODEL3D_MIN_W, rect.w),
+              h: Math.max(MODEL3D_MIN_H, rect.h),
+              title: action.figure?.title ?? '',
+              model: JSON.parse(JSON.stringify(model)),
+            },
+          },
+        ]),
+      { history: 'ignore', ignoreShapeLock: true },
+    )
+    return true
+  } catch (err) {
+    console.warn('model3d figure skipped', action.figure, err)
+    return false
+  }
+}
+
 /** Hand a surface3d figure to ./figure3d, if that module is present. Never throws. */
 function drawSurface3d(editor: Editor, action: Action, rect: PageRect) {
   const load = figure3d['./figure3d.ts']
@@ -158,6 +195,11 @@ export function drawFigures(editor: Editor, actions: Action[], bounds: PageRect,
     if (action.figure.kind === 'surface3d') {
       drawSurface3d(editor, action, figureRect(action, bounds, ctx))
       handed++
+      continue
+    }
+    if (action.figure.kind === 'model3d') {
+      // a structure to turn and tap (Part 2): its own card, the 3D scene loads when it mounts
+      if (drawModel3d(editor, action, figureRect(action, bounds, ctx))) handed++
       continue
     }
     if (action.figure.kind === 'circuit') {
