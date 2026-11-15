@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   autoWindow,
   clusterAround,
+  withLineAbove,
   reachOf,
   coverage,
   exportArea,
@@ -152,3 +153,38 @@ describe('drawings reach further', () => {
     expect(clusterAround(seed, [plate], lim).x).toBe(-40)
   })
 })
+
+describe('the line above comes along', () => {
+  const lim = { maxW: 1000, maxH: 700, gap: 80 }
+  // ~34-unit handwriting: line 1 at y 200-234 as letter strokes, line 2 written one blank line lower
+  const letters = (y: number) => Array.from({ length: 10 }, (_, i) => ({ x: 260 + i * 34, y, w: 20, h: 34 }))
+
+  it('a step written a blank line below still gets the line it follows from', () => {
+    const line2 = letters(310)
+    const area = clusterAround(line2[0], line2, lim)
+    const out = withLineAbove(area, [...letters(200), ...line2], 34, lim)
+    expect(out.y).toBe(200)
+    expect(out.x).toBe(260)
+    expect(out.w).toBe(326) // all of line 1, not just one letter
+  })
+
+  it('a step written two blank lines below still gets it (lineHeight runs small)', () => {
+    const line2 = letters(360)
+    const area = clusterAround(line2[0], line2, lim)
+    expect(withLineAbove(area, [...letters(200), ...line2], 25, lim).y).toBe(200)
+  })
+
+  it('writing far above (beyond 6 line heights / 30% of the window) is not pulled in', () => {
+    const line2 = letters(520)
+    const area = clusterAround(line2[0], line2, lim)
+    expect(withLineAbove(area, [...letters(200), ...line2], 34, lim).y).toBe(520)
+  })
+
+  it('writing above but off to the side is not pulled in', () => {
+    const line2 = letters(310)
+    const side = [{ x: 900, y: 250, w: 60, h: 34 }]
+    const area = clusterAround(line2[0], line2, lim)
+    expect(withLineAbove(area, [...side, ...line2], 34, lim)).toEqual(area)
+  })
+})
+

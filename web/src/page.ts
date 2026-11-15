@@ -191,9 +191,39 @@ export function withContext(working: PageRect, sheets: PageRect[], view: PageRec
  * `changed` oldest first; `ink` = every handwriting shape; `sheets` = worksheet pages.
  */
 export function autoWindow(changed: PageRect[], ink: PageRect[], sheets: PageRect[], view: PageRect): PageRect | null {
-  const lim = windowLimits(lineHeight(changed), view)
+  const lineH = lineHeight(changed)
+  const lim = windowLimits(lineH, view)
   const seed = seedRect(changed, lim)
-  return seed && withContext(clusterAround(seed, ink, lim), sheets, view)
+  return seed && withContext(withLineAbove(clusterAround(seed, ink, lim), ink, lineH, lim), sheets, view)
+}
+
+/**
+ * How far up (in line heights) to look for the line a new step follows from. Generous because
+ * lineHeight() reads short strokes (x, 3, -) and so runs small; capped by ABOVE_MAX_FRACTION.
+ */
+export const ABOVE_LINES = 6
+/** ...but never more than this share of the window height. */
+export const ABOVE_MAX_FRACTION = 0.3
+
+/**
+ * Add the nearest line of writing directly above the working (it overlaps horizontally), within
+ * ABOVE_LINES line heights (at most ABOVE_MAX_FRACTION of the window height). A step can only be checked against the line before it, and students
+ * often leave a blank line between steps, which is wider than the normal grouping gap.
+ */
+export function withLineAbove(area: PageRect, ink: PageRect[], lineH: number, lim: WindowLimits): PageRect {
+  const reach = Math.max(lim.gap, Math.min(lineH * ABOVE_LINES, lim.maxH * ABOVE_MAX_FRACTION))
+  const above = ink.filter(
+    (r) =>
+      r.y + r.h <= area.y + 1 &&
+      area.y - (r.y + r.h) <= reach &&
+      r.x < area.x + area.w &&
+      r.x + r.w > area.x,
+  )
+  if (!above.length) return area
+  const nearest = above.reduce((a, b) => (b.y + b.h > a.y + a.h ? b : a))
+  const grown = union(area, nearest)!
+  if (grown.w > lim.maxW || grown.h > lim.maxH) return area
+  return clusterAround(grown, ink, lim) // pull in the rest of that line
 }
 
 /** Help: the selection with the working around it, or simply what is on screen. */

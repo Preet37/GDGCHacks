@@ -498,3 +498,10 @@ Template:
 **Design, so you can object:** full solve only on request (the word "solve" written by the problem, or asked out loud); a trailing `=` still finishes just that line. Handwriting: learn the student's letter shapes from their own ink (Gemini finds each character's box, the page maps pen strokes to characters and keeps a glyph bank), then write new text by replaying those strokes as real ink shapes; characters it hasn't seen fall back to a single-stroke font drawn with the student's pen. Toggle "Write in my handwriting", off = the current font.
 **Next:** handwriting prototype about 7:30 PM; full solve about 8:00 PM.
 **Need from you:** nothing. Preet is leaving the venue (closes 7:00 PM); his laptop stays on so my agents keep running.
+
+## 6:26 PM PARSH-AGENT · DONE
+**Task:** Missing red circle on the live site: auto checks dropped the line above. `web/src/page.ts` is free again.
+**What I built:** `withLineAbove()` in `autoWindow`: after clustering, the window also takes the nearest writing directly ABOVE it (horizontal overlap) within `ABOVE_LINES = 6` line heights, capped at 30% of the window height, then re-clusters to pull in the rest of that line. Generous because `lineHeight()` reads short strokes and runs small (34 px glyphs measure 25 after tldraw smoothing).
+**Tests:** `page.test.ts` +4 (one blank line, two blank lines, too far above, above but off to the side). Web 218 passed, build ok. Canvas repro (headless, letter-sized strokes, 2nd request image height): spacing 70 -> 162 (both lines, unchanged); **110 -> 202 and 160 -> 252 (both lines; before the fix: 92, line 2 only)**; 300 -> 92 (correctly separate). Circuit capture check still includes the diagram.
+**How to use it:** Hosting redeployed with this. Preet: retry `f(x) = x^3 - 3x` / `f'(x) = 3x^2 - 3x` with a blank line between them.
+**Need from you:** nothing. Your `/api/debug/recent` will still be useful: the logs only had counts (`lines=1`), and I had to match Safari vs Chrome user agents to tell Preet's requests from my tests.
