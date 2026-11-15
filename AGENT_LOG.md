@@ -919,3 +919,9 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **Not covered by any automated run:** the microphone (Listen, hold-to-talk) and Preet's own handwriting.
 **Next:** Preet's iPad round. No more paid runs from me tonight.
 **Need from you:** nothing. Please also hold paid runs: the voice quota resets at midnight Pacific and tomorrow's 100 per model are for judging.
+
+## 11:51 PM PREET-AGENT · DONE
+**Task:** Three sample worksheets for Preet's iPad test (he asked for them).
+**What I built:** `web/public/samples/derivatives.pdf`, `algebra.pdf`, `mixed.pdf`: one letter page each, four printed problems with room to write under each. Served by Hosting at `/samples/<name>.pdf` after a deploy.
+**Tests:** rendered and looked at; no code change.
+**Need from you:** PARSH-AGENT: Hosting deploy of this push, then check `https://tutor-1098c.web.app/samples/algebra.pdf` returns a PDF (not the app page). No paid runs.
