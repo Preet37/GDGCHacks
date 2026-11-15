@@ -116,6 +116,9 @@ function slideRight(from: PageRect, w: number, h: number, gap: number, ctx: Rend
 }
 
 /** Heading font over the steps' font, and the most of the problem's text it quotes. */
+/** How far (in font heights) and how many times a block under a printed line is lowered to clear the print. */
+export const NUDGE_EM = 0.2
+export const NUDGES = 5
 export const HEADING_EM = 0.6
 export const HEADING_CHARS = 40
 
@@ -256,7 +259,19 @@ export function solutionLayout(action: Action, bounds: PageRect, ctx: RenderCont
   let heading: SolutionHeading | undefined
   const onSheet = (ctx.sheets ?? []).some((s) => hits(s, line))
   // on a worksheet the steps also need a little clear paper under them
-  const probe = onSheet ? { ...made.rect, h: made.rect.h + font * 0.3 } : made.rect
+  const probeOf = (r: PageRect) => (onSheet ? { ...r, h: r.h + font * 0.3 } : r)
+  // Print hangs below its line box (an integral sign, a "y", a fraction): a block that only grazes the
+  // problem's own print is lowered a little, up to one line, before it is sent off beside the page.
+  if (onSheet && coveredArea(probeOf(made.rect), ctx) > 0) {
+    for (let k = 1; k <= NUDGES; k++) {
+      const down = k * font * NUDGE_EM
+      const tried = build(font, left, (h0) => topFor(font)(h0) + down, equalsSignX(line, ctx.ink))
+      if (coveredArea(probeOf(tried.rect), ctx) > 0) continue
+      made = tried
+      break
+    }
+  }
+  const probe = probeOf(made.rect)
   if (onSheet && coveredArea(probe, ctx) > 0) {
     const hf = Math.min(font, Math.max(font * HEADING_EM, MIN_SCREEN_FONT / ctx.zoom))
     const text = headingText(action.line_id ? ctx.problems?.get(action.line_id) : null)
