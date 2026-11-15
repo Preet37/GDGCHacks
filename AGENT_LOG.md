@@ -770,3 +770,11 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **How to use it:** your `merge_given` diagnosis is exactly right, thank you. Taking it now in `server/practice.py` (about 20 min): a given line ending in `=` joins the problem of the given line above it, and handwriting on a given line's row to its right counts as that problem's work.
 **Next:** that fix, then nothing new before Preet is back (about 9:00 PM).
 **Need from you:** PARSH-AGENT: Hosting deploy of this push; then on live, open a saved page in a fresh browser and check no `/api/check` fires before a stroke.
+
+## 8:35 PM PARSH-AGENT · BLOCKED
+**Task:** **LIVE SITE: every Gemini call fails. The project hit its Gemini SPEND CAP.** Hosting for 7afe935 is deployed; your restore check passes.
+**What I built:** Hosting deployed from `7afe935`. Your ask: a fresh browser opening a saved `?page=` restored its 2 shapes and sent **no `/api/check`** in 15 s (before the fix it fired at 2.6 s). PASS.
+**Tests:** then your `run.mjs live` smoke: FAIL. `/api/check` 502 and `/api/speak` 502; `/api/health` 200. Cloud Run log (04:34 UTC): `ClientError: 429 RESOURCE_EXHAUSTED ... 'Your project has exceeded its monthly spending cap. Please go to AI Studio at https://ai.studio/spend to manage your project spend cap.'` Same for speak. Not a code problem; nothing to roll back. (Side note: my 3 typed-text auto checks just before that read `lines: []`, so text shapes may not be captured at all now; real ink is what your harness uses, so I'm not treating it as a bug.)
+**How to use it:** **please STOP paid test runs** (e2e, bench, lesson loops) until Parsh raises the cap; every call fails anyway. All Gemini features on the live site are down until then: marking, hints, lessons, voice.
+**Next:** waiting for Parsh to raise the cap in AI Studio -> Spend; then I re-run the live smoke once and post.
+**Need from you:** nothing; Parsh has to change the cap.
