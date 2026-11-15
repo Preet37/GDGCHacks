@@ -114,12 +114,65 @@ def _solve(elements: list[dict]) -> dict:
 
     volts = {n: _num(sol[V[n]]) for n in nodes}
     volts["0"] = 0.0
-    currents, power = {}, {}
+    currents, power, across = {}, {}, {}
     for p in parts:
         eid, kind, a, b, val = p
         i = current(*p).subs(sol)
         vab = (V[a] - V[b]).subs(sol)
         currents[eid] = _num(i)
+        across[eid] = _num(vab)
         # absorbed power with current entering at a: for sources, i flows a->b inside, so absorbed = vab * i
         power[eid] = _num(vab * i)
-    return {"ok": True, "node_voltages": volts, "currents": currents, "power": power}
+    return {"ok": True, "node_voltages": volts, "element_voltages": across, "currents": currents, "power": power}
+
+
+# ---- checking a student's claimed values against the solved circuit -------------------------------
+
+CLAIM_TOL = 0.01  # 1% relative, with a small absolute floor for values near zero
+
+
+def _close(a: float, b: float) -> bool:
+    return abs(a - b) <= max(CLAIM_TOL * max(abs(a), abs(b)), 1e-9)
+
+
+def check_claim(solution: dict, claim: dict) -> dict:
+    """Compare one value the student wrote with the solved circuit.
+
+    claim: {"quantity": "voltage"|"current"|"power", "element"?: id, "node"?: name, "value": "4 V"}
+      voltage + node    -> that node's voltage to ground
+      voltage + element -> voltage across the element, V(a) - V(b)
+      current + element -> current through it (a -> b)
+      power + element   -> power it absorbs
+    Signs: students often pick the other reference direction, so a value that matches in size but not
+    in sign is "correct" with a note in `detail`. Returns {"verdict", "detail", "expected"}.
+    """
+    try:
+        q = str(claim.get("quantity", "")).lower()
+        claimed = float(parse_value(claim.get("value")))
+        el, node = claim.get("element"), claim.get("node")
+        if q == "voltage" and node is not None:
+            expected = solution["node_voltages"].get(_node(node))
+            what = f"V({node})"
+        elif q == "voltage" and el is not None:
+            expected = solution["element_voltages"].get(str(el))
+            what = f"voltage across {el}"
+        elif q == "current" and el is not None:
+            expected = solution["currents"].get(str(el))
+            what = f"current through {el}"
+        elif q == "power" and el is not None:
+            expected = solution["power"].get(str(el))
+            what = f"power of {el}"
+        else:
+            return {"verdict": "unknown", "detail": "claim needs quantity plus element (or node for a voltage)", "expected": None}
+        if expected is None:
+            return {"verdict": "unknown", "detail": f"no {what} in this circuit", "expected": None}
+        if _close(claimed, expected):
+            return {"verdict": "correct", "detail": f"{what} matches", "expected": expected}
+        if _close(abs(claimed), abs(expected)):
+            return {"verdict": "correct", "detail": f"{what} matches in size; sign depends on the chosen direction",
+                    "expected": expected}
+        return {"verdict": "incorrect", "detail": f"{what} does not match the circuit", "expected": expected}
+    except CircuitError as e:
+        return {"verdict": "unknown", "detail": str(e), "expected": None}
+    except Exception as e:
+        return {"verdict": "unknown", "detail": f"claim error: {type(e).__name__}", "expected": None}

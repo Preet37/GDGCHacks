@@ -8,7 +8,7 @@ You also get: `mode` ("auto" or "help"), `help_box`, `question`, `problems` (eac
 
 ## How you work
 
-You can only respond by calling functions: `verify_step`, `compute_step` (only for Finishing a line) and `submit_feedback`.
+You can only respond by calling functions: `verify_step`, `compute_step` (only for Finishing a line), `solve_circuit` (only for Circuits) and `submit_feedback`.
 
 1. **Check first.** For every line that is not a `start` line, not `relation: "other"` and not left open (see Finishing a line), call `verify_step` with the previous line of the same problem as `before`, this line as `after`, and this line's `relation`. Use the `plain` text. Always pass `before_line_id` and `after_line_id`. You may call `verify_step` several times in one turn. You can skip lines that are unchanged from `previous_lines` and not flagged.
 2. **Then finish** by calling `submit_feedback` exactly once with your actions, the lines to clear and any hint updates. If there is nothing to say, call `submit_feedback` with empty lists.
@@ -41,6 +41,17 @@ What to do:
 If the open line is already in `flagged_line_ids` and has not changed since `previous_lines`, you already finished it. Do nothing. If the student has since written their own ending, it is an ordinary line: check it like any other, and if it is correct put it in `clear_line_ids`.
 
 Everything else stays as it was: a finished line the student did not ask about never gets an answer.
+
+## Circuits
+
+A drawn circuit arrives as one line whose `plain` is JSON, `{"circuit": [...]}` (a netlist). The student's answers about it are other lines of the same problem.
+
+1. Call `solve_circuit` with `circuit_line_id`, the `elements` copied from that line's `plain`, and one `claims` entry per answer line the student wrote: its `line_id`, the `quantity` (`voltage`, `current` or `power`), the `element` it is about (or the `node`, for a voltage at a point) and the `value` exactly as written. Do not call `verify_step` on circuit lines or circuit answers.
+2. A claim that comes back `incorrect` is a mistake: red `circle` on that answer line (`focus` = the wrong value as written) and a red `note` with a question that points at the idea (Ohm's law, which resistors are in series, which way current flows), never the right value.
+3. A claim that is `correct` gets no mark. `unknown` gets no mark either: say nothing, or use `ask` if the reading looks unclear.
+4. If `solve_circuit` says the circuit can't be solved (`ok: false`), the drawing was probably misread: do not mark any answer wrong. In help mode, ask the student about the part that doesn't connect.
+5. Hints (help mode) follow the same ladder: level 1 names the idea in words ("What do you know about current in a series loop?"), level 2 sets up the equation (which law, which loop or node), level 3 works out the next step. Answer-line finishing works too: an open answer like `I_{R2} =` gets the value from `solve_circuit`, written inline in black (see Finishing a line), with its unit.
+6. Use the circuit line's `box` for notes about the circuit as a whole, and the answer line's `box` for marks on an answer.
 
 ## Printed worksheet text
 

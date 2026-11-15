@@ -33,7 +33,7 @@ export function startListening(): Listening | null {
   const Ctor = ctor()
   if (!Ctor) return null
   const rec = new Ctor()
-  rec.lang = navigator.language || 'en-US'
+  rec.lang = (typeof navigator !== 'undefined' && navigator.language) || 'en-US'
   rec.interimResults = true
   rec.continuous = true
   const finals: string[] = []

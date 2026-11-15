@@ -1,7 +1,7 @@
 """Teach step: Gemini with function calling decides what feedback to draw.
 
 Text only (the page was already read). Gemini calls verify_step on lines (and compute_step when the
-student asked for a line to be finished), then finishes by calling submit_feedback. Teaching behavior lives in prompts/tutor.md, not here.
+student asked for a line to be finished, solve_circuit for a drawn circuit), then finishes by calling submit_feedback. Teaching behavior lives in prompts/tutor.md, not here.
 """
 import json
 import logging
@@ -13,6 +13,7 @@ from focus import focus_box
 from google.genai import types
 from pydantic import ValidationError
 
+import circuits
 import compute
 import verify
 from figures import fix_figure
@@ -107,6 +108,51 @@ COMPUTE_DECL = types.FunctionDeclaration(
     },
 )
 
+_ELEMENT = {
+    "type": "object",
+    "properties": {
+        "id": {"type": "string", "description": "label from the drawing, e.g. 'R1', 'V1'"},
+        "kind": {"type": "string", "enum": sorted(circuits.KINDS)},
+        "a": {"type": "string", "description": "node name; '0' is ground"},
+        "b": {"type": "string", "description": "node name; '0' is ground"},
+        "value": {"type": "string", "description": "ohms / volts / amps, e.g. '4.7k', '9', '2mA'"},
+    },
+    "required": ["id", "kind", "a", "b", "value"],
+}
+
+CIRCUIT_DECL = types.FunctionDeclaration(
+    name="solve_circuit",
+    description=(
+        "Solve a DC circuit drawn on the page with real nodal analysis, and check values the student wrote. "
+        "vsource: V(a) - V(b) = value. isource: value amps flow from a through the source to b. Returns node "
+        "voltages, element voltages and currents (a->b), power, and a verdict per claim."
+    ),
+    parameters_json_schema={
+        "type": "object",
+        "properties": {
+            "circuit_line_id": {"type": "string", "description": "the line holding the circuit's netlist"},
+            "elements": {"type": "array", "items": _ELEMENT,
+                         "description": "the netlist; copy it from the circuit line's `plain`"},
+            "claims": {
+                "type": "array",
+                "description": "values the student wrote about this circuit, one per answer line",
+                "items": {
+                    "type": "object",
+                    "properties": {
+                        "line_id": {"type": "string", "description": "the student's answer line"},
+                        "quantity": {"type": "string", "enum": ["voltage", "current", "power"]},
+                        "element": {"type": "string", "description": "element id (voltage across it, current through it, its power)"},
+                        "node": {"type": "string", "description": "voltage only: node name, measured to ground"},
+                        "value": {"type": "string", "description": "the value as written, e.g. '4 V', '2mA'"},
+                    },
+                    "required": ["line_id", "quantity", "value"],
+                },
+            },
+        },
+        "required": ["circuit_line_id"],
+    },
+)
+
 SUBMIT_DECL = types.FunctionDeclaration(
     name="submit_feedback",
     description="Finish: send the feedback to draw on the page. Call exactly once, after verifying.",
@@ -135,7 +181,7 @@ SUBMIT_DECL = types.FunctionDeclaration(
 def _build_config(thinking=None) -> types.GenerateContentConfig:
     return types.GenerateContentConfig(
         system_instruction=PROMPT_PATH.read_text(),  # loaded per call so prompt edits apply live
-        tools=[types.Tool(function_declarations=[VERIFY_DECL, COMPUTE_DECL, SUBMIT_DECL])],
+        tools=[types.Tool(function_declarations=[VERIFY_DECL, COMPUTE_DECL, CIRCUIT_DECL, SUBMIT_DECL])],
         tool_config=types.ToolConfig(
             function_calling_config=types.FunctionCallingConfig(mode="ANY")
         ),
@@ -222,6 +268,41 @@ def _run_compute(args: dict, lines: list[ReadLine], result: TeachResult) -> dict
         out = {"result": "", "latex": "", "detail": f"compute error: {e}"}
     result.tool_calls.append(f"compute_step({before_id}->{after_id}, {relation}) = {out['result'] or 'nothing'}")
     return out
+
+
+def _netlist_from_line(line: ReadLine | None) -> list:
+    """The read step writes a drawn circuit as JSON in `plain`: {"circuit": [elements...]}."""
+    if line is None:
+        return []
+    try:
+        data = json.loads(line.plain)
+    except (TypeError, ValueError):
+        return []
+    els = data.get("circuit") if isinstance(data, dict) else data
+    return els if isinstance(els, list) else []
+
+
+def _run_circuit(args: dict, lines: list[ReadLine], result: TeachResult) -> dict:
+    line_id = str(args.get("circuit_line_id", ""))
+    elements = args.get("elements") or _netlist_from_line(next((l for l in lines if l.line_id == line_id), None))
+    sol = circuits.solve_circuit(list(elements) if isinstance(elements, list) else [])
+    if not sol.get("ok"):
+        result.tool_calls.append(f"solve_circuit({line_id}) = failed: {sol.get('detail')}")
+        return {"ok": False, "detail": sol.get("detail", ""),
+                "claims": "not checked: fix or re-read the netlist, and do not mark answers wrong"}
+    checked = []
+    ids = {l.line_id for l in lines}
+    for c in args.get("claims") or []:
+        if not isinstance(c, dict):
+            continue
+        out = circuits.check_claim(sol, c)
+        cid = str(c.get("line_id", ""))
+        checked.append({"line_id": cid, **out})
+        if cid in ids and result.verdicts.get(cid) != "correct":  # same rule as verify_step: correct wins
+            result.verdicts[cid] = out["verdict"]
+    verdicts = ", ".join(f"{c['line_id']}={c['verdict']}" for c in checked) or "no claims"
+    result.tool_calls.append(f"solve_circuit({line_id}) = ok; {verdicts}")
+    return {**sol, "claims": checked}
 
 
 def _clean_box(v: Any) -> Any:
@@ -312,7 +393,7 @@ def teach(client, model: str, lines: list[ReadLine], req: CheckRequest) -> Teach
             if cand is not None:
                 contents.append(cand)
             contents.append(types.Content(role="user", parts=[types.Part.from_text(
-                text="Respond only by calling verify_step, compute_step or submit_feedback.")]))
+                text="Respond only by calling verify_step, compute_step, solve_circuit or submit_feedback.")]))
             continue
 
         # Send the model's turn back unchanged (keeps Gemini 3 thought signatures).
@@ -327,6 +408,8 @@ def teach(client, model: str, lines: list[ReadLine], req: CheckRequest) -> Teach
                 out = _run_verify(args, lines, result)
             elif call.name == "compute_step":
                 out = _run_compute(args, lines, result)
+            elif call.name == "solve_circuit":
+                out = _run_circuit(args, lines, result)
             elif call.name == "submit_feedback":
                 submit = args
                 out = {"ok": True}

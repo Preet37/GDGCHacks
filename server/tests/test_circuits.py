@@ -91,3 +91,29 @@ def test_bad_circuits_explain_instead_of_raising(els, why):
 ])
 def test_parse_value(raw, expected):
     assert float(parse_value(raw)) == pytest.approx(expected)
+
+
+from circuits import check_claim
+
+DIVIDER = [Vs("V1", "in", "0", 9), R("R1", "in", "mid", "1k"), R("R2", "mid", "0", "2k")]
+
+
+@pytest.mark.parametrize("claim,verdict", [
+    ({"quantity": "voltage", "node": "mid", "value": "6V"}, "correct"),
+    ({"quantity": "voltage", "node": "mid", "value": "4.5 V"}, "incorrect"),
+    ({"quantity": "voltage", "element": "R1", "value": 3}, "correct"),
+    ({"quantity": "current", "element": "R2", "value": "3mA"}, "correct"),
+    ({"quantity": "current", "element": "R2", "value": "-3mA"}, "correct"),   # other reference direction
+    ({"quantity": "current", "element": "R2", "value": "9mA"}, "incorrect"),  # used 1k instead of 3k
+    ({"quantity": "power", "element": "R2", "value": "18m"}, "correct"),
+    ({"quantity": "current", "element": "R9", "value": 1}, "unknown"),
+    ({"quantity": "current", "value": 1}, "unknown"),
+    ({"quantity": "voltage", "node": "mid", "value": "six"}, "unknown"),
+])
+def test_check_claim(claim, verdict):
+    sol = solve_circuit(DIVIDER)
+    assert check_claim(sol, claim)["verdict"] == verdict
+
+
+def test_element_voltages_reported():
+    assert solve_circuit(DIVIDER)["element_voltages"]["R2"] == pytest.approx(6.0)

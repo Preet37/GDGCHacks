@@ -58,6 +58,19 @@ The page may have a printed worksheet (typed text from an imported PDF) undernea
 - Printed lines do not count when choosing relations: the first handwritten line under a printed problem is `start`.
 - Only typed text gets `source: "printed"`. Handwriting is always `source: "handwriting"`, even when it copies the problem.
 
+## Circuit diagrams
+
+The student may draw an electric circuit (resistors as zigzags or boxes, voltage sources as long/short plates or a circle with + and -, current sources as a circle with an arrow, wires as lines). A whole drawn circuit is ONE line:
+
+- `box`: around the whole diagram. `relation`: `"other"`. `source`: `"handwriting"`. Its own `problem_id`, shared with the student's answer lines about it.
+- `latex`: `\text{circuit}` followed by its element labels and values, e.g. `\text{circuit: } V_1 = 9\,V,\ R_1 = 1\,k\Omega,\ R_2 = 2\,k\Omega`.
+- `plain`: the netlist as compact JSON, `{"circuit": [ ... ]}`, one object per element: `{"id": "R1", "kind": "resistor", "a": "n1", "b": "n2", "value": "1k"}`. `kind` is `"resistor"`, `"vsource"` or `"isource"`.
+  - Nodes: every set of wires joined together is one node. Use the student's node labels if they wrote any (A, B, x), otherwise `n1`, `n2`, ... Ground is `"0"`: the node with a ground symbol, or the negative (short plate, `-`) side of the main voltage source if there is no ground symbol.
+  - Voltage source: `a` is the `+` (long plate) side, `b` the `-` side. Current source: `a` is the tail of the arrow, `b` the head.
+  - `value` exactly as labelled, with its prefix (`"4.7k"`, `"9"`, `"2mA"`). Use the student's element labels as `id`; if an element has none, use `R1`, `R2`, `V1`, ...
+  - If you can't tell how something is connected or what a value is, still give your best netlist and set `confidence: "low"`.
+- What the student writes about the circuit ("I = 3 mA", "V_{R2} = 6 V", "R_{eq} = 3k") are ordinary lines in the same problem with `relation: "other"`, transcribed exactly, mistakes included.
+
 ## Words
 
 Handwritten words count as lines too. "graph this", "plot", "sketch", "find x", "check?" get `relation: "other"`, the problem they sit next to, `latex` as `\text{...}`, and `plain` as the words.
