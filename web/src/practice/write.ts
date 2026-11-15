@@ -1,7 +1,7 @@
 import { toRichText, type Editor, type TLShape, type TLShapeId } from 'tldraw'
 import type { Lesson, Practice } from '../contract'
 import { dock } from '../lesson/dock'
-import { cameraFor, canvasInsets, dockLayout } from '../lesson/layout'
+import { cameraFor, canvasInsets } from '../lesson/layout'
 import { clusterAround, lineHeight, rectOf, union, windowLimits } from '../page'
 import { anchorOf, isAiShape } from '../render/actions'
 import { renderContext } from '../render/apply'
@@ -88,14 +88,15 @@ const touches = (a: PageRect, b: PageRect) => a.x <= b.x + b.w && b.x <= a.x + a
  * The student's working that the practice goes under: the problem the lesson was about (its
  * marker remembers the line), stretched over its strokes; without a marker, the writing on screen.
  */
-function workRect(e: Editor, lesson: Lesson | undefined, ink: PageRect[]): PageRect {
+export function workRect(e: Editor, lesson: Lesson | undefined, ink: PageRect[]): PageRect {
   const view = rectOf(e.getViewportPageBounds())
   const key = lesson && JSON.stringify(lesson)
   const marker = key ? e.getCurrentPageShapes().find((s) => s.type === 'lesson' && JSON.stringify((s.props as { lesson?: unknown }).lesson) === key) : undefined
   const over = (seed: PageRect) => ink.filter((r) => touches(r, seed)).reduce<PageRect>((a, r) => union(a, r)!, seed)
   if (marker) {
     const read = typeof marker.meta.line_id === 'string' ? host.workOf?.(marker.meta.line_id) : null
-    if (read) return over(read)
+    // (a reading whose boxes no longer have writing in them says nothing about where the work is)
+    if (read && ink.some((r) => touches(r, read))) return over(read)
     const b = e.getShapePageBounds(marker)
     const seed = anchorOf(marker) ?? (b ? rectOf(b) : null)
     if (seed) {
@@ -109,16 +110,20 @@ function workRect(e: Editor, lesson: Lesson | undefined, ink: PageRect[]): PageR
   return all ?? { x: view.x + 40 / z, y: view.y + 60 / z, w: 0, h: 0 }
 }
 
-/** Slide the page (never zooming) so `rect` is in the part of the screen the notebook has, clear of its controls. */
+/**
+ * Slide the page (never zooming) so `rect` is clear of the notebook's controls. The lesson panel is
+ * about to fold away, so the whole screen counts: a problem that will be in view then is not moved
+ * (and the work above it stays where it is).
+ */
 function focus(e: Editor, rect: PageRect) {
   try {
-    const open = dock.get() && !dock.get()!.collapsed
-    const layout = open ? dockLayout(window.innerWidth, window.innerHeight) : { side: 'bottom' as const, canvas: { w: window.innerWidth, h: window.innerHeight } }
-    const pad = { ...canvasInsets(layout.side), top: 100 } // below the lesson pill
+    const canvas = { w: window.innerWidth, h: window.innerHeight }
+    // the controls of the full-screen notebook: Help on the right, the toolbar below, the lesson pill on top
+    const pad = { ...canvasInsets('right'), top: 100 }
     const cam = e.getCamera()
     // what doesn't fit at this zoom is cut off at the bottom: the problem itself is at the top
-    const fit = { ...rect, w: Math.min(rect.w, (layout.canvas.w - pad.left - pad.right) / cam.z), h: Math.min(rect.h, (layout.canvas.h - pad.top - pad.bottom) / cam.z) }
-    const next = cameraFor(fit, cam, layout.canvas, pad)
+    const fit = { ...rect, w: Math.min(rect.w, (canvas.w - pad.left - pad.right) / cam.z), h: Math.min(rect.h, (canvas.h - pad.top - pad.bottom) / cam.z) }
+    const next = cameraFor(fit, cam, canvas, pad)
     if (Math.abs(next.x - cam.x) < 0.5 && Math.abs(next.y - cam.y) < 0.5) return
     e.setCamera({ ...next, z: cam.z }, { animation: { duration: 400 } })
   } catch (err) {

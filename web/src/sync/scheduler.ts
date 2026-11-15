@@ -48,6 +48,18 @@ export class PauseScheduler {
     this.timer = setTimeout(() => void this.fire(), this.opts.delayMs)
   }
 
+  /**
+   * The page as it is now counts as sent (a saved page was just loaded): a pause that is being
+   * waited out is dropped, and a later one sends only if something has changed since.
+   */
+  seed() {
+    if (this.timer) clearTimeout(this.timer)
+    this.timer = null
+    this.changedDuringFlight = false
+    this.failures = 0
+    this.lastKey = this.opts.key()
+  }
+
   /** Run `fn` exclusively (e.g. a Help request). Waits out nothing: returns false if busy. */
   async exclusive(fn: () => Promise<void>): Promise<boolean> {
     if (this.inFlight) return false

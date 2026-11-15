@@ -3,7 +3,7 @@ import type { Lesson } from '../contract'
 import example from '../../../contract/examples/lesson.json'
 import { silentWav, wavDurationMs, type AudioCallbacks, type AudioPort } from './audio'
 import { buildScene, lerpView, logLabel, logTicks, markAt, sampleXs, xAtFrac, xFrac, type View } from './geometry'
-import { cameraFor, canvasInsets, dockLayout, focusRect, markerSize, markerSpot } from './layout'
+import { cameraFor, canvasInsets, clearArea, clearSpot, dockLayout, focusRect, markerSize, markerSpot, obstacleRects, panFor } from './layout'
 import { LessonPlayer } from './player'
 import { cleanLesson } from './render'
 import { Narrator, type SpeechEnv, type SynthLike, type UtteranceLike } from './speech'
@@ -556,6 +556,148 @@ describe('docking the panel', () => {
     const t = onScreen({ x: 50, y: 60, w: 1, h: 1 }, huge)
     expect(t.left).toBeCloseTo(pad.left)
     expect(t.top).toBeCloseTo(pad.top)
+  })
+
+  // The notebook's controls as measured on the page (px), lesson panel open.
+  // Landscape 1180x820: the notebook keeps 684x820.
+  const wideScreen = { w: 684, h: 820 }
+  const wideUi = [
+    { x: 0, y: 0, w: 123, h: 42 }, // menu and page name
+    { x: 8, y: 46, w: 128, h: 40 }, // "Exit pen mode"
+    { x: 528, y: 8, w: 148, h: 284 }, // style panel
+    { x: 0, y: 780, w: 60, h: 40 }, // zoom
+    { x: 131, y: 722, w: 188, h: 44 }, // undo / redo
+    { x: 123, y: 764, w: 438, h: 48 }, // toolbar
+    { x: 576, y: 405, w: 92, h: 29 }, // chips
+    { x: 534, y: 444, w: 134, h: 29 },
+    { x: 507, y: 483, w: 161, h: 29 },
+    { x: 348, y: 522, w: 320, h: 42 }, // status line
+    { x: 592, y: 574, w: 76, h: 76 }, // Teach me
+    { x: 592, y: 660, w: 76, h: 76 }, // Help
+  ]
+  // Portrait 820x1180: the notebook keeps 820x649.
+  const tallScreen = { w: 820, h: 649 }
+  const tallUi = [
+    { x: 0, y: 0, w: 123, h: 42 },
+    { x: 8, y: 46, w: 128, h: 40 },
+    { x: 664, y: 8, w: 148, h: 284 },
+    { x: 0, y: 609, w: 60, h: 40 },
+    { x: 199, y: 551, w: 188, h: 44 },
+    { x: 191, y: 593, w: 438, h: 48 },
+    { x: 312, y: 531, w: 320, h: 42 },
+    { x: 642, y: 497, w: 76, h: 76 },
+    { x: 728, y: 497, w: 76, h: 76 },
+  ]
+  const overlaps = (a: { left: number; top: number; right: number; bottom: number }, o: { x: number; y: number; w: number; h: number }) =>
+    a.left < o.x + o.w && a.right > o.x && a.top < o.y + o.h && a.bottom > o.y
+  const inClear = (r: { x: number; y: number; w: number; h: number }, c: { x: number; y: number; z: number }, scr: { w: number; h: number }, ui: typeof wideUi) => {
+    const s = onScreen(r, c)
+    return s.left >= 0 && s.top >= 0 && s.right <= scr.w + 1e-6 && s.bottom <= scr.h + 1e-6 && !ui.some((o) => overlaps(s, o))
+  }
+
+  it('opening a lesson never changes the zoom, and leaves a problem that is in the clear where it is', () => {
+    // the e2e case: two lines written at the top left, 100% zoom, landscape
+    const lines = { x: 98, y: 204, w: 390, h: 152 }
+    for (const z of [1, 0.4, 2.5]) {
+      const cam = { x: 0, y: 0, z }
+      const at = { x: lines.x / z, y: lines.y / z, w: lines.w / z, h: lines.h / z } // same place on screen at any zoom
+      expect(panFor(at, null, cam, wideScreen, wideUi)).toEqual(cam)
+      expect(panFor(at, null, cam, tallScreen, tallUi)).toEqual(cam)
+    }
+  })
+
+  it('slides the page, at the same zoom, when the lines would be under the panel or under a control', () => {
+    const cases = [
+      { lines: { x: 389, y: 515, w: 389, h: 152 }, scr: wideScreen, ui: wideUi }, // right part under the panel, and under Help
+      { lines: { x: 98, y: 755, w: 390, h: 152 }, scr: tallScreen, ui: tallUi }, // under the sheet
+      { lines: { x: 57, y: 47, w: 226, h: 88 }, scr: wideScreen, ui: wideUi }, // start of line 1 under "Exit pen mode"
+      { lines: { x: 420, y: 100, w: 240, h: 150 }, scr: wideScreen, ui: wideUi }, // under the style panel
+    ]
+    for (const { lines, scr, ui } of cases) {
+      const cam = { x: 0, y: 0, z: 1 }
+      expect(inClear(lines, cam, scr, ui)).toBe(false)
+      const next = panFor(lines, null, cam, scr, ui)
+      expect(next.z).toBe(1)
+      expect(inClear(lines, next, scr, ui)).toBe(true)
+    }
+    // zoomed in: still no zoom change
+    const cam = { x: -100, y: -300, z: 1.6 }
+    const lines = { x: 300, y: 600, w: 220, h: 90 }
+    const next = panFor(lines, null, cam, wideScreen, wideUi)
+    expect(next.z).toBe(1.6)
+    expect(inClear(lines, next, wideScreen, wideUi)).toBe(true)
+  })
+
+  it('when the page has to move, the question on those lines comes along if there is room', () => {
+    const cam = { x: 0, y: 0, z: 1 }
+    // portrait: the lines are under the sheet, the question is under them
+    const lines = { x: 98, y: 775, w: 390, h: 152 }
+    const question = { x: 95, y: 947, w: 250, h: 55 }
+    const both = panFor(lines, null, cam, tallScreen, tallUi, [question])
+    expect(both.z).toBe(1)
+    expect(inClear(lines, both, tallScreen, tallUi)).toBe(true)
+    expect(inClear(question, both, tallScreen, tallUi)).toBe(true)
+    // landscape: no room for lines and a question 630 px across: the lines win
+    const wideLines = { x: 339, y: 555, w: 389, h: 152 }
+    const beside = { x: 716, y: 640, w: 250, h: 55 }
+    const next = panFor(wideLines, null, cam, wideScreen, wideUi, [beside])
+    expect(next.z).toBe(1)
+    expect(inClear(wideLines, next, wideScreen, wideUi)).toBe(true)
+    expect(next).toEqual(panFor(wideLines, null, cam, wideScreen, wideUi))
+    // lines already in the clear: the page stays put even if the question is covered
+    const clear = { x: 98, y: 204, w: 390, h: 152 }
+    expect(panFor(clear, null, cam, wideScreen, wideUi, [{ x: 472, y: 291, w: 250, h: 55 }])).toEqual(cam)
+  })
+
+  it('moves the shortest way', () => {
+    // just under "Exit pen mode": a small step right or down is enough, not a jump across the screen
+    const lines = { x: 100, y: 60, w: 300, h: 100 }
+    const next = panFor(lines, null, { x: 0, y: 0, z: 1 }, wideScreen, wideUi)
+    expect(Math.hypot(next.x, next.y)).toBeLessThan(60)
+  })
+
+  it('keeps the zoom when the problem cannot fit, and shows the lines next to the latest writing from their start', () => {
+    const cam = { x: 0, y: 0, z: 1 }
+    const problem = { x: 40, y: 100, w: 1500, h: 2000 } // twelve long lines
+    const area = clearArea(wideScreen, wideUi)
+    expect(area.w).toBeGreaterThan(300)
+    expect(area.h).toBeGreaterThan(300)
+    // the student's last stroke is in the middle of the problem
+    const latest = { x: 300, y: 1180, w: 60, h: 40 }
+    const next = panFor(problem, latest, cam, wideScreen, wideUi)
+    expect(next.z).toBe(1)
+    const s = onScreen(latest, next)
+    expect(s.bottom).toBeLessThanOrEqual(area.y + area.h + 1e-6)
+    expect(s.top).toBeGreaterThanOrEqual(area.y)
+    expect(onScreen(problem, next).left).toBeCloseTo(area.x) // lines start at the left edge of the clear part
+    expect(inClear(latest, next, wideScreen, wideUi)).toBe(true)
+    // nothing known about the latest writing: the last lines
+    const last = panFor(problem, null, cam, wideScreen, wideUi)
+    expect(onScreen(problem, last).bottom).toBeCloseTo(area.y + area.h)
+  })
+
+  it('finds a clear place for a box, or says there is none', () => {
+    const box = { x: 20, y: 50, w: 200, h: 80 }
+    expect(clearSpot({ x: 200, y: 300, w: 200, h: 80 }, wideScreen, wideUi)).toEqual({ x: 200, y: 300 })
+    const spot = clearSpot(box, wideScreen, wideUi)!
+    expect(wideUi.some((o) => overlaps({ left: spot.x, top: spot.y, right: spot.x + box.w, bottom: spot.y + box.h }, o))).toBe(false)
+    expect(clearSpot({ x: 0, y: 0, w: 900, h: 80 }, wideScreen, wideUi)).toBeNull()
+    expect(clearSpot({ x: 5000, y: -3000, w: 100, h: 50 }, { w: 400, h: 300 }, [])).toEqual({ x: 288, y: 12 })
+  })
+
+  it('keeps the measured controls that matter', () => {
+    const rects = [
+      { x: 0, y: 0, w: 123, h: 42 },
+      { x: 36, y: 0, w: 85, h: 40 }, // inside the first
+      { x: 0, y: 0, w: 123, h: 42 }, // the same again
+      { x: 600, y: 700, w: 200, h: 200 }, // partly off the notebook
+      { x: 900, y: 0, w: 50, h: 50 }, // off it
+      { x: 10, y: 10, w: 0, h: 20 }, // hidden
+    ]
+    expect(obstacleRects(rects, wideScreen)).toEqual([
+      { x: 0, y: 0, w: 123, h: 42 },
+      { x: 600, y: 700, w: 84, h: 120 },
+    ])
   })
 
   it('focuses on the marker and the writing beside it, not the whole page', () => {

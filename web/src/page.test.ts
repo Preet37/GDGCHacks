@@ -7,6 +7,7 @@ import {
   coverage,
   exportArea,
   EXPORT_PADDING,
+  hasWorksheet,
   helpWindow,
   intersect,
   LEGIBLE_LINES,
@@ -259,5 +260,18 @@ describe('what the student pointed at (Help with nothing selected)', () => {
       { x: 205, y: 200, w: 26, h: 40 },
     ]
     expect(recentCluster(line, 40)).toEqual({ x: 100, y: 185, w: 131, h: 55 })
+  })
+})
+
+describe('has_worksheet: is an imported worksheet in the picture that is sent', () => {
+  const win = { x: 0, y: 0, w: 800, h: 600 }
+  it('is false with no worksheet on the page, or none in the window', () => {
+    expect(hasWorksheet([], win)).toBe(false)
+    expect(hasWorksheet([{ x: 0, y: 2000, w: 800, h: 1000 }], win)).toBe(false)
+    expect(hasWorksheet([{ x: 900, y: 0, w: 800, h: 1000 }], win)).toBe(false)
+  })
+  it('is true when any worksheet page reaches into the window', () => {
+    expect(hasWorksheet([{ x: 0, y: 2000, w: 800, h: 1000 }, { x: 700, y: 500, w: 800, h: 1000 }], win)).toBe(true)
+    expect(hasWorksheet([{ x: -100, y: -100, w: 2000, h: 2000 }], win)).toBe(true)
   })
 })

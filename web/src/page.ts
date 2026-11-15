@@ -90,6 +90,14 @@ export function intersects(a: PageRect, b: PageRect): boolean {
   return a.x <= b.x + b.w && b.x <= a.x + a.w && a.y <= b.y + b.h && b.y <= a.y + a.h
 }
 
+/**
+ * `CheckRequest.has_worksheet`: an imported worksheet page (`sheets`, page rects) is in the window
+ * that is sent. False tells the server that every line in the picture is the student's handwriting.
+ */
+export function hasWorksheet(sheets: PageRect[], win: PageRect): boolean {
+  return sheets.some((r) => intersects(r, win))
+}
+
 /** Empty space between two rects (0 if they touch or overlap). */
 export function rectDistance(a: PageRect, b: PageRect): number {
   const dx = Math.max(0, a.x - (b.x + b.w), b.x - (a.x + a.w))

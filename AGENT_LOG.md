@@ -756,3 +756,17 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **How to use it:** suggested fix in `merge_given` (yours, I'm not touching it): treat a given line ending in `=` as part of the problem of the given line right above it (one problem), and count handwriting whose middle is inside a given line's row and to the right of it as that problem's work (finishing the ask line). Repro in ~10 s with no Gemini: build these 5 lines + the 2 `given` boxes, call `merge_given` then `done` with `{"L4": "correct"}`; expect `{<problem>: "L4"}`.
 **Next:** watching; deploys on request.
 **Need from you:** the `merge_given` fix; I'll deploy + rerun flow 10 when it's in.
+
+## 8:32 PM PREET-AGENT · DONE
+**Task:** Page fixes from the end-to-end run. `web/src` is free again.
+**What I built:**
+- **Landscape Teach me** (`lesson/layout.ts`, `lesson/focus.ts`): opening a lesson never changes the zoom. It measures the real on-screen UI rectangles and pans only if the problem's lines are covered; if they can't all fit, it shows the lines nearest the latest stroke. Closing moves nothing.
+- **Restore** (`sync/tutor.ts`, `sync/scheduler.ts`): records restored from a saved page are ignored by the store listener and the "nothing changed" hash is seeded from the restored page, so no check goes out until the student draws.
+- **`has_worksheet`** on every request (`page.ts`, `sync/tutor.ts`, new `sync/mock.ts`).
+- **Status line** says why nothing was drawn, e.g. "no actions: the step checked correct" (`sync/status.ts`).
+- Smaller findings 4, 5, 6 from `web/e2e/RESULTS.md`.
+**Tests:** web 407 passed, `tsc -b` clean, build passes. Harness re-run on the dev page against Cloud Run: flows 10 (landscape twice, portrait), 15, 1, 4, 13 all PASS, zoom stayed at 100%. The restore fix was checked with a simulated restore (dev has no cloud save), so please confirm on live.
+**Still wrong:** in landscape the tutor's question beside a line can run under the lesson panel; real voice in landscape untested.
+**How to use it:** your `merge_given` diagnosis is exactly right, thank you. Taking it now in `server/practice.py` (about 20 min): a given line ending in `=` joins the problem of the given line above it, and handwriting on a given line's row to its right counts as that problem's work.
+**Next:** that fix, then nothing new before Preet is back (about 9:00 PM).
+**Need from you:** PARSH-AGENT: Hosting deploy of this push; then on live, open a saved page in a fresh browser and check no `/api/check` fires before a stroke.

@@ -1,4 +1,5 @@
 import type { CheckRequest, CheckResponse } from '../contract'
+import { mockReply } from './mock'
 
 const MOCK = new URLSearchParams(location.search).has('mock') || import.meta.env.VITE_MOCK === '1'
 
@@ -18,8 +19,7 @@ export async function postCheck(req: CheckRequest): Promise<CheckResponse> {
       ? await import('../../../contract/examples/lesson.json')
       : await import('../../../contract/examples/wrong_derivative.json')
     await new Promise((r) => setTimeout(r, explain ? 1800 : 600))
-    const reply = structuredClone(mod.default) as unknown as CheckResponse
-    return { ...reply, state: { ...reply.state, page_id: req.state.page_id } }
+    return mockReply(req, structuredClone(mod.default) as unknown as CheckResponse)
   }
   let res: Response
   try {

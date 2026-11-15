@@ -31,3 +31,27 @@ export function readingShapes(lines: ReadLine[], bounds: PageRect, ctx: RenderCo
       }
     })
 }
+
+/**
+ * Where those labels sit (page rects, the width estimated from the text), so feedback drawn while
+ * they are showing is not written over them.
+ */
+export function readingRects(lines: ReadLine[], bounds: PageRect, ctx: RenderContext = DEFAULT_CONTEXT): PageRect[] {
+  return readingShapes(lines, bounds, ctx).map((s) => {
+    const font = (s.props as { scale: number }).scale * BASE_FONT
+    const text = plainOf(s)
+    return { x: s.x ?? 0, y: s.y ?? 0, w: Math.max(1, text.length) * font * 0.55, h: font * 1.35 }
+  })
+}
+
+function plainOf(shape: TLShapePartial): string {
+  const out: string[] = []
+  const walk = (n: unknown) => {
+    if (!n || typeof n !== 'object') return
+    const node = n as { text?: unknown; content?: unknown }
+    if (typeof node.text === 'string') out.push(node.text)
+    if (Array.isArray(node.content)) node.content.forEach(walk)
+  }
+  walk((shape.props as { richText?: unknown }).richText)
+  return out.join('')
+}

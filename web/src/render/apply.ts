@@ -168,9 +168,10 @@ export interface Drawn {
 /**
  * Draw a CheckResponse onto the page. `bounds` = page-space area of the image that was sent.
  * `printed` = page rects of printed worksheet lines read on earlier checks (the reply's own are
- * added): nothing is written over them.
+ * added): nothing is written over them. `labels` = page rects of the gray "what the AI read" labels
+ * that will be showing under the lines: notes and graphs keep clear of those too.
  */
-export function applyResponse(editor: Editor, response: CheckResponse, bounds: PageRect, printed: PageRect[] = []): Drawn {
+export function applyResponse(editor: Editor, response: CheckResponse, bounds: PageRect, printed: PageRect[] = [], labels: PageRect[] = []): Drawn {
   const ctx = renderContext(editor)
   ctx.lines = new Map(response.lines.map((l) => [l.line_id, boxToPage(l.box, bounds)]))
   ctx.printed = [...printed, ...response.lines.filter((l) => l.source === 'printed').map((l) => boxToPage(l.box, bounds))]
@@ -188,6 +189,8 @@ export function applyResponse(editor: Editor, response: CheckResponse, bounds: P
     const r = rects.get(s.id)
     return r && !stale.has(s.id) && s.meta.kind !== 'reading' && s.meta.kind !== 'leader' ? [r] : []
   })
+
+  ctx.taken.push(...labels)
 
   const takenBefore = ctx.taken.length // everything placed from here on is appended
   // the old feedback goes first: handwriting is drawn straight onto the page, where the old answer was

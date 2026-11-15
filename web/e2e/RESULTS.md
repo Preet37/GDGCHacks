@@ -147,3 +147,62 @@ and about what counts as explaining. Both checks were corrected and the flows re
 
 Real sound, the iOS audio unlock, voice questions (hold Help), the circuit flow, pinch zoom, palm
 rejection, and a lesson with the real voice in landscape (the voice budget covered one lesson).
+
+## Re-run after fixes (Saturday Nov 14, 8:16 PM to 8:31 PM PST)
+
+Dev page `http://localhost:5174` with the fixes, real server, voice blocked (`--no-speak`, so no
+`/api/speak` calls). Paid calls in this pass: 21 `/api/check`, 0 `/api/speak`.
+
+| Flow | Verdict | What was measured |
+| --- | --- | --- |
+| 10 Teach me, landscape (2 runs, 8:16 PM and 8:28 PM) | **PASS** | Panel docked right (496 px). Zoom 100% before, during and after. Camera did not move (`0,0` throughout): the two lines were already clear of the panel and the buttons. Line 1: 17 strokes at x 99, y 204, none under a control. Practice problem written at 100% (lines 64 px tall), answered by hand at 43 px. Closing the lesson moved nothing. |
+| 10 Teach me, portrait (8:19 PM) | **PASS** | Same checks. Zoom 100% throughout, camera did not move. The practice problem was written under the work without scrolling it away, and the "Lesson" and "Your turn" pills no longer sit over the red question. |
+| Lesson opened with the work in a bad place (2 extra runs, not a numbered flow) | **PASS** | Landscape, work written at x 339, y 555 (its right half would be under the panel and under Help): the page slid 234 px left, zoom still 100%, 0 of 32 strokes under a control or the panel. Portrait, work at y 775 (under the sheet): slid 387 px up, zoom 100%, 0 of 32 covered. Closing did not move the page in either. |
+| 15 Reload | **PASS** | Same browser: as before, no request. Fresh browser: the saved document and state were loaded the way `restorePage()` does (see README; the dev page has no Firestore). The store reported the 36 restored shapes to listeners as user changes, and no `/api/check` was sent in the 8 s after. Writing a third line then sent exactly one check (200, 5.3 s, carrying the 2 saved lines and `flagged_line_ids: ["L2"]`), and the red mark stayed. |
+| 1 Wrong derivative, then corrected | **PASS** | Circle on `+ 1`, question, both cleared after the fix. `has_worksheet: false` in both requests. |
+| 4 Finish my line | **PASS** | `12x` after the equals sign, 55 px font beside 39 px digits. `has_worksheet: false`. |
+| 13 Worksheet PDF | **PASS** | `has_worksheet: true`; printed problem read as printed, mark on the handwriting only. |
+
+Screenshots: `OUT/f10-land-b-panel.png`, `OUT/f10-land-f-practice-answered.png`, `OUT/f10-b-panel.png`,
+`OUT/f10-d-end.png`, `OUT/shifted-land-b-open.png`, `OUT/shifted-b-open.png`, `OUT/f15-restored.png`,
+`OUT/f15-restored-stroke.png`, `OUT/f1-a-wrong.png`.
+
+### What changed
+
+- **Bug 1 (landscape lesson zoom): fixed.** Opening a lesson never changes the zoom. The page
+  measures where tldraw's menu, "Exit pen mode", style panel, toolbars and our own buttons really
+  are, and slides the shortest way only if the problem's lines are under one of them or under the
+  panel. If the lines cannot all fit at the current zoom, it keeps the zoom and shows the lines next
+  to the latest stroke, from their start. Closing or folding the panel moves nothing.
+- **Bug 3 (check on opening a saved page): fixed on the page.** A restore is not new ink, and the
+  "nothing changed" hash starts from the restored page. Verified on the dev page by the hand-made
+  restore above, not yet against Firestore: the live site needs a Hosting deploy first.
+- **Bug 2 (handwriting read as printed): page half done.** Every request now carries
+  `has_worksheet`. The server half (forcing handwriting when it is false) is not part of this pass.
+- **Status line:** when lines were read and nothing came back it now says what was read and why,
+  from `debug.tool_calls`. Seen in flow 1 after the fix: `read 2 lines (f(x) = 3*x^2 + 2*x; f'(x) = 6*x + 2),
+  no actions: the step checked correct, drew 0, 4.1 s`. When every line came back `printed` with no
+  worksheet in the picture it says `the writing was taken for printed text`.
+
+### Smaller findings
+
+| # | Finding | State |
+| --- | --- | --- |
+| 1 | Hint 3 late once | Not touched: server latency. |
+| 2 | Correct practice answer gets no response | Not touched: server (`practice.py` / `guard.py`). Still seen in both flow 10 runs: `verify_step = correct`, no actions. The status line now says so. |
+| 3 | Hints move between right of the line and below it | Not touched: the spot depends on free space and on what the server asks for; changing it safely needs more than a quick fix. |
+| 4 | Notes drawn over the gray "what AI read" label | **Fixed.** The labels count as taken space when a reply is drawn. In flow 1 the question now sits to the right of the line, clear of the label; it is a narrow column there (135 px, four lines). |
+| 5 | End of a lesson in portrait cut off the original work; pills over the red question | **Fixed.** The practice problem is placed for the full screen the notebook gets once the panel folds away, so nothing scrolls when it already fits (`OUT/f10-d-end.png`). |
+| 6 | Status line over the undo/redo strip (portrait, lesson open) | **Fixed.** It sits above the Help and Teach me buttons there (`OUT/f10-b-panel.png`). |
+| 7 | Dev page has no cloud save | Not touched: needs `web/.env.local` and a restart of the dev server. |
+| 8 | Voice blocked: lesson waits on "Tap to play with sound" | Not touched: only seen in headless Chrome (no speech voices), and the start logic is tied to the iOS audio unlock. Still seen in this pass. |
+| 9 | Hot reload reset the tool | Not a product bug. |
+
+### Still wrong or not checked
+
+- In landscape, a question the tutor wrote to the right of the line can run under the lesson panel
+  (`OUT/f10-land-b-panel.png`: "What is the derivat…"). The lines themselves are clear, so the page
+  stays put; there is no room beside the panel for lines and question side by side.
+- Bug 3 has not been re-tested against Firestore on the live site.
+- A lesson with the real voice in landscape is still not covered.
+

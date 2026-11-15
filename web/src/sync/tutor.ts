@@ -3,9 +3,9 @@ import type { CheckRequest, CheckResponse, GivenLine, PageState } from '../contr
 import { handwritingEnabled, harvestGlyphs } from '../handwriting'
 import { isAiShape } from '../render/actions'
 import { applyResponse, renderContext } from '../render/apply'
-import { readingShapes } from '../render/reading'
+import { readingRects, readingShapes } from '../render/reading'
 import { pageToBox, type PageRect } from '../render/geometry'
-import { autoWindow, checkShapes, coverage, EXPORT_PADDING, helpWindow, intersects, pointedAt, rectOf, studentShapes, union } from '../page'
+import { autoWindow, checkShapes, coverage, EXPORT_PADDING, hasWorksheet, helpWindow, intersects, pointedAt, rectOf, studentShapes, union } from '../page'
 import { givenLines, openPractices, solvedPractices, type OpenPractice } from '../practice/given'
 import { isGivenShape, shapeUse } from '../practice/kind'
 import { bindPractice, markSolved } from '../practice/write'
@@ -16,7 +16,7 @@ import { boxRect, mergeReply, PAGE_FRAME, requestState, sweepErased, toSaved, ty
 import { HintChain, MAX_HINT_LEVEL, mistakeProblems, raisedProblem, stuckMsFromUrl, type HelpResult, type HelpTarget } from './hintChain'
 import { emptyState, loadLastBounds, loadState, saveState } from './pageState'
 import { hashString, PauseScheduler } from './scheduler'
-import type { CheckStatus } from './status'
+import { silence, type CheckStatus } from './status'
 
 export const PAUSE_MS = 2000
 /** After a check, changes left in other parts of the page get their own check, at most this many in a row. */
@@ -43,6 +43,15 @@ function isStudentShapeRecord(r: TLRecord): boolean {
   return r.typeName === 'shape' && shapeUse(r).student
 }
 
+/** Two records with the same content (the store may hand a listener a copy of what was loaded). */
+function sameRecord(a: TLRecord, b: TLRecord): boolean {
+  try {
+    return JSON.stringify(a) === JSON.stringify(b)
+  } catch {
+    return false
+  }
+}
+
 /** What one request did (see hintChain.ts). */
 interface SendOutcome extends HelpResult {
   mistakes: string[]
@@ -63,6 +72,8 @@ interface Fetched {
   ms: number
   /** unsent changes this request covers (never for a prefetch) */
   pending: { key: string; seq: number; rect: PageRect }[]
+  /** an imported worksheet is in the picture that was sent */
+  sheet: boolean
   /** unsolved practice problems in the window: a green note in the reply solves one */
   practices: OpenPractice[]
 }
@@ -82,7 +93,7 @@ export class Tutor {
   state: SavedState
   showReading = false
   /** What the last request covered and carried (for the dev console and tests). */
-  lastSent: { window: PageRect; mode: CheckRequest['mode']; state: PageState; help_box?: CheckRequest['help_box']; given?: GivenLine[] } | null = null
+  lastSent: { window: PageRect; mode: CheckRequest['mode']; state: PageState; help_box?: CheckRequest['help_box']; given?: GivenLine[]; has_worksheet?: boolean } | null = null
   /** What the last check came to: shown beside "Show what AI read". */
   status: CheckStatus | null = null
   /** One tap on Help, then hints keep coming while the student is stuck (see hintChain.ts). */
@@ -95,6 +106,13 @@ export class Tutor {
   private known = new Map<string, PageRect>()
   /** when each stroke was last drawn or changed (a running count), to know what the student did last */
   private drawnAt = new Map<string, number>()
+  /**
+   * What a restore put on the page (see adoptState): the store reports those records after the
+   * restore has returned, exactly as if the student had drawn them. They are not new work.
+   */
+  private restored = new Map<string, TLRecord>()
+  /** ids a restore took off the page: their removal is not the student erasing */
+  private replaced = new Set<string>()
   private scheduler: PauseScheduler
   private listeners = new Set<(e: TutorEvent) => void>()
   private unlisten: () => void
@@ -135,6 +153,7 @@ export class Tutor {
       ({ changes }) => {
         let touched = false
         const live = (r: TLRecord) => {
+          if (this.isRestored(r)) return
           touched ||= isStudentShapeRecord(r)
           if (!isInkRecord(r)) return
           this.remember(r.id)
@@ -144,6 +163,8 @@ export class Tutor {
         Object.values(changes.added).forEach(live)
         Object.values(changes.updated).forEach(([, to]) => live(to))
         for (const r of Object.values(changes.removed)) {
+          if (this.replaced.delete(r.id)) continue
+          this.restored.delete(r.id)
           touched ||= isStudentShapeRecord(r)
           if (!isInkRecord(r)) continue
           this.changes.delete(r.id)
@@ -227,16 +248,36 @@ export class Tutor {
     return sent.lesson ? 'ok' : 'none'
   }
 
-  /** Replace the page state (e.g. loaded from Firestore). The loaded page counts as already checked. */
+  /**
+   * Replace the page state (e.g. loaded from Firestore, after the saved page was loaded into the
+   * editor). The loaded page counts as already checked: nothing is sent until the student draws.
+   */
   adoptState(state: PageState) {
     this.state = toSaved(state, loadLastBounds())
     saveState(this.state)
     this.hints.cancel()
     this.changes.clear()
+    const before = [...this.known.keys()]
     this.known.clear()
     this.drawnAt.clear()
     this.rememberAll()
+    // the store tells its listeners about the load later (on the next frame), as changes the user made
+    this.restored.clear()
+    this.replaced.clear()
+    for (const r of this.editor.store.allRecords()) if (isStudentShapeRecord(r)) this.restored.set(r.id, r)
+    for (const id of before) if (!this.restored.has(id)) this.replaced.add(id)
+    // "nothing changed since the last check" now means: since this page was loaded
+    this.scheduler.seed()
     this.drawReading()
+  }
+
+  /** `r` is on the page because a restore put it there, untouched since. */
+  private isRestored(r: TLRecord): boolean {
+    const was = this.restored.get(r.id)
+    if (!was) return false
+    if (was === r || sameRecord(was, r)) return true
+    this.restored.delete(r.id) // changed since: the student's work from here on
+    return false
   }
 
   /** Toggle the gray "what the AI read" text under each line. */
@@ -396,6 +437,8 @@ export class Tutor {
     const req: CheckRequest = {
       image_base64: await exportPng(this.editor, visible.map((i) => i.shape), win),
       mode: opts.mode,
+      // no worksheet in the picture: every line in it is handwriting, whatever it looks like
+      has_worksheet: hasWorksheet(sheets, win),
       state: sent,
     }
     // what the request is about: the selection, or else the last thing the student drew
@@ -405,10 +448,10 @@ export class Tutor {
     const placed = visible.filter((i) => i.given).map((i) => ({ meta: i.shape.meta as Record<string, unknown>, rect: i.rect }))
     const given = givenLines(placed, win)
     if (given.length) req.given = given
-    this.lastSent = { window: win, mode: req.mode, state: sent, help_box: req.help_box, given: req.given }
+    this.lastSent = { window: win, mode: req.mode, state: sent, help_box: req.help_box, given: req.given, has_worksheet: req.has_worksheet }
     const started = Date.now()
     const raw = await postCheck(req)
-    return { mode: opts.mode, win, sent, raw, problemId: opts.problemId, base, touches, ms: Date.now() - started, pending, practices: openPractices(placed, win) }
+    return { mode: opts.mode, win, sent, raw, problemId: opts.problemId, base, touches, ms: Date.now() - started, pending, sheet: !!req.has_worksheet, practices: openPractices(placed, win) }
   }
 
   /** Nothing selected: the last thing the student drew in the window, with a line of room above and below. */
@@ -460,7 +503,9 @@ export class Tutor {
     // the page owns its id and its frame: fold the window's reply into the whole-page state
     const { reply, state } = mergeReply(this.state, got.sent, got.raw, win)
     const printed = state.lines.filter((l) => l.source === 'printed').map((l) => boxRect(l.box))
-    const { drawn } = applyResponse(this.editor, reply, win, printed)
+    // the gray labels are redrawn from the new reading after this: where they will be is already taken
+    const labels = this.showReading ? readingRects(state.lines, PAGE_FRAME, renderContext(this.editor)) : []
+    const { drawn } = applyResponse(this.editor, reply, win, printed, labels)
     const raised = raisedProblem(this.state.problems, state.problems, got.problemId)
     this.state = state
     saveState(state)
@@ -480,6 +525,7 @@ export class Tutor {
       held: held || undefined,
       read: reply.lines.length,
       actions: reply.actions.map((a) => a.type),
+      ...(reply.actions.length ? {} : silence(reply.lines, got.raw.debug?.tool_calls, got.sheet)),
       drawn,
       ms: held ? undefined : got.ms,
     })

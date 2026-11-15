@@ -62,9 +62,9 @@ Every flow makes real Gemini calls through the deployed server.
 | 12 Zoomed out | 1 | | |
 | 13 Worksheet | 2 | | |
 | 14 Handwriting toggle | 2 | | 2 |
-| 15 Reload | 1 | | |
+| 15 Reload, then a restore in a fresh browser | 2 | | |
 | live | 2 | 1 (0 with `--no-speak`) | |
-| **Everything once** | **27** | **7 to 10** | **2** |
+| **Everything once** | **28** | **7 to 10** | **2** |
 
 A full run takes about 10 minutes. A failed flow is retried once, which repeats its calls.
 
@@ -95,5 +95,8 @@ A full run takes about 10 minutes. A failed flow is retried once, which repeats 
 - Headless Chrome has no speech voices, so the browser-speech fallback cannot be tested.
 - No pinch or two-finger gestures: zoom is set through the editor, scrolling uses wheel events.
 - Voice questions (hold Help) and the circuit flow are not covered.
-- The dev page has no cloud save unless `web/.env.local` has the Firebase keys, so the "another
-  browser" half of flow 15 runs in the live pass.
+- The dev page has no cloud save unless `web/.env.local` has the Firebase keys. Flow 15 therefore
+  does the restore by hand there: it loads the first browser's document and state into a fresh
+  browser with the same two calls `restorePage()` makes (`editor.loadSnapshot`, `tutor.adoptState`),
+  checks that nothing is sent, then writes a line and checks that one request is. The real
+  Firestore round trip is only in the live pass.

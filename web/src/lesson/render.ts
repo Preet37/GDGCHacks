@@ -116,7 +116,7 @@ export async function renderLesson(
       { history: 'ignore', ignoreShapeLock: true },
     )
     dock.open(lesson)
-    focusLesson(editor, spot)
+    void focusLesson(editor, lesson)
   } catch (err) {
     console.warn('lesson skipped', action.lesson, err)
   }

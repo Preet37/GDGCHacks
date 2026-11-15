@@ -42,6 +42,25 @@ describe('PauseScheduler', () => {
     expect(send).toHaveBeenCalledTimes(1)
   })
 
+  it('a loaded page counts as sent: no send until something changes after it', async () => {
+    const { s, send, setKey } = setup()
+    // the load itself looked like a change and started a pause
+    s.poke()
+    await vi.advanceTimersByTimeAsync(500)
+    s.seed()
+    await vi.advanceTimersByTimeAsync(10000)
+    expect(send).not.toHaveBeenCalled()
+    // a late report of the same load: nothing has changed, nothing is sent
+    s.poke()
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(send).not.toHaveBeenCalled()
+    // the first real stroke is sent
+    setKey('b')
+    s.poke()
+    await vi.advanceTimersByTimeAsync(2000)
+    expect(send).toHaveBeenCalledTimes(1)
+  })
+
   it('never overlaps, and sends once more after if changes came in mid-flight', async () => {
     const { s, send, setKey, finish } = setup()
     s.poke()

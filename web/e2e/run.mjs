@@ -76,6 +76,8 @@ function readCheck(rec, reply, intended) {
   const missing = intended.filter((t) => !got.includes(loose(t)) && !gotTex.includes(loose(t)))
   const printed = lines.filter((l) => l.source === 'printed' && intended.some((t) => loose(t) === loose(l.plain) || loose(t) === loose(l.latex)))
   rec.ok(printed.length === 0, `handwriting was classified as handwriting` + (printed.length ? `: ${printed.length} handwritten line(s) came back as source "printed" (${printed.map((l) => l.plain).join(' | ')}), which the server never marks or completes` : ''))
+  // no worksheet on these pages: the page must say so (the server then never labels handwriting "printed")
+  rec.ok(reply?.req?.has_worksheet === false, `the request said there is no worksheet in the picture (has_worksheet: ${JSON.stringify(reply?.req?.has_worksheet)})`)
   rec.evidence.read = { intended, got: (reply?.res?.lines ?? []).map((l) => l.plain) }
   rec.ok(missing.length === 0, `Gemini read the ink as written (${intended.length} lines)` + (missing.length ? `: NOT read as written: ${JSON.stringify(missing)}; got ${JSON.stringify(rec.evidence.read.got)}` : ''))
   return missing.length === 0
@@ -533,6 +535,9 @@ const flows = {
       await L.settle(s, 1500)
       const from = s.api.length
       const t0 = Date.now()
+      const camera = () => s.page.evaluate(() => { const c = window.__e2e.editor.getCamera(); return { x: Math.round(c.x), y: Math.round(c.y), z: Math.round(c.z * 1000) / 1000 } })
+      const lineOne = L.unionBox(w[0].map ? w[0].map((c) => c.box) : [w[0].box])
+      rec.evidence.cameraBefore = await camera()
       await L.tapTeach(s)
       await L.sleep(350)
       const prep = await s.page.evaluate(() => ({ cls: document.querySelector('.tutor-teach')?.className, text: document.querySelector('.tutor-teach')?.textContent }))
@@ -613,6 +618,14 @@ const flows = {
       const covered = ink.filter((i) => tl.some((b) => L.overlap(b, i.screen) > 20))
       rec.ok(covered.length === 0, `none of the problem is hidden under the notebook's own buttons` + (covered.length ? `: ${covered.length} of ${ink.length} strokes are under tldraw's menu / "Exit pen mode" / style panel (ink ${L.brief(inkR)})` : ''))
       rec.ok(Math.abs(rec.evidence.zoomDuringLesson - 1) < 0.01, `opening the lesson did not change the student's zoom (now ${Math.round(rec.evidence.zoomDuringLesson * 100)}%, was 100%)`)
+      rec.evidence.cameraOpen = await camera()
+      // line 1 by its own strokes: the first line written is the lowest-numbered ink at the top
+      const top = ink.filter((i) => i.screen.y + i.screen.h / 2 < inkR.y + inkR.h * 0.45)
+      const l1 = L.unionBox(top.map((i) => i.screen))
+      const l1Hidden = top.filter((i) => tl.some((b) => L.overlap(b, i.screen) > 0) || (g.dock && L.overlap(g.dock, i.screen) > 0) || i.screen.x < 0 || i.screen.y < 0)
+      rec.evidence.lineOne = { box: L.brief(l1), strokes: top.length, hidden: l1Hidden.length, written: L.brief(lineOne) }
+      rec.ok(top.length > 0 && l1Hidden.length === 0, `line 1 is fully visible beside the panel (${top.length} strokes at ${L.brief(l1)}, ${l1Hidden.length} under a control or the panel)`)
+      rec.note(`camera before the tap ${JSON.stringify(rec.evidence.cameraBefore)}, with the lesson open ${JSON.stringify(rec.evidence.cameraOpen)}`)
       const marks = redMarks(await L.aiShapes(s))
       rec.ok(marks.length >= 1 && marks.every((m) => g.dock && L.overlap(g.dock, m.screen) === 0), `the red mark is still there and visible beside the panel (${marks.length})`)
       rec.ok(g.controls && g.dock && L.overlap(g.dock, g.controls) === 0, `Help / Teach me are not under the panel (controls ${L.brief(g.controls)})`)
@@ -677,13 +690,27 @@ const flows = {
           rec.evidence.practiceAnswer = { wrote: '8x + 5 (correct)', at: L.brief(ans.box), status: chk?.status, ms: chk?.ms, given: chk?.req?.given, read: chk?.res?.lines?.map((l) => ({ plain: l.plain, src: l.source, id: l.line_id })), actions: chk?.res?.actions?.map((a) => ({ type: a.type, color: a.color, text: a.text })), drawn: fresh.map((x) => ({ kind: x.kind, color: x.color, text: x.text, screen: L.brief(x.screen) })), debug: chk?.res?.debug }
           rec.note(`practice answered correctly by hand ("8x + 5" after the tutor's "g'(x) ="): check ${chk?.status} in ${chk?.ms} ms, request.given ${JSON.stringify(chk?.req?.given?.map((g) => g.plain))}, read ${JSON.stringify(chk?.res?.lines?.map((l) => l.plain))}, actions ${JSON.stringify(chk?.res?.actions?.map((a) => `${a.type}:${a.color}:${a.text}`))}, new on page ${JSON.stringify(fresh.map((x) => `${x.kind}:${x.color}:${x.text ?? ''}`))}`)
           rec.ok(!fresh.some((x) => x.color === 'red'), 'a correct practice answer gets no red mark')
+          const zNow = (await L.view(s)).zoom
+          const tall = Math.max(...practiceShapes.map((x) => x.screen.h))
+          rec.evidence.practiceSize = { zoom: zNow, tallestLinePx: Math.round(tall), answerPx: Math.round(ans.box.h) }
+          rec.ok(Math.abs(zNow - 1) < 0.01 && tall >= 40, `the practice problem is at normal size (zoom ${Math.round(zNow * 100)}%, its lines up to ${Math.round(tall)} px tall on screen, the answer written beside it ${Math.round(ans.box.h)} px)`)
           rec.shots.push(await L.shot(s, `f10${SUFFIX}-f-practice-answered`))
         }
       }
       // close: the marker stays on the canvas
+      // open it again from the pill (it folded away for the practice), then close: the page must not move
+      if (!(await geom()).panel) {
+        await s.page.evaluate(() => document.querySelector('.lesson-pill')?.click())
+        await L.sleep(1800)
+      }
+      const camOpen2 = await camera()
       await s.page.evaluate(() => document.querySelector('button[aria-label="Close the lesson"]')?.click())
-      await L.sleep(600)
+      await L.sleep(900)
       const closed = await geom()
+      const camClosed = await camera()
+      rec.evidence.cameraClose = { open: camOpen2, closed: camClosed }
+      rec.ok(JSON.stringify(camOpen2) === JSON.stringify(camClosed), `closing the lesson does not move or zoom the page (camera ${JSON.stringify(camOpen2)} -> ${JSON.stringify(camClosed)})`)
+      rec.ok(camClosed.z === 1, `the zoom is still 100% after the lesson (${Math.round(camClosed.z * 100)}%)`)
       rec.ok(!closed.panel, 'Close removes the panel')
       rec.ok((await L.shapes(s)).some((x) => x.kind === 'lesson'), 'a lesson marker stays on the canvas to reopen it')
       await finish(rec, s, `f10${SUFFIX}-e-closed`)
@@ -795,6 +822,7 @@ const flows = {
       await L.settle(s, 2500)
       rec.timings.check_ms = reply?.ms
       rec.ok(reply?.status === 200, `auto check returned 200 (${reply?.status}, ${reply?.ms} ms)`)
+      rec.ok(reply?.req?.has_worksheet === true, `the request said a worksheet is in the picture (has_worksheet: ${JSON.stringify(reply?.req?.has_worksheet)})`)
       rec.evidence.read1 = reply?.res?.lines?.map((l) => ({ plain: l.plain, src: l.source }))
       rec.ok((reply?.res?.lines ?? []).some((l) => l.source === 'printed' && /x\^3|x\*\*3/.test(l.plain)), `the printed problem 1 was read as printed context (${JSON.stringify(rec.evidence.read1)})`)
       rec.ok((reply?.res?.lines ?? []).some((l) => l.source !== 'printed' && norm(l.plain) === norm("f'(x) = 3x^2 + 2x")), 'the handwriting under it was read as written')
@@ -924,7 +952,8 @@ const flows = {
       // (b) a fresh browser (nothing local): only what Firestore has
       rec.evidence.firestoreRequests = s.firestore
       if (s.firestore === 0) {
-        rec.note('cloud save is OFF on this page (no request to Firestore: the dev server has no web/.env.local), so "open the same ?page= in another browser" cannot work here; that half is tested in the live pass')
+        rec.note('cloud save is OFF on this page (no request to Firestore: the dev server has no web/.env.local), so the restore is done by hand: the saved page is loaded into a fresh browser with the same two calls restorePage() makes')
+        await simulatedRestore(rec, s, b, count)
       } else {
         await freshBrowserRestore(rec, s, b, count)
       }
@@ -969,6 +998,65 @@ const flows = {
       return flows[3].run(rec, { live: true })
     },
   },
+}
+
+const tutorOf = () => {
+  const el = document.querySelector('.tutor-help')
+  const key = el && Object.keys(el).find((k) => k.startsWith('__reactFiber$'))
+  for (let f = key ? el[key] : null, i = 0; f && i < 100; i++, f = f.return) if (f.memoizedProps?.tutor?.adoptState) return f.memoizedProps.tutor
+  return null
+}
+
+/**
+ * The dev page has no Firestore, so restorePage() finds nothing there. This does what it does when
+ * it finds a page (editor.loadSnapshot, then tutor.adoptState) in a fresh browser, with the first
+ * browser's document and state: nothing may be sent until the student draws, and the first stroke must be.
+ */
+async function simulatedRestore(rec, s, b, count) {
+  const saved = await s.page.evaluate(`(() => { const t = (${tutorOf})(); return { doc: JSON.stringify(window.__e2e.editor.getSnapshot().document), state: JSON.stringify(t.state) } })()`)
+  const s2 = await L.open({ base: s.base, pageId: s.pageId, viewport: VIEW })
+  s2.tag = `${s.tag}-fresh`
+  await L.showReading(s2)
+  const empty = count(await L.shapes(s2))
+  const seen = await s2.page.evaluate(`((saved) => {
+    const ed = window.__e2e.editor
+    const t = (${tutorOf})()
+    window.__seen = { added: 0 }
+    // what the tutor's own listener is told: the load arrives later, as changes the user made
+    ed.store.listen(({ changes }) => { window.__seen.added += Object.values(changes.added).filter((r) => r.typeName === 'shape').length }, { scope: 'document', source: 'user' })
+    ed.loadSnapshot({ document: JSON.parse(saved.doc) })
+    t.adoptState(JSON.parse(saved.state))
+    return { tutor: !!t }
+  })(${JSON.stringify(saved)})`)
+  const loadedAt = Date.now()
+  await L.sleep(1500)
+  const c = count(await L.shapes(s2))
+  rec.evidence.restore = { emptyBefore: empty, after: c, storeReportedAsUserChanges: await s2.page.evaluate(() => window.__seen.added), ...seen }
+  rec.ok(empty.ink === 0 && c.ink === b.ink && c.marks === b.marks, `fresh browser: the saved page was restored (${c.ink} of ${b.ink} strokes, ${c.marks} of ${b.marks} marks; the page was empty before)`)
+  rec.ok(rec.evidence.restore.storeReportedAsUserChanges >= b.ink, `the store reported the restored shapes to listeners as user changes (${rec.evidence.restore.storeReportedAsUserChanges} shapes): the case that used to trigger a check`)
+  await L.sleep(6500)
+  const sent = L.checks(s2)
+  rec.ok(sent.length === 0, `fresh browser: no check in the ${Math.round((Date.now() - loadedAt) / 100) / 10} s after the restore` + (sent.length ? `: ${sent.length} /api/check sent (mode ${sent[0].mode})` : ''))
+  rec.note(`status line after the restore: ${await L.statusText(s2)}`)
+  rec.shots.push(await L.shot(s2, `${s.tag}-restored`))
+  // the first real stroke: the wrong "+ 1" is still there, a third line is written under it
+  await L.tool(s2, 'draw')
+  const ink = await L.inkShapes(s2)
+  const box = L.unionBox(ink.map((i) => i.screen))
+  const from = s2.api.length
+  const t0 = Date.now()
+  await L.write(s2, "f''(x) = 6", box.x, box.y + box.h + LINE * 0.8, XH)
+  const chk = await L.waitCheck(s2, { from, mode: 'auto', timeout: 45000 })
+  rec.evidence.afterStroke = { status: chk?.status, ms: chk?.ms, sentAfterMs: chk ? chk.t0 - t0 : null, read: chk?.res?.lines?.map((l) => l.plain), savedLinesSent: chk?.req?.state?.lines?.length, flagged: chk?.req?.state?.flagged_line_ids, has_worksheet: chk?.req?.has_worksheet }
+  rec.ok(chk?.status === 200, `the first stroke after the restore is checked (status ${chk?.status}, ${chk?.ms} ms; the request carried ${chk?.req?.state?.lines?.length} saved lines, flagged ${JSON.stringify(chk?.req?.state?.flagged_line_ids)})`)
+  await L.settle(s2, 2500, 30000)
+  rec.ok(L.checks(s2).length === 1, `exactly one check was sent in the fresh browser (${L.checks(s2).length})`)
+  const d = count(await L.shapes(s2))
+  rec.ok(d.marks >= 1, `the red mark on the wrong line is still there after that check (${d.marks})`)
+  rec.shots.push(await L.shot(s2, `${s.tag}-restored-stroke`))
+  rec.evidence.freshConsole = s2.console
+  rec.evidence.freshApi = apiBrief(s2)
+  await s2.ctx.close()
 }
 
 /** Open the same ?page= in a browser with nothing stored locally: ink and feedback must come back from Firestore. */

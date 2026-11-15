@@ -78,8 +78,7 @@ function Marker({ shape }: { shape: LessonShape }) {
     let touchAt = -1e9
     const act = () => {
       dock.open(lesson, { fromTap: true })
-      const b = editor.getShapePageBounds(shape.id)
-      if (b) focusLesson(editor, { x: b.x, y: b.y, w: b.w, h: b.h })
+      void focusLesson(editor, lesson)
     }
     const on = (e: Event) => {
       editor.markEventAsHandled(e)
