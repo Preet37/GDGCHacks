@@ -50,11 +50,18 @@ export interface PageState {
   flagged_line_ids: string[]; // lines that currently have feedback on the page
 }
 
+export interface GivenLine {
+  box: Box;                   // where it sits in the sent image
+  latex: string;
+  plain: string;
+}
+
 export interface CheckRequest {
   image_base64: string;       // PNG, longest side <= 1280 px
   mode: "auto" | "help" | "explain";  // auto = sent after a pause; help = Help tapped; explain = "Teach me" tapped
   help_box?: Box;             // help mode: area the user selected (missing = whole page)
   question?: string;          // help mode: what the student asked out loud, transcribed (missing = no question)
+  given?: GivenLine[];        // problem statements the tutor itself wrote on the page (practice problems), so they need not be re-read
   state: PageState;
 }
 
@@ -96,9 +103,17 @@ export interface LessonStep {
   visual?: LessonVisual;      // the picture for this step. Missing = keep the previous step's picture
 }
 
+export interface Practice {
+  prompt: string;             // what to do, plain words: "Your turn: find the derivative."
+  problem: string;            // a new problem of the same kind as the student's, one LaTeX line: "f(x) = x^3 - 5x"
+  plain: string;              // the same line in calculator syntax
+  ask?: string;               // optional LaTeX for the line the student completes: "f'(x) ="
+}
+
 export interface Lesson {
   title: string;
-  steps: LessonStep[];        // 3 to 7 steps
+  steps: LessonStep[];        // 6 to 9 steps
+  practice?: Practice;        // "Your turn": the page writes `problem` on the canvas after the lesson; the student's work under it is checked like any other
 }
 
 // ---- Handwriting: POST /api/glyphs. Finds each handwritten character so the page can learn the student's letter shapes. ----

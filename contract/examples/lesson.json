@@ -178,7 +178,13 @@
               ]
             }
           }
-        ]
+        ],
+        "practice": {
+          "prompt": "Your turn: find the derivative.",
+          "problem": "g(x) = x^3",
+          "plain": "g(x) = x^3",
+          "ask": "g'(x) ="
+        }
       }
     }
   ],

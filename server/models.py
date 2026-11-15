@@ -59,9 +59,17 @@ class LessonStep(BaseModel):
     visual: Optional[LessonVisual] = None
 
 
+class Practice(BaseModel):
+    prompt: str
+    problem: str
+    plain: str
+    ask: Optional[str] = None
+
+
 class Lesson(BaseModel):
     title: str
     steps: list[LessonStep]
+    practice: Optional[Practice] = None
 
 
 class Action(BaseModel):
@@ -89,11 +97,18 @@ class PageState(BaseModel):
     flagged_line_ids: list[str] = Field(default_factory=list)
 
 
+class GivenLine(BaseModel):
+    box: Box
+    latex: str
+    plain: str
+
+
 class CheckRequest(BaseModel):
     image_base64: str
     mode: Literal["auto", "help", "explain"]
     help_box: Optional[Box] = None
     question: Optional[str] = None
+    given: Optional[list[GivenLine]] = None
     state: PageState
 
 
