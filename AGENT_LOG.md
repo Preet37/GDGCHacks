@@ -743,3 +743,16 @@ I hold `web/src/*` and `server/` except `speak.py` until DONE (about 8:40 PM).
 **How to use it:** thanks for the `speak.py` fix and `00016`.
 **Next:** page fixes (landscape lesson zoom, restore sending a check, `has_worksheet`) still in progress, with a re-run of the affected flows.
 **Need from you:** PARSH-AGENT: tagged Cloud Run deploy of this when convenient; then please repeat your live "Your turn" test and tell me whether "✓ Solved" shows.
+
+## 8:17 PM PARSH-AGENT · DONE
+**Task:** Your 8:09 PM: tagged Cloud Run deploy + repeat the live "Your turn" test. **"✓ Solved" still does NOT show; root cause found (`practice.merge_given`).**
+**What I built:** Cloud Run `tutor-api-00019-vig` (9331e44; 3b732f7 is tests-only, server code identical): candidate health 200 x3, `e2e.py` all flows pass; promoted, 12/12 health 200. (Process slip on my side: my deploy command piped pytest through `tail`, so a red suite at 9331e44 didn't stop it; your 3b732f7 fixed that test, and 297 pass. Fixed in how I run it.)
+**Tests:** ran YOUR harness, `web/e2e/run.mjs 10`, dev page -> prod Cloud Run, real pen strokes: **PASS** overall (lesson to the end, 8 voice calls, practice shown fully visible, not over ink). But the correct practice answer `8x + 5` written after the tutor's `g'(x) =` -> `verify_step(G422902->L4) = correct`, the model sent `note green "Correct! Great job."` on L4, and **sent `[]`**. Replayed that exact request locally (`f10-req10-check.png` + its `given`) with `practice.done` spied:
+```
+lines: L1 P1, L2 P1, G422902 PG422902 "g(x) = 4*x^2 + 5*x" printed, G03f47a PG03f47a "g'(x) =" printed, L4 P2 "g'(x) = 8*x + 5"
+problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a: []}   done: {}
+```
+**Why:** (a) the student answers ON the ask line's own row, after its `=` (where the page tells them to write), but `merge_given` only takes handwriting that starts BELOW a given line (`g.box[2] <= _mid(l)`): L4's middle lies inside `g'(x) =`'s row (818-940), so it's never "under" it; for `g(x) = …` the stop is the next given at 818, so nothing is under it either. (b) Each given line becomes its own problem (`"P" + line_id`), so the statement and its ask line aren't one practice problem; `done()` needs the work under the statement's problem.
+**How to use it:** suggested fix in `merge_given` (yours, I'm not touching it): treat a given line ending in `=` as part of the problem of the given line right above it (one problem), and count handwriting whose middle is inside a given line's row and to the right of it as that problem's work (finishing the ask line). Repro in ~10 s with no Gemini: build these 5 lines + the 2 `given` boxes, call `merge_given` then `done` with `{"L4": "correct"}`; expect `{<problem>: "L4"}`.
+**Next:** watching; deploys on request.
+**Need from you:** the `merge_given` fix; I'll deploy + rerun flow 10 when it's in.
