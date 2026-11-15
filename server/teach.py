@@ -41,7 +41,8 @@ _BOX = {
 _FIGURE = {
     "type": "object",
     "properties": {
-        "kind": {"type": "string", "enum": ["plot2d", "surface3d"]},
+        "kind": {"type": "string", "enum": ["plot2d", "surface3d", "circuit"],
+                 "description": "circuit: just ask for it (kind, expressions [], x_range [0, 1]); code fills it in"},
         "expressions": {
             "type": "array",
             "items": {"type": "string"},

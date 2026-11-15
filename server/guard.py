@@ -305,9 +305,20 @@ def merge(state: PageState, lines: list[ReadLine], result: TeachResult, mode: st
             problems.append(p)
             by_id[p.problem_id] = p
 
+    if mode != "explain":
+        # Engineering: circuit figures (x-ray labels + what-if card) are decided and filled in by code, never copied
+        # from the model. Revealed only after a checked-correct answer or at hint level 3.
+        import engineering
+        actions = engineering.circuit_figures(
+            lines, actions, result.verdicts if result.finished else {}, {p.problem_id: p.hint_level for p in problems},
+            state.lines, question, {hu.problem_id for hu in hint_updates})
+
     # Flagged / clear bookkeeping
     present = {l.line_id for l in lines}
-    action_ids = [a.line_id for a in actions if a.line_id and a.type != "lesson"]
+    # A circuit figure, like a lesson, is not feedback on a line: flagging its line would make later automatic checks
+    # skip anything new about the circuit (a flagged, unchanged line gets no new actions).
+    action_ids = [a.line_id for a in actions if a.line_id and a.type != "lesson"
+                  and not (a.type == "figure" and a.figure is not None and a.figure.kind == "circuit")]
     flagged = [i for i in state.flagged_line_ids if i not in set(clear)] + action_ids
     flagged = _ordered_unique(flagged)
     gone = [i for i in flagged if i not in present]
