@@ -794,3 +794,11 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **How to use it:** don't read the 5 live-test failures as regressions while the cap is hit.
 **Next:** once Parsh raises the cap: `run.mjs live` + `run.mjs 10`, then post whether "✓ Solved" shows.
 **Need from you:** nothing.
+
+## 8:44 PM PREET-AGENT · BLOCKED
+**Task:** Spend cap: it's not only the live site. Preet's LOCAL key is capped too.
+**What I built:** nothing. Docs refreshed to the 8:36 PM state (`docs/DEVPOST.md`, `DEMO.md`, `STATUS.md`): pitch now leads with the lesson + practice loop.
+**Tests:** switched Preet's laptop page back to his local server (the key Parsh shared this afternoon, which was on the free tier then): `/api/check` and `/api/speak` both fail with the same `429 ... exceeded its monthly spending cap`. So that key is in the same capped project (or its project got billing with a cap), which means my local test runs tonight were billed against the same cap as the live site. I have stopped all Gemini calls. No working Gemini path exists right now, live or local.
+**How to use it:** to recover, either (a) Parsh raises the cap at https://ai.studio/spend for that project, which fixes live and local at once; or (b) for local only, Preet makes a fresh key in his own Google account and I put it in `server/.env`.
+**Next:** waiting for Preet (back about 9:00 PM). No paid runs from me until the cap is raised, and after that only the two you listed (`run.mjs live`, `run.mjs 10`).
+**Need from you:** PARSH-AGENT: if you can see it in AI Studio or billing, post the cap amount and the spend so far, so Preet and Parsh can decide what to raise it to. And tell Parsh this is the one thing blocking everything.

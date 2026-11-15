@@ -1,143 +1,171 @@
 # Demo plan for [need: name]
 
-Written from `AGENT_LOG.md` as of 7:10 PM Saturday. Rehearse every problem on the iPad tonight and edit this file where the real behaviour differs.
+Written from `AGENT_LOG.md` (to its last entry, 8:36 PM Saturday) and `web/e2e/RESULTS.md`. Timings are from RESULTS.md: pen strokes on the real canvas in headless Chrome, the deployed server, `gemini-3.5-flash`. "Reply" is measured from the last stroke and includes the page's 2 second pause.
 
 Link: https://tutor-1098c.web.app/?page=<fresh-id>
+
+## Before any of this works
+
+Three things were open when the log ends. Check each one first.
+
+1. **The Gemini spend cap.** At 8:35 PM every Gemini call on the live site failed with "exceeded its monthly spending cap". Marks, hints, lessons and voice are all down until Parsh raises the cap in AI Studio. `/api/health` still returns ok while this is happening, so test with a real check.
+2. **"Solved" is not confirmed live.** The practice answer is checked, but the green note and the "Solved" label did not appear on the live site at 8:17 PM. The fix (`server/practice.py`, 8:36 PM) passes its unit tests and was not deployed when the log ends. After it is deployed, run `node web/e2e/run.mjs 10` and look for "Solved".
+3. **No iPad run since about 6:20 PM.** Everything in problems 2 to 4 was built after Preet last used the iPad. The results below come from a headless browser. Rehearse every problem on the iPad and edit this file where the real behaviour differs.
 
 ## Rules for every problem
 
 - One step per line. Leave at most one blank line between steps.
 - After the last stroke, lift the Pencil and wait. The page sends after a 2 second pause. A pulsing blue dot means a check is running.
 - Keep the page zoom near 100%.
+- Hold the iPad in portrait for a lesson. Portrait is the only orientation where the lesson was run with the real voice. Landscape passed after the 8:32 PM fix, with the voice blocked.
 - Start each judge on a fresh page id (`?page=judge3`), or select all and delete.
-- General recovery, in this order: (1) add a small stroke to the last line and pause again, (2) read the status line under "Show what AI read" for the last check's result or error, (3) reload the page, (4) switch to the hotspot, (5) play the video.
+- Turn on "Show what AI read". The status line under it says what the last check read and why nothing was drawn, for example `no actions: the step checked correct` or `the writing was taken for printed text`.
+- General recovery, in this order: (1) add a small stroke to the last line and pause again, (2) read the status line, (3) open `/api/debug/recent` on the laptop to see what the server read and which tools ran, (4) reload the page, (5) switch to the hotspot, (6) play the video.
 
-## (a) Demo set: 6 problems, strongest first
+## (a) Demo set: 6 problems
 
-Problems 1 to 5 use flows the log shows passing on the deployed site with `gemini-3.5-flash`. Problem 6 passed through the full pipeline on a sketch image, and has not been logged as run from the canvas on the live site, so it goes last and is optional.
+Ordered so the teaching loop comes first. Every problem passed in the end-to-end run. Problems 1 and 2 are one continuous story on one page.
 
-### 1. Wrong derivative, then fix it
+### 1. A wrong derivative gets circled
 
 - **Write:** line 1 `f(x) = 3x^2 + 2x`. Line 2 `f'(x) = 6x + 1`. Pause.
-- **Should appear:** a red circle around `+ 1` and a red question beside the line, such as "What is the derivative of 2x?". Measured 3.7 s and 4.4 s after the request is sent.
-- **Then:** erase `1`, write `2`, pause. The circle and note disappear.
-- **Shows:** handwriting read by Gemini, the step checked by SymPy through `verify_step`, feedback as a question, no repeat on an unchanged line.
+- **Should appear:** a red circle around `+ 1` and a red question beside the line: "What is the derivative of 2x?".
+- **Measured:** reply 8.8 s in portrait, 6.7 s in landscape (request alone 6.8 s and 4.7 s). Passed in both orientations and again after the fixes.
+- **Leave the mistake on the page** and go to problem 2. Come back afterwards: erase `1`, write `2`, pause. The circle and the question clear (11.8 s and 12.1 s measured from starting the fix to the marks being gone).
+- **Shows:** handwriting read by Gemini, the step checked by SymPy through `verify_step`, feedback as a question and no answer.
 - **If nothing appears:** the two lines are probably too far apart, so the check saw one line. Rewrite line 2 directly under line 1 and pause.
 
-### 2. Finish my line, then Teach me
+### 2. Teach me, then Your turn
 
-- **Write:** line 1 `f(x) = x^2`. Line 2 `f'(x) =` and stop. Pause.
-- **Should appear:** `2x` written straight after the equals sign.
-- **Then:** tap **Teach me**. The button shows "Preparing a lesson…". A panel opens (right side in landscape, bottom in portrait) and plays: the curve with a tangent, the tangent sliding, a secant closing in, the power rule written out, ending on `f'(x) = 2x`. A Gemini voice reads each step with subtitles. Measured 7.0 s for this lesson on one run, and up to 17.5 s for a deeper one.
-- **Shows:** `compute_step`, the explain loop with function calling, Gemini TTS, the animated lesson panel.
-- **If nothing appears:** if `2x` does not come, make sure the line ends in a clear `=` with nothing after it, then pause again. If the lesson panel shows "Tap to play with sound", tap it. If there is no voice, check the iPad volume and the mute button in the panel; the lesson still plays with subtitles.
+- **Do:** with the red mark from problem 1 on the page, tap **Teach me**.
+- **Should appear:** the button shows "Preparing a lesson…". A panel docks at the bottom (portrait) and plays about 7 steps: a plot with something moving, the derivative taken term by term, where the student's own line went off, subtitles, and the Gemini voice. The notebook keeps its zoom and the two lines stay visible.
+- **Measured:** the lesson came back in 8.6 to 11.3 s, and the panel was up 9.9 to 12.7 s after the tap. 7 of 7 voice clips returned, 2.0 to 4.7 s each.
+- **Then:** let the voice play for a few steps, use "Next step" to reach the last step, and tap **Your turn**. The page writes "Your turn: find the derivative.", a new problem such as `g(x) = 4x^2 + 5x`, and `g'(x) =` under the work, in violet. The panel folds to a pill.
+- **Then:** write the answer straight after the tutor's `=`, for example `8x + 5`. Pause.
+- **Should appear:** a green note and the label changing to "Solved". This is the part not yet seen on the live site (see "Before any of this works", item 2). What is confirmed live: the practice problem is written, it is sent with the next check, and the server's check of `8x + 5` returns `correct`.
+- **Shows:** the explain loop with function calling, Gemini TTS, and a practice problem that `compute_step` solved before it was shown and `verify_step` checks afterwards.
+- **If nothing appears:** if the panel shows "Tap to play with sound", tap it. If there is no voice, check the iPad volume and the panel's mute button; the lesson still plays with subtitles. If the lesson takes more than 30 s, close the panel and tap Teach me once more. If the answer gets no "Solved", read the status line: `no actions: the step checked correct` means the check ran. Say that the answer was checked and the confirmation is the newest piece, then go back and fix line 2 of problem 1.
 
-### 3. Hint ladder
+### 3. Help that explains
 
 - **Write:** `d/dx (x sin x)` on a clear part of the page. Do not write an answer.
-- **Do:** tap **Help**. Read the hint. Tap Help again, and again.
-- **Should appear:** hint 1 names the idea in words (which rule applies to a product). Hint 2 sets up the two parts. Hint 3 shows the worked step, `sin x + x cos x`. Measured 2.5 to 3.2 s per hint.
-- **Note:** after the first tap a countdown pill appears above the Help button, and the next hint arrives by itself after about 18 s. This auto-continue has not been confirmed on the iPad against the real server. For the demo, tap Help again instead of waiting, or tap the pill to cancel.
-- **Shows:** hints before answers, hint level kept per problem.
-- **If nothing appears:** tap once on the line with the select tool so Help targets it, then tap Help. If two hints say the same thing, move on; it happens.
+- **Do:** tap **Help**.
+- **Should appear:** hint 1 names the idea. A countdown pill appears above the Help button, and hints 2 and 3 arrive by themselves: the setup, then the worked step. All three were different in both runs, each with a reason or worked math. Tap the pill to cancel.
+- **Measured:** hint 1 at 4.6 s and 4.2 s. Hint 2 after 18.3 s and 18.1 s. Hint 3 after 24.8 s and 17.9 s (the slow one sat on "Next hint…" for 7 s).
+- **Shows:** hints before answers, the next hint fetched during the countdown.
+- **If nothing appears:** tap once on the line with the select tool so Help targets it, then tap Help. If the next hint is slow, keep talking; it is the server working.
 
-### 4. Graph this
+### 4. Full solve, only when asked
 
-- **Write:** line 1 `g(x) = x^2 - 4`. Line 2 the words `graph this`. Pause.
-- **Should appear:** a plot of the parabola beside the line, with both roots and the lowest point in the window.
+- **Write:** `3x^2 - 3 = 0`. Then the word `solve` to the right of it on the same row. Pause.
+- **Should appear:** three lines under the equation, one at a time, at the handwriting's size: `3x² = 3`, `x² = 1`, `x = ±1`.
+- **Measured:** reply 10.6 s and 9.4 s (request 8.5 s and 7.3 s). Passed in both runs.
+- **Shows:** the answer exists but has to be asked for, and every step shown has passed the checker.
+- **If nothing appears:** a blue note "I couldn't work this one out reliably…" means the equation was misread or the steps failed the check. Rewrite the equation more clearly and write `solve` again. With no note at all, write `solve` closer to the equation.
+
+### 5. Graph
+
+- **Write:** line 1 `g(x) = x^2 - 4`. Line 2 the words `graph it`. Pause.
+- **Should appear:** a plot of the parabola beside the lines, with the lowest point in the window, not covering any ink.
+- **Measured:** reply 5.3 s in portrait and 7.1 s in landscape.
 - **Shows:** Gemini returning a figure spec as structured data, drawn by the page.
-- **If nothing appears:** write `graph this` closer to the function, on the next line, and pause. As a second route, hold Help and say "graph this".
+- **If nothing appears:** write `graph it` on the very next line, closer to the function, and pause.
 
-### 5. A mistake, then a lesson about that mistake
+### 6. An algebra mistake, for the judge to fix
 
-- **Write:** line 1 `f(x) = x^3 - 3x`. Line 2 `f'(x) = 3x^2 - 3x`. Pause.
-- **Should appear:** a red circle on the last term and a question such as "What is the derivative of 3x?".
-- **Then:** tap **Teach me**. The lesson explains the derivative term by term, then says where the student's line went off (it kept the x on the second term), and ends on a practice question. Measured 17.5 s for 8 steps on one run, so say "this one takes a moment" and keep talking.
-- **Optional:** hold Help and ask "why does the graph turn around at those points?". The page shows what it heard, then a blue note with a plain answer. Voice input was confirmed on the iPad on the live link. The direct-answer behaviour was tested on the lite model only, so try it tonight before using it.
-- **Shows:** the lesson is written from the student's own work, not a canned topic.
-- **If nothing appears:** if there is no circle, bring line 2 closer to line 1 and pause. If the lesson takes more than 30 s, close the panel and tap Teach me once more.
+- **Write:** line 1 `2x + 6 = 14`. Line 2 `2x = 20`. Pause.
+- **Should appear:** a red circle on `20` and "What do you get when you subtract 6 from both sides?".
+- **Measured:** reply 6.8 s (request 4.7 s).
+- **Then:** hand over the Pencil. The judge writes `2x = 8` and `x = 4`. The mark clears. Tapping Help on the finished work gave a green note in the run: "Correct! You can plug x = 4 back into the start to double check: 2(4) + 6 = 14." (5.9 s).
+- **Shows:** the same loop on a different kind of math, with no subject-specific code.
+- **If nothing appears:** rewrite line 2 directly under line 1 and pause.
 
-### 6. Circuit (optional, rehearse first)
+### Only if rehearsed
 
-- **Draw:** a loop with a 9 V battery (long plate marked `+`), then two resistor zigzags in series labelled `R1 = 1k` and `R2 = 2k`. Under it write `I = 9 mA`. Pause.
-- **Should appear:** a red circle on `9 mA` and a question such as "What is the total resistance of R1 and R2 in series?". Change it to `I = 3 mA` and the mark clears.
-- **Measured:** read 5.0 s plus teach 6.9 s on a sketch-style image, so about 12 s.
-- **Shows:** function calling with a different tool (`solve_circuit`, nodal analysis in SymPy), same page and same rules.
-- **Status:** the full pipeline passed on a generated sketch image with `gemini-3.5-flash`. On Preet's iPad an earlier build failed with "no ground node"; the solver now picks a ground itself. A hand-drawn circuit on the live site has not been logged as passing since. Run it three times tonight. If it fails once, drop it from the table demo.
-- **If nothing appears:** write the answer closer to the drawing and pause. If still nothing, say "the circuit reader is the newest part" and go back to problem 1.
+Each of these is flaky, or untested on a real iPad in its current form, or both. Use one only after it has worked three times in a row on the iPad.
 
-### Not in the set, and why
-
-- **PDF worksheet.** Import works, but the iPad test found the hint aimed at the wrong printed problem and drawn over the print. Fixes are in, not re-tested on a real PDF. Show it only if tonight's rehearsal is clean.
-- **Full worked solution ("solve").** The server returns checked steps. The page does not draw them yet.
-- **Write in my handwriting, 3D surfaces.** Built, not tested on the iPad.
+- **Finish my line** (`g(x) = 6x^2`, then `g'(x) =`, and `12x` appears after the `=`). Passed 3 of 4 runs before the fix and 1 of 1 after it (request 3.9 to 6.1 s). The failure was handwriting taken for printed text. It is also the feature Apple's Math Notes already has, so it does not belong in the pitch.
+- **Write in my handwriting.** A prototype. In the run, `12x` was drawn as 4 pen strokes at the handwriting's size, using strokes generated by the harness. Never tried with real Pencil writing.
+- **3D surface** (`z = x^2 + y^2`, then `graph this`). Passed once (5.7 s), and dragging on it with the pen rotated it. Not tested on the iPad.
+- **PDF worksheet.** Passed twice in the run: the mark landed on the handwriting, nothing on the print, and Help answered the problem in view (import 0.3 s, check 5.1 s, help 9.1 s). On the iPad earlier today the hint aimed at the wrong printed problem and was drawn over the print. Not re-tested on the iPad since the fixes.
+- **Circuit** (9 V source, `R1 = 1k` and `R2 = 2k` in series, `I = 9 mA`). Not covered by the end-to-end run. It passed on a generated sketch image (read 5.0 s, teach 6.9 s). The one iPad attempt failed with "no ground node" on the lite model; the solver now picks a ground itself, and that has not been re-tested from the canvas.
+- **Voice question** (hold Help and speak). Speech input worked on the iPad on the live link. The live transcript bar and the plain-language answers were built afterwards and have not been tried on the iPad.
+- **A lesson in landscape.** Passes with the voice blocked. In landscape the tutor's question beside the line can run under the lesson panel.
+- **Opening a saved page on a second device.** In a headless browser on the live site the page came back from Firestore, and the extra check it used to send is gone. Not tried between the iPad and a laptop.
 
 ## (b) 90-second table pitch
 
+Set up before the judge arrives, in portrait: problem 1 written and already circled on a fresh page. Problem 6 written on a second page id in another tab, without its second line.
+
 | Time | Who | Say / do |
 | --- | --- | --- |
-| 0:00 to 0:12 | Speaker | "This is a notebook that tutors you while you write. Most AI homework tools hand you the answer. This one finds your mistake and makes you fix it." |
-| 0:12 to 0:32 | Writer | Problem 1 is already half written (line 1 on the page). Write `f'(x) = 6x + 1`, lift the Pencil. Speaker: "Gemini reads the handwriting. Then it has to call a real math engine, SymPy, on that step before anything is drawn." The circle appears. "It circled the wrong term and asked a question. It did not give the answer." |
-| 0:32 to 0:42 | Writer | Fix `1` to `2`. The circle clears. Speaker: "Fixed, so the mark goes away." |
-| 0:42 to 1:02 | Writer | On problem 2 (prepared: `f(x) = x^2`, `f'(x) =` with `2x` already filled in), tap Teach me. Speaker, while it loads: "If you are still stuck, Help gives three hints, and Teach me builds a short lesson about your problem. Gemini writes the steps, the plot and the narration, and Gemini text to speech reads it." Let the voice play for five seconds. |
-| 1:02 to 1:20 | Speaker | "How it uses Google: Gemini takes the page image and returns structured lines. A second Gemini call must use function calling: verify a step, compute a step, solve a circuit. The server runs on Cloud Run, the page is on Firebase Hosting, and pages save to Firestore." |
-| 1:20 to 1:30 | Speaker | "The idea started from a Zurich hackathon project that finishes your calculation. Ours checks your work instead. Here is the Pencil, write a wrong step." Hand over the Pencil. |
+| 0:00 to 0:12 | Speaker | "Apple's Notes app will finish a line of handwritten math for you and draw the graph. This notebook does a different job. It finds where you went wrong, teaches you that step, and then gives you a new problem to do yourself." |
+| 0:12 to 0:24 | Writer taps **Teach me** at 0:12. Speaker points at the circle. | "I wrote a wrong derivative. Gemini read the handwriting, and a math engine, SymPy, checked the step. It circled the wrong term and asked a question. It did not give the answer." |
+| 0:24 to 0:44 | The lesson panel opens. Let the voice play for about 8 seconds, then step to the end. | (After the voice) "Gemini wrote this lesson about my line, including where I went wrong, and Gemini text to speech reads it." |
+| 0:44 to 1:04 | Writer taps **Your turn**, writes the answer after the `=`. | "Then it is my turn. It wrote a new problem of the same kind. The math engine solved it before showing it to me, and it checks what I write." Wait for "Solved". |
+| 1:04 to 1:18 | Speaker | "How it uses Google: Gemini takes the page image and returns structured lines. A second Gemini call must use function calling: verify a step, compute a step, solve a circuit. Gemini TTS is the voice. The server runs on Cloud Run, the page is on Firebase Hosting, and pages save to Firestore." |
+| 1:18 to 1:30 | Speaker hands over the Pencil. | "Your turn. Fix my first line, or write a wrong step of your own." The mark on problem 1 clears when the judge fixes it. |
 
 Notes:
 
-- Prepare problems 1 and 2 on the page before each judge arrives, so nothing waits on handwriting.
-- If the lesson has not opened by 1:02, start the 1:02 line anyway and point at it when it arrives.
+- The lesson needs 9.9 to 12.7 s to open, which is why Teach me is tapped at 0:12 and the speaker talks over the wait.
+- If "Solved" has not been confirmed in rehearsal, change the 0:44 line to end with "and it checks what I write" and move on without waiting.
+- If the lesson has not opened by 0:30, say the 1:04 line early and come back to the panel.
+- Help, full solve and the graph are for follow-up questions. If the judge asks "can it just give me the answer", show problem 4.
 - If the judge writes their own problem and nothing happens, use the general recovery list at the top.
 
 ## (c) 2-minute video: shot list
 
-Record the iPad screen with screen recording, plus one or two over-the-shoulder shots. Record the voice-over separately. Total 2:00.
+Record the iPad screen with screen recording, plus one or two over-the-shoulder shots. Record the voice-over separately. Total 2:00. The lesson and practice loop takes 0:28 to 1:26, about half the video.
 
 | Time | On screen | Voice-over |
 | --- | --- | --- |
-| 0:00 to 0:08 | Over the shoulder: hand with Pencil on a blank page. Title text: [need: name]. | "This is [need: name]. A notebook on the iPad that tutors you while you write." |
-| 0:08 to 0:16 | Screen: writing `f(x) = 3x^2 + 2x`, then `f'(x) = 6x + 1`. | "Most AI homework tools give you the answer. We wanted one that finds your mistake and makes you fix it." |
-| 0:16 to 0:28 | Blue dot pulses. Red circle lands on `+ 1`, question appears. Slow zoom on the circle. | "Pause, and Gemini reads the handwriting. Each step is checked by a real math engine. It circles the wrong term and asks a question." |
-| 0:28 to 0:36 | Erase `1`, write `2`. Circle disappears. | "Fix it, and the mark goes away." |
-| 0:36 to 0:50 | New problem: `d/dx (x sin x)`. Tap Help three times (cut the waits). The three hints appear in turn. | "If you are stuck before you start, Help gives three hints. First the idea, then the setup, and only then the worked step." |
-| 0:50 to 0:58 | Write `f(x) = x^2`, `f'(x) =`. `2x` appears after the equals sign. | "Leave a line open and it finishes just that line. The result comes from the math engine." |
-| 0:58 to 1:22 | Tap Teach me. Panel opens. Keep the lesson's own audio for about 12 seconds: tangent sliding, secant closing in, subtitles. | (First 4 s) "Teach me builds a lesson about your problem." Then let the Gemini voice play with no voice-over. |
-| 1:22 to 1:30 | Write `g(x) = x^2 - 4`, `graph this`. Plot appears. | "Ask for a graph and it draws one next to your work." |
-| 1:30 to 1:40 | Circuit: drawn loop, `I = 9 mA`, red circle on the value. Use only if it works in rehearsal; otherwise extend the lesson shot by 10 s. | "It reads a hand-drawn circuit too, solves it, and checks your answer." |
-| 1:40 to 1:54 | Architecture diagram from DEVPOST.md, with labels lighting up in order: Gemini read, Gemini tools, Cloud Run, Firebase Hosting, Firestore. | "Gemini reads the page image into structured lines. A second Gemini call uses function calling to verify steps, compute steps and solve circuits. Gemini text to speech narrates. It runs on Cloud Run, Firebase Hosting and Firestore." |
-| 1:54 to 2:00 | Over the shoulder: the wrong-derivative page with the circle. Text: the link and both names. | "Inspired by a Zurich hackathon project that finishes your math. Ours makes you finish it. Built by Preet and Parsh at DevFest 2026." |
+| 0:00 to 0:10 | Over the shoulder: hand with Pencil on a blank page. Title text: [need: name]. | "This is [need: name]. Notes apps can already finish your math for you. We built a notebook that teaches you instead." |
+| 0:10 to 0:28 | Screen: writing `f(x) = 3x^2 + 2x`, then `f'(x) = 6x + 1`. Blue dot pulses. Red circle lands on `+ 1`, question appears. Slow zoom on the circle. | "Write your work by hand and pause. Gemini reads the handwriting and a math engine checks the step. It circles the wrong term and asks a question. It does not give the answer." |
+| 0:28 to 0:36 | Tap Teach me. Cut the wait. The panel docks under the work. | "Still stuck. Teach me builds a lesson about this exact line." |
+| 0:36 to 1:02 | The lesson plays: the plot moving, lines written, subtitles. Include the step that names the student's slip. | No voice-over. Keep the lesson's own Gemini voice. |
+| 1:02 to 1:26 | Tap Your turn. The violet practice problem is written under the work. The student writes the answer after the `=`. Green note, label changes to "Solved". | "Then it hands the Pencil back. A new problem of the same kind, solved by the math engine before it is shown, and your answer is checked." |
+| 1:26 to 1:36 | Back at the first problem: erase `1`, write `2`. The circle disappears. | "Now fix the original mistake, and the mark goes away." |
+| 1:36 to 1:46 | Quick cuts: one Help hint on `d/dx (x sin x)`; `solve` written next to `3x^2 - 3 = 0` and three steps appearing. | "Help gives hints in three levels. The full solution is there too, but only when you ask for it." |
+| 1:46 to 1:56 | Architecture diagram from DEVPOST.md, with labels lighting up in order: Gemini read, Gemini tools, Gemini TTS, Cloud Run, Firebase Hosting, Firestore. | "Gemini reads the page image into structured lines. Function calling runs the math checks. Gemini text to speech is the voice. It runs on Cloud Run, Firebase Hosting and Firestore." |
+| 1:56 to 2:00 | The page with "Solved". Text: the link and both names. | "Built by Preet and Parsh at DevFest 2026." |
 
 Recording notes:
 
 - Cut the waits in the edit, but do not fake a result. Every mark on screen must come from the live site.
+- If "Solved" does not appear on the live site by recording time, end the 1:02 to 1:26 shot on the written answer, drop the words "and your answer is checked" only if no check ran (the status line tells you), and use the problem 1 page for the last shot.
 - Turn on Do Not Disturb. Set the volume before the Teach me shot.
 - If the Gemini voice is not audible in the screen recording, record the lesson shot with a second device.
+- Credit the Zurich project in the Devpost text. The video has no room for it.
 
 ## (d) Likely judge questions, honest answers
 
+**Doesn't Apple's Math Notes already do this?**
+It does part of it. Math Notes writes the answer after an equals sign in your handwriting and draws 2D and 3D graphs. We can do those too and we do not lead with them. What we add is the teaching: a mark on the wrong term with a question, a spoken lesson about your own line, and a practice problem that gets checked. From Apple's and Goodnotes' own descriptions, neither has a lesson, a voice or practice. We have not compared the products side by side.
+
 **What if the AI is wrong?**
-Gemini does not get the last word on a mistake. It must call `verify_step`, which uses SymPy to test whether the line follows from the one above. Our code drops any red circle on a line the checker called correct. If the checker cannot parse a line it returns `unknown`, and the prompt tells Gemini to stay quiet unless it is very sure. The weak point is reading: if Gemini misreads the handwriting, the checker checks the wrong text. For that there is a "Show what AI read" toggle, and low-confidence lines get a "did you mean" question instead of a red mark. We have seen misreads, mostly on the lite model.
+Gemini does not get the last word on a mistake. It must call `verify_step`, which uses SymPy to test whether the line follows from the one above. Code drops any red mark on a line the checker called correct, and if the checker says a line is wrong and the model says nothing, code writes the mark itself. Solution steps and practice problems are checked before they are shown. Two gaps remain. If the checker cannot parse a line it returns `unknown`, and the prompt lets Gemini mark it only when it is very sure, so that mark is the model's judgment. And if Gemini misreads the handwriting, the checker checks the wrong text. For that there is the "Show what AI read" toggle, and low-confidence lines get a "did you mean" question.
 
 **How is this different from the Zurich project?**
-That project finishes your calculation. We started from it and say so. Ours checks your work: it circles the wrong term, asks a question, gives three levels of hint, and can play a lesson. It only finishes a line when you leave it open or ask. We also added the SymPy check, worksheets and circuits.
+That project finishes your calculation. We started from it and say so. Ours checks your work, teaches the step you got wrong and gives you practice. It only finishes a line or writes a solution when you ask.
 
 **How is this different from pasting a photo into Gemini?**
-Three things. There is no photo step: you keep writing and feedback lands on the page next to the line, at your handwriting's size. A chat gives you the full solution; here code blocks an answer unless you asked for it. And the chat's math is unchecked, while here each flagged step went through SymPy. The model is the same Gemini. The difference is the tools and the rules around it.
+There is no photo step: you keep writing and feedback lands on the page next to the line. A chat gives you the full solution; here code holds the answer back unless you asked for it. A chat's math is unchecked; here the steps go through SymPy. And a chat does not hand you a new problem and check your handwritten answer. The model is the same Gemini. The difference is the tools and the rules around it.
 
 **Which Gemini features do you use?**
-Image input for reading the page. Structured output with a JSON schema for the reading. Function calling with four tools in the tutor loop (`verify_step`, `compute_step`, `solve_circuit`, `submit_feedback`) and three in the lesson loop. Text to speech for narration. Voice questions use Safari's speech recognition, which is not Gemini.
+Image input for reading the page and for finding characters. Structured output with a JSON schema. Function calling with four tools in the tutor loop (`verify_step`, `compute_step`, `solve_circuit`, `submit_feedback`) and three in the lesson loop (`verify_step`, `compute_step`, `submit_lesson`). Text to speech for narration. Voice questions use Safari's speech recognition, which is not Gemini.
 
 **What does one check cost?**
-We have not measured cost in dollars. One check is one image call plus one to three text calls on `gemini-3.5-flash`. A lesson adds one TTS call per step, 6 to 9 steps. The page only sends after a 2 second pause, skips if nothing changed, and sends a crop of the working area at 1280 px or less, which keeps the call count and image size down.
+We have not measured cost in dollars. One check is one image call plus one to three text calls on `gemini-3.5-flash`. A lesson adds one TTS call per step, 6 to 9 steps. We did hit the project's monthly spend cap on Saturday evening during testing. The page only sends after a 2 second pause, skips if nothing changed, and sends a crop of the working area.
 
 **How fast is it?**
-Measured on the deployed site: about 3.7 to 4.4 s for a mistake check, 2.5 to 3.2 s for a hint, 7 to 17.5 s for a lesson, plus the 2 second pause before sending. The first call after idle was about 7 s. A circuit took about 12 s. Lessons are the slow part and we show a "Preparing a lesson" state.
+Measured with pen strokes against the deployed server, from the last stroke and including the 2 second pause: 6.7 to 8.8 s for a mistake mark, 9.4 to 10.6 s for a full solution, 5.3 to 7.1 s for a graph. A first hint took 4.2 to 4.6 s after the tap. A lesson took 8.6 to 11.3 s to come back. Lessons are the slow part and the button shows "Preparing a lesson".
 
 **What happens to the student's work?**
-The page image goes to our Cloud Run server and from there to the Gemini API. The server does not store images. It keeps a summary of the last 30 requests in memory (the text it read, no images) at a debug address that is open this weekend and should be removed. Notebook pages are saved in Firestore under a page id; anyone who has the id can open that page. There are no accounts. This is fine for a demo and not for a school. It would need sign-in, per-user rules and a review of the data terms.
+The page image goes to our Cloud Run server and from there to the Gemini API. The server does not store images. It keeps a summary of the last 30 requests in memory (the text it read, the tool calls, no images) at `/api/debug/recent`, which is open this weekend and should be removed. Notebook pages are saved in Firestore under a page id; anyone who has the id can open that page. There are no accounts. This is fine for a demo and not for a school.
 
 **What does not work yet?**
-Full worked solutions are computed on the server but not drawn on the page. "Write in my handwriting" is a prototype that is off. 3D surfaces, the auto-continuing hints and the worksheet flow have not been confirmed on the iPad. Circles are placed by estimating where the wrong term sits in the line, so they can be off on uneven handwriting. Hint history lives in server memory and is lost on a restart. Lessons can take 17 s.
+The "Solved" confirmation after a correct practice answer was not showing on the live site at the last test; the fix is written. Nothing built since Saturday 6:20 PM has been used on a real iPad. "Write in my handwriting" is a prototype. Circuits and worksheets have had little or no real-Pencil testing since their last fixes. A red circle is placed by estimating where the wrong term sits in the line, so it can be off on uneven handwriting. Hint history lives in server memory and is lost on a restart.
 
 **What subjects does it cover?**
 Tested: derivatives, integrals, algebra steps and equation solving, and DC resistor circuits. The page and the guard have no subject-specific code, so a new subject is a new tool plus a prompt section. We have not tested beyond those.
