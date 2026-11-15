@@ -93,6 +93,59 @@ Each of these is flaky, or untested on a real iPad in its current form, or both.
 - **A lesson in landscape.** Passes with the voice blocked. In landscape the tutor's question beside the line can run under the lesson panel.
 - **Opening a saved page on a second device.** In a headless browser on the live site the page came back from Firestore, and the extra check it used to send is gone. Not tried between the iPad and a laptop.
 
+## (e) Engineering demo (Part 2, branch `engineering` only)
+
+Not on the live site. Run it from the laptop, on the same wifi as the iPad:
+
+```bash
+git checkout engineering
+cd web && API_TARGET=https://tutor-api-eng-191803288552.us-central1.run.app npm run dev -- --host --port 5174
+ipconfig getifaddr en0          # the laptop's address, e.g. 10.0.0.65
+```
+
+On the iPad open `http://<laptop address>:5174/?page=eng-1` (use a new `?page=` name per run for a clean page).
+Plain http: everything works except speaking a question (that needs https). Write big and clear with the Pencil.
+
+### E-1. A wrong circuit answer gets circled
+1. Draw a loop: a battery on the left (a long and a short plate, `+` by the long one, `9V` beside it), a zigzag on top
+   labelled `R1 = 1k`, a zigzag on the right labelled `R2 = 2k`, wires joining them.
+2. Under it write `I = 9 mA`, then lift the Pencil.
+3. **Should happen** (about 7 s): a red circle on `9 mA` and a question like "What is the total resistance in the loop?".
+4. **If not:** tap "Show what AI read". If the circuit wasn't read as one line, redraw the zigzags bigger with clear
+   gaps between labels and wires. If nothing came back, check the status line for an error.
+
+### E-2. Fix it: the drawing comes alive
+1. Rub out `9 mA` with the eraser and write `3 mA`.
+2. **Should happen** (about 5 s): the red marks clear; small blue labels appear on your drawing: `9 V` on the top-left
+   wire, `6 V` on the right wire, `3 mA` with an arrow by each part; a "What if…?" card appears beside the circuit.
+3. **If not:** if the circle stays, the answer may have been read differently ("Show what AI read"). If no labels or
+   card, the answer wasn't checked as correct; write it as `I = 3 mA`.
+
+### E-3. What if R2 were 4 kΩ?
+1. On the card, tap R2's value, type `4k`, tap return (or use + / −).
+2. **Should happen** (under a second): the card says `I = 1.8 mA`; the labels on the drawing change to `7.2 V` and
+   `1.8 mA`. No AI is used for this. "Reset" goes back to 2 kΩ.
+3. **If not:** a gray line on the card says why (for example an impossible value). If nothing changes at all, the
+   laptop can't reach the server: check the dev server is still running.
+
+### E-4. A units mistake
+1. On a fresh line write `F = 2 kg · 9.8 m/s = 19.6 N` (not too wide).
+2. **Should happen** (about 5 s): `9.8 m/s` circled and "What are the units of acceleration?".
+3. **If not:** "Show what AI read" should show `F = 2*kg * 9.8*m/s = 19.6*N`. If the units were dropped, write them
+   bigger with a space before each unit.
+
+### E-5. A force diagram with a force missing
+1. Draw a ramp (a right triangle rising to the right), write `30` in the corner angle, draw a square resting on the
+   slope, an arrow straight down labelled `mg`, an arrow straight out of the slope labelled `N`. Beside it write
+   `at rest` and `m = 2 kg`. Pause: a question may appear ("what stops it from sliding?").
+2. Tap **Help** (hint 1): a question about what keeps it from sliding, without naming the force.
+3. Tap **Help** again (hint 2): a clean copy of your diagram appears beside it, with the missing force dashed and
+   pointing up the slope.
+4. Tap **Help** again (hint 3): the worked size, `f = mg sin 30° = 9.8 N` up the slope.
+5. **If not:** the page may show the next hint on its own after a pause (that is Part 1's hint chain, not a bug). If
+   the dashed arrow is missing, the diagram may not have been read as one drawing: draw the arrows from the block's
+   centre with clear arrowheads.
+
 ## (b) 90-second table pitch
 
 Set up before the judge arrives, in portrait: problem 1 written and already circled on a fresh page. Problem 6 written on a second page id in another tab, without its second line.

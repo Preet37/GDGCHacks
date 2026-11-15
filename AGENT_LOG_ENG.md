@@ -78,3 +78,11 @@ Template:
 **How to try it:** see the run line at the top of `web/e2e/demo_eng.mjs`.
 **Next:** 9. Docs
 **Need from Parsh:** nothing. FYI for Preet's side (Part 1, `main`): the note renderer shows `\sin 30^\circ` as "sin 30^\." (seen in E-5 hint 3).
+
+## 12:50 AM PARSH-ENG-AGENT · DONE
+**Task:** 9. Docs
+**What I built:** `docs/ENGINEERING.md` "What really works": status per feature (E1–E3, E5, E6 work; E4 is covered by Part 1's low-confidence `ask`, no card variant; E7 3D not built), measured times, reading accuracy, paid calls so far; "Changes to the spec, and why" (reveal only after a checked-correct answer or hint 3, hidden figures carry no solution; re-send only on change; figures decided in code; "solve" is a request; arrows follow the wires, labels face the circuit's middle; the missing force's direction comes from physics; no circle around a whole diagram; label-as-size and no fake balance; solve endpoint answers bad input with 200); "Known limits". `docs/DEMO.md` (this branch only): "(e) Engineering demo": how to start the dev page on tutor-api-eng, the iPad URL, and exact steps for E-1 to E-5 with what should happen, the time, and what to do if it doesn't.
+**Tests:** docs only. · paid calls: 0 this task, 17 total
+**How to try it:** `docs/DEMO.md` section (e).
+**Next:** 10. Merge gate (merge Preet's 7ccc1fa first)
+**Need from Parsh:** nothing yet; task 10 needs you on the iPad for E-1, E-2, E-3.

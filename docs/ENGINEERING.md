@@ -131,3 +131,56 @@ Same as `main` (see `README.md`). To test against the branch's server without to
 cd web && API_TARGET=<tutor-api-eng URL> npm run dev -- --host --port 5174
 # iPad: http://<laptop-ip>:5174/?page=eng-1   (no voice on http; everything else works)
 ```
+
+## What really works (status 2026-11-15, about 1 AM, branch `engineering`)
+
+Everything below runs on Cloud Run **`tutor-api-eng`** (https://tutor-api-eng-191803288552.us-central1.run.app), never
+on the live `tutor-api`. Measured on `gemini-3.5-flash`; full run in `web/e2e/RESULTS_ENG.md`.
+
+| # | Feature | Status | Measured |
+| --- | --- | --- | --- |
+| E1 | Circuit checking (wrong answer circled + question) | works | 6.4–7.8 s per check |
+| E2 | Circuit x-ray labels on the student's drawing | works | appear with the reply to a correct answer (5.0–5.5 s) |
+| E3 | What-if card, free re-solve | works | 431 ms on the dev page incl. the 250 ms debounce; `/api/circuit/solve` itself ~3 ms warm, 169 ms first call |
+| E4 | "Is this your circuit?" (ask on a low-confidence reading) | not built separately: Part 1's `ask` for low-confidence lines covers it, no card variant | n/a |
+| E5 | Units check | works | 4.3–7.1 s |
+| E6 | Free-body diagrams: check, ladder, clean diagram with the missing force dashed | works (server ladder verified live; direction fix verified offline) | 4.5–7.8 s per step |
+| E7 | 3D view of forces (stretch) | not built | n/a |
+
+Reading accuracy: on a sketch-style circuit, element boxes landed within 0.4% of the symbols (V1 off (0, 0),
+R1 (2, 1), R2 (4, 2) on the 0–1000 grid), and node points landed on their wires. The force diagram (30° ramp,
+N at 116–120°, mg at 270°) and the units line were read exactly.
+
+Paid Gemini calls used for all of Part 2 so far: 17 of 40.
+
+### Changes to the spec, and why
+
+- **Numbers are revealed only after a checked-correct answer (or hint level 3)**, not after any answer. The spec's own
+  done-when wants a wrong answer to get hidden numbers; revealing on any answer would give a wrong-answer student the
+  solution. A hidden figure carries **no `solution` at all**, so the answer isn't even in the network data.
+- **The circuit figure is re-sent only when that problem changed** (new/edited lines or a hint-level change), so the
+  card isn't redrawn on every pause (which would also reset the student's what-if edits). Its line is not added to
+  `flagged_line_ids`, like a lesson, so later feedback on the circuit isn't silenced.
+- **Circuit and force figures are decided in code**, not only "Gemini decides whether": the rules above are applied
+  in `engineering.py`, and any figure the model writes is replaced. The model may still ask for one in help mode.
+- **"solve" next to a circuit is a request, not an answer**, so it doesn't show the figure (Part 1's full-solve path
+  handles it).
+- **X-ray arrows follow the wires, not the symbol**: the direction is from node a's wire point to node b's (a battery's
+  plates are drawn wide, but current crosses them). Element labels go on the side facing the middle of the circuit,
+  away from what the student wrote outside ("R2 = 2kΩ").
+- **The direction of the one missing force comes from physics**, not from the model: on the live E-5 run Gemini put
+  friction at 150° (up the slope is 30°). When exactly one expected force is missing, `check_forces`' leftover sets its
+  direction.
+- **No red circle around a whole force diagram** (Part 1's guard adds one to any red note on an incorrect line); the
+  question beside it is the feedback.
+- **Force sizes**: an arrow labelled with an expression in the givens (`mg` with m and g given) counts as known; a
+  diagram where no force has a size is `unknown`, never a fake "balanced" with every force 0.
+- `POST /api/circuit/solve` answers bad input with `{ok: false, detail}` and **status 200** (a 422/500 would hide the
+  reason the card shows).
+
+### Known limits
+
+- A very wide single line (e.g. a long units equation in big writing) can be split over two checks by Part 1's
+  capture window: one extra paid call, same feedback.
+- Part 1's note renderer shows `\sin 30^\circ` as "sin 30^\." (reported; `main`).
+- `nodes[].at` and element boxes come from Gemini; a misplaced one only moves (or drops) a label, never a mark.
