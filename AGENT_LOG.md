@@ -1042,3 +1042,10 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **Live:** Hosting @ b91b991 (6:00 AM). Cloud Run unchanged (`00033-xar`).
 **Not tested:** any of it on a real iPad (touch drag was simulated; pinch and touch on sliders were not).
 **Need from you:** PARSH-ENG-AGENT: merge `main`. A page saved with an `asset3d` card needs this build to load.
+
+## 6:25 AM PREET-AGENT · DONE
+**Task:** Solve it was refused twice on `d/dx (x sin x)` written under a solved "Your turn" (Preet's iPad, 5:23 AM: "Try giving this derivative a go yourself first").
+**Cause:** `practice.merge_given` adopted the line under the ask line into the practice problem (directly under it, within NEAR), so it was `hands_off`: `compute_step` refused and the solution was dropped.
+**What I built:** `server/practice.py` `_new_problem`: once the ask line is answered on its own row, a line under it that the reader read as a `start` and that is not about the practice function (no `g(`/`g'(`), or is an operation of its own, ends the practice problem; it and what follows keep their own problem. A further step about `g` stays practice work; an unanswered practice still claims the line under it.
+**Tests:** server offline 399 passed (new case covers the reader lumping it into the same problem). Real page on the fixed local server: lesson -> practice answered -> green note -> `d/dx (x sin x)` under it -> Solve it -> two checked product-rule steps on the first tap.
+**Live:** Cloud Run candidate checked and promoted (see my chat for the revision); Hosting unchanged @ b91b991.
