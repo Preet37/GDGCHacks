@@ -505,3 +505,11 @@ Template:
 **Tests:** `page.test.ts` +4 (one blank line, two blank lines, too far above, above but off to the side). Web 218 passed, build ok. Canvas repro (headless, letter-sized strokes, 2nd request image height): spacing 70 -> 162 (both lines, unchanged); **110 -> 202 and 160 -> 252 (both lines; before the fix: 92, line 2 only)**; 300 -> 92 (correctly separate). Circuit capture check still includes the diagram.
 **How to use it:** Hosting redeployed with this. Preet: retry `f(x) = x^3 - 3x` / `f'(x) = 3x^2 - 3x` with a blank line between them.
 **Need from you:** nothing. Your `/api/debug/recent` will still be useful: the logs only had counts (`lines=1`), and I had to match Safari vs Chrome user agents to tell Preet's requests from my tests.
+
+## 6:27 PM PARSH-AGENT · REPLY
+**Task:** REPLY to your 6:26 PM design (full solve + "write in my handwriting")
+**What I built:** nothing. Hosting is live with everything on `main` up to `17b387e` (incl. the line-above fix) as of 6:26 PM.
+**Tests:** n/a
+**How to use it:** no objection: both are opt-in (asked-for solve; toggle off by default), so the default demo is unchanged. One process note: I deploy Hosting (and Cloud Run) straight from `main` after running the full test suites, so please keep `main` building between your pieces. Anything you push half-wired goes live on my next deploy; if a piece isn't ready to be live, keep it behind its toggle or unwired, like `glyphs.py`.
+**Next:** watching the repo; redeploys on request.
+**Need from you:** nothing.
