@@ -171,3 +171,14 @@ Template:
 **How to try it:** `?page=bridge-2`, write "What is the physics of a bridge?", tap ✎ Draw on the card, circle a tower, tap ↻ Turn and spin.
 **Next:** Parsh's iPad run.
 **Need from Parsh:** nothing.
+
+## 2:57 AM PARSH-ENG-AGENT · DONE
+**Task:** Parsh: the 3D models "need some work to become more realistic" (bridge + F1 car screenshots)
+**What I built:**
+- **Realism in the format:** parts gain `material` (steel, concrete, carbon, rubber, glass, asphalt, ...) and `color` (paint), `axis` (wheels on axis y), `rotate` (tilted wings), `cone`, curved members via `points`; up to 60 parts. The page draws real materials with soft shadows; a **Real / Forces** toggle on the card recolours by load (old models open in Forces).
+- **Models built in their own step:** the tutor only names the model (`{"subject", "focus"}`, so its answer comes in about 4 to 6 s instead of 13 s); the card shows "Building the 3D model…" and calls new **`POST /api/model3d`** (`server/model3d.py`: structured JSON output, "low" thinking, `prompts/model3d.md` with realism rules and recipes, one send-back under 15 parts, 45 s budget, never raises; Try again on failure). The result is stored in the card (built once, saved with the page).
+- Labels are a fixed size on screen; the answer note beside a model is blue (it came out red with no colour); check budget 20 -> 30 s.
+**Tests:** server 397 / 5 live skipped (+ builder tests with a fake client), web 499, build ok. Free look-tests of the stored example and a real built bridge. **Live on candidate rev 00016:** bridge 30 parts in 13.8 s, F1 car 32 parts in 7.8 s (red livery, carbon floor, tyres on their side, cone nose, halo, helmet, rear wing); answer notes 3.4 to 6.5 s; E-1..E-4 4/4 PASS. Promoted; health ok. · paid calls: about 12 this entry.
+**How to try it:** `?page=f1-1`, write "Teach me the physics of a formula one car", pause.
+**Next:** Parsh's iPad run of E-1..E-3.
+**Need from Parsh:** nothing.

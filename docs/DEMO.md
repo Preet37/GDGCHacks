@@ -148,16 +148,18 @@ Plain http: everything works except speaking a question (that needs https). Writ
 
 ### E-6. "What is the physics of a bridge?" (3D model)
 1. Write `What is the physics of a bridge?` at the top of a fresh page. Pause (or tap **Help**).
-2. A short blue answer appears, and below it a **3D card** of a suspension bridge: towers red (compression), cables
-   and hangers blue (tension), the deck purple (bending), green arrows for the traffic and the ground pushing up.
+2. A short blue answer appears in about 4 to 6 s, and below it a **3D card** that says "Building the 3D model…"; about
+   10 to 15 s later a detailed suspension bridge appears in real materials (concrete piers, steel towers, curved
+   cables, hangers, asphalt deck) with green arrows for the traffic and the ground pushing up. **Forces** (top right
+   of the card) recolours it: compression red, tension blue, bending purple; **Real** goes back.
 3. **Drag** inside the card to turn it; **+ / −** to zoom.
 4. **Tap a part** (a tower, a cable): it lights up, everything else fades, and the panel says what it does and why it
    carries that force. **‹ ›** steps through every part; **Show all** goes back.
 5. **Mark it up:** tap **✎ Draw** on the card and draw on the model (circle a tower, an arrow to a cable) in the
    page's pen colour. Each stroke sticks onto the parts in 3D: tap **↻ Turn** and spin it, and the marks turn with the
    bridge. **↶ Undo** / **Clear** remove them; they are saved with the page.
-6. Works for other structures too: "how does a truss bridge carry a load?", "what forces act on a crane?". Takes about
-   8 to 10 s (the model is a big answer).
+6. Works for other structures and machines too: "teach me the physics of a formula one car", "how does a truss
+   bridge carry a load?", "what forces act on a crane?".
 
 ## (b) 90-second table pitch
 

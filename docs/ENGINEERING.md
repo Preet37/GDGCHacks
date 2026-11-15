@@ -185,6 +185,13 @@ Paid Gemini calls used for all of Part 2 so far: 17 of 40.
   colour = tension / compression / bending. Not graded, never red. The model is sent as **one JSON string**: as a
   nested schema it pushed the tutor's forced-function-calling tool set over Gemini's schema limit (every check got
   `400 INVALID_ARGUMENT`; caught on eng within minutes and rolled back).
+- **3D models are built in their own step** (Parsh's feedback: "needs to be more realistic"). The tutor's reply only
+  names the model (`{"subject", "focus"}`), so the answer note comes back in 4 to 6 s; the card then calls
+  `POST /api/model3d` (`server/model3d.py`: one Gemini call with structured JSON output, "low" thinking instead of a
+  check's "minimal", `prompts/model3d.md` with realism rules and recipes, sent back once if under 15 parts) and stores
+  the model in the card. Parts gained `material` / `color` (drawn with shadows; a **Forces** toggle recolours by
+  load), `axis` and `rotate` (wheels on their side, tilted wings), `cone`, and curved members (`points`). Live: bridge
+  30-44 parts, F1 car 32 parts, built in 8-20 s.
 - **Force diagrams with no sizes written** (just a ramp, mg and N) are checked relative to the weight (mg = 1): balance
   and the missing direction don't depend on scale, so the auto check catches the missing force; hint 3 says
   "f = mg sin 30° ≈ 0.5 mg" instead of inventing a mass.
