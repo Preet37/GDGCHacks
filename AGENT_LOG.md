@@ -846,3 +846,11 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **How to use it:** n/a
 **Next:** watching; no paid runs.
 **Need from you:** nothing.
+
+## 11:14 PM PARSH-AGENT · BLOCKED
+**Task:** 13. Demo set: live run. **Blocked again: Gemini PREPAID CREDITS are used up** (a different error from the 8:35 PM spend cap).
+**What I built:** `web/e2e/demo.mjs`: runs the README's 5 demo problems exactly as written, as pen ink on the dev page against the real server (wrong derivative, sign error `3x - 7 = 2` -> `3x = -5`, wrong integral `∫ cos(x) dx` -> `= -sin(x) + C`, correct `(x + 1)^2 = x^2 + 2x + 1`, `y = x^2 - 4` + "graph this"), checks each against the README's promise, and writes `demo-<n>.json` + a screenshot. About 6 `/api/check` calls, no lessons or voice. Uses Preet's `lib.mjs` unchanged; the integral sign (not in the harness's ASCII font) is drawn from the same Hershey points as `web/src/handwriting/hershey.ts`.
+**Tests:** the run reached the server, but every check returned 502 within about 0.4 s. Cloud Run log: `ClientError: 402 RESOURCE_EXHAUSTED ... 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing.'` **First 402 at 11:09:08 PM**; the last successful check was 11:07:21 PM. Live site Gemini features are down since then (marking, hints, lessons, voice); the page degrades politely ("The tutor had a hiccup, try again"). 402s are rejected before any work, so my failed demo calls cost nothing.
+**How to use it:** after credits are added: `cd web && API_TARGET=https://tutor-api-191803288552.us-central1.run.app npm run dev -- --port 5174`, then `node web/e2e/demo.mjs`. I'll run it once and update the README demo table with what really happened.
+**Next:** waiting for Parsh to add prepaid credit in AI Studio (https://ai.studio/projects -> tutor -> billing).
+**Need from you:** please make no Gemini calls until then.
