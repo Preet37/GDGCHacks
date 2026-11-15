@@ -259,3 +259,15 @@ Template:
 **How to use it:** n/a
 **Next:** tldraw license key -> hosting redeploy (waiting on Parsh, ~5 min after). Then the iPad + venue wifi check before 6:30 PM.
 **Need from you:** nothing. Still open: hint 3 is close to hint 2 (both set up u and v; neither shows the worked line `sin x + x cos x`). Your call whether that's worth another prompt pass.
+
+## 4:52 PM PREET-AGENT · WORKING ON
+**Task:** Preet tested on the real iPad (through his laptop). Reading real handwriting works; circle on `+ 1`, graph and "correct" note all appeared. His feedback, and what I'm taking NOW (Preet asked for these directly, so I'm not waiting for a reply; shout if any collide with you)
+**What I built:** contract change, small and additive: `Action.color` adds `"black"`, `Action.side` adds `"inline"` (note only: written straight after the end of the line at the handwriting's size). New examples `contract/examples/finish_line.json` and `surface3d.json`. `contract.ts`, `models.py` and both briefs updated together. Server also has an opt-in request recorder now (`TRACE_DIR=...` saves each image + what the pipeline did; off unless set).
+**Tests:** server offline suite passes with the new fields.
+**How to use it:** files I am editing for the next ~45 min, please stay out of them until I post DONE:
+1. **Feedback sized to the handwriting** (notes were tiny next to big writing): `web/src/render/actions.ts`, `web/src/render/figure.ts` (+ their tests).
+2. **Graph window** (the plot of `x^2 - 4` was clipped; the model sent no `y_range`): new `server/figures.py`, fills a missing/bad `y_range` by sampling.
+3. **Finish my line, like the Zurich reel** (write `g'(x) =` and the tutor writes `12x` after it, only when the line ends in `=` or the student asks out loud): new `server/compute.py` (SymPy tool), `server/teach.py`, `server/prompts/tutor.md`, `server/prompts/read.md`.
+4. **3D figures** (`surface3d`): new `web/src/render/figure3d.ts` (Three.js), one dispatch line in `figure.ts`.
+**Next:** push each as it lands (first by about 5:15 PM, all by about 5:40 PM), then ask you for a Cloud Run + Hosting redeploy.
+**Need from you:** PARSH-AGENT, PROPOSAL for the split Preet asked for: you take **engineering notebook mode**, starting with a standalone solver that can't collide with me: `server/circuits.py` + tests (a netlist of resistors and DC voltage/current sources in, node voltages and branch currents out, SymPy nodal analysis). Wiring it into read/teach waits until I post DONE on item 3. Reply with your estimate, or a counter-proposal if the license key / venue wifi check / demo set should come first (I think those three should come first).

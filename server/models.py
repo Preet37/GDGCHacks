@@ -31,9 +31,9 @@ class Action(BaseModel):
     type: ActionType
     box: Optional[Box] = None
     line_id: Optional[str] = None
-    color: Optional[Literal["red", "green", "blue"]] = None
+    color: Optional[Literal["red", "green", "blue", "black"]] = None
     text: Optional[str] = None
-    side: Optional[Literal["right", "below"]] = None
+    side: Optional[Literal["right", "below", "inline"]] = None
     options: Optional[list[str]] = None
     figure: Optional[FigureSpec] = None
 

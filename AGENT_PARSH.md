@@ -104,9 +104,9 @@ export interface Action {
   type: ActionType;
   box?: Box;                  // circle/underline: what to mark. note/figure/ask: what to sit next to
   line_id?: string;           // the line this is about, if any
-  color?: "red" | "green" | "blue";
+  color?: "red" | "green" | "blue" | "black";  // black = the tutor finishing a line in the student's ink colour
   text?: string;              // note/ask/speak. Plain words, inline math in $...$
-  side?: "right" | "below";
+  side?: "right" | "below" | "inline";  // inline (note only): written straight after the end of the line, at the handwriting's size
   options?: string[];         // ask: choices, e.g. ["x^2", "x_2"]
   figure?: FigureSpec;        // figure only
 }

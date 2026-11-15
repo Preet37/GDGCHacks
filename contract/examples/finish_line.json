@@ -1,0 +1,90 @@
+{
+  "lines": [
+    {
+      "line_id": "L1",
+      "problem_id": "P1",
+      "latex": "g(x) = 6x^2",
+      "plain": "g(x) = 6*x^2",
+      "box": [
+        150,
+        80,
+        230,
+        420
+      ],
+      "relation": "start",
+      "confidence": "high"
+    },
+    {
+      "line_id": "L2",
+      "problem_id": "P1",
+      "latex": "g'(x) =",
+      "plain": "g'(x) =",
+      "box": [
+        260,
+        80,
+        340,
+        300
+      ],
+      "relation": "derivative",
+      "confidence": "high"
+    }
+  ],
+  "actions": [
+    {
+      "type": "note",
+      "box": [
+        260,
+        80,
+        340,
+        300
+      ],
+      "line_id": "L2",
+      "color": "black",
+      "side": "inline",
+      "text": "$12x$"
+    }
+  ],
+  "clear_line_ids": [],
+  "state": {
+    "page_id": "demo",
+    "lines": [
+      {
+        "line_id": "L1",
+        "problem_id": "P1",
+        "latex": "g(x) = 6x^2",
+        "plain": "g(x) = 6*x^2",
+        "box": [
+          150,
+          80,
+          230,
+          420
+        ],
+        "relation": "start",
+        "confidence": "high"
+      },
+      {
+        "line_id": "L2",
+        "problem_id": "P1",
+        "latex": "g'(x) =",
+        "plain": "g'(x) =",
+        "box": [
+          260,
+          80,
+          340,
+          300
+        ],
+        "relation": "derivative",
+        "confidence": "high"
+      }
+    ],
+    "problems": [
+      {
+        "problem_id": "P1",
+        "hint_level": 0
+      }
+    ],
+    "flagged_line_ids": [
+      "L2"
+    ]
+  }
+}
