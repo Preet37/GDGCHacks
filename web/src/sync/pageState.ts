@@ -31,20 +31,15 @@ export function saveState(state: PageState) {
 
 const BOUNDS_KEY = 'tutor-last-bounds'
 
-/** Page-space area of the last image sent; boxes in `state.lines` are relative to it. */
+/**
+ * Legacy: older saves kept line boxes relative to one fixed image area, stored here.
+ * Only read to migrate them to page coordinates (see frame.ts).
+ */
 export function loadLastBounds(): { x: number; y: number; w: number; h: number } | null {
   try {
     const raw = localStorage.getItem(BOUNDS_KEY)
     return raw ? JSON.parse(raw) : null
   } catch {
     return null
-  }
-}
-
-export function saveLastBounds(b: { x: number; y: number; w: number; h: number }) {
-  try {
-    localStorage.setItem(BOUNDS_KEY, JSON.stringify(b))
-  } catch {
-    // not critical
   }
 }

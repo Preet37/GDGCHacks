@@ -337,3 +337,15 @@ Template:
 **How to use it:** draw a circuit, write an answer next to it, pause. Not yet tested from a real hand-drawn circuit image (read step); that's the next check.
 **Next:** redeploy Cloud Run with this (~10 min), then a read-step test on a drawn circuit. Hosting after your DONE.
 **Need from you:** nothing.
+
+## 5:05 PM PREET-AGENT · DONE
+**Task:** Capture window + PDF placement. All of `web/` is free again. (Your 4:59 PM BLOCKED: `mathjs` went in with `c7702ef`; sorry, I pushed the renderer before the package files. `npm run build` passes on current `main` + this commit.)
+**What I built:**
+- `web/src/page.ts`: what gets sent. Auto = the newest changed strokes plus nearby ink (and worksheet context), capped at viewport size. Help = the selection, else the viewport with no `help_box`.
+- `web/src/sync/frame.ts` (new) + `sync/tutor.ts`, `pageState.ts`: saved lines are now in PAGE coordinates. Each request sends only in-window lines/flags/problems, converted to that image's frame; the reply is converted back and merged, out-of-window state untouched, colliding `line_id`/`problem_id` renamed. Old saved pages migrate.
+- `web/src/worksheet.ts`: imported pages are 90% of viewport width, placed in the viewport if it's free, else beside all existing content; camera moves to page 1.
+**Tests:** web 107 passed, `tsc -b` clean, `npm run build` passes. Headless Chrome with `/api/check` intercepted: two ink clusters 6000 units apart each produced a request image of only that cluster; far lines and flags unchanged after the reply; Help sent the viewport; PDF import avoided ink.
+**How to use it:** behaviour changes to know about: (1) a saved line whose ink is gone is dropped locally with its feedback, no server call; (2) auto-check skips a window with no handwriting, so a fresh PDF import sends nothing until the student writes or taps Help; (3) lines more than about 2.5 line-heights apart are not grouped into one window; (4) test pages named `verify_*` / `v2_*` may be in Firestore.
+**Not verified:** iPad Safari, real handwriting through Gemini with the new window, Help with a selection.
+**Next:** Preet tests on the iPad through his laptop. I'm waiting on his answer for the Help flow (auto-continue vs a "more" link).
+**Need from you:** PARSH-AGENT: redeploy Hosting when the tldraw key is in. Anything you find on a real drawn-circuit read, post here.

@@ -1,28 +1,48 @@
-import type { Editor, TLRecord } from 'tldraw'
+import type { Editor, TLRecord, TLShape, TLShapeId } from 'tldraw'
 import type { CheckRequest, CheckResponse, PageState } from '../contract'
 import { isAiShape } from '../render/actions'
 import { applyResponse } from '../render/apply'
 import { readingShapes } from '../render/reading'
 import { pageToBox, type PageRect } from '../render/geometry'
-import { studentBounds, studentShapes } from '../page'
+import { autoWindow, coverage, helpWindow, intersects, rectOf, studentShapes } from '../page'
+import { isWorksheetShape } from '../worksheet'
 import { postCheck } from './api'
 import { exportPng } from './exportImage'
-import { emptyState, loadLastBounds, loadState, saveLastBounds, saveState } from './pageState'
+import { mergeReply, PAGE_FRAME, requestState, sweepErased, toSaved, type SavedState } from './frame'
+import { emptyState, loadLastBounds, loadState, saveState } from './pageState'
 import { hashString, PauseScheduler } from './scheduler'
 
 export const PAUSE_MS = 2000
+/** After a check, changes left in other parts of the page get their own check, at most this many in a row. */
+export const MAX_FOLLOW_UPS = 2
 
 export type TutorEvent = { type: 'busy'; busy: boolean } | { type: 'error'; message: string } | { type: 'reply'; reply: CheckResponse }
+
+function isInkRecord(r: TLRecord): r is TLShape {
+  return r.typeName === 'shape' && !isAiShape(r) && !isWorksheetShape(r)
+}
 
 function isStudentShapeRecord(r: TLRecord): boolean {
   return r.typeName === 'shape' && !isAiShape(r)
 }
 
-/** Watches the student's strokes, sends the page after a pause, and draws the reply. */
+/** A change not yet sent: a live stroke (looked up by id when sending) or the place where one was erased. */
+interface Change {
+  gone: PageRect | null
+  seq: number
+}
+
+/** Watches the student's strokes, sends the part of the page they are working on after a pause, and draws the reply. */
 export class Tutor {
-  state: PageState
+  /** Saved state; line boxes are in page coordinates (see frame.ts). */
+  state: SavedState
   showReading = false
-  private lastBounds: PageRect | null = loadLastBounds()
+  /** What the last request covered and carried (for the dev console and tests). */
+  lastSent: { window: PageRect; mode: CheckRequest['mode']; state: PageState; help_box?: CheckRequest['help_box'] } | null = null
+  private changes = new Map<string, Change>()
+  private seq = 0
+  private followUps = 0
+  private known = new Map<string, PageRect>()
   private scheduler: PauseScheduler
   private listeners = new Set<(e: TutorEvent) => void>()
   private unlisten: () => void
@@ -30,8 +50,9 @@ export class Tutor {
 
   constructor(editor: Editor, pageId?: string | null) {
     this.editor = editor
-    this.state = loadState()
-    if (pageId && pageId !== this.state.page_id) this.state = emptyState(pageId)
+    this.state = toSaved(loadState(), loadLastBounds())
+    if (pageId && pageId !== this.state.page_id) this.state = toSaved(emptyState(pageId), null)
+    for (const s of studentShapes(editor)) this.remember(s.id)
     this.scheduler = new PauseScheduler({
       delayMs: PAUSE_MS,
       key: () => this.fingerprint(),
@@ -39,11 +60,27 @@ export class Tutor {
     })
     this.unlisten = editor.store.listen(
       ({ changes }) => {
-        const touched =
-          Object.values(changes.added).some(isStudentShapeRecord) ||
-          Object.values(changes.removed).some(isStudentShapeRecord) ||
-          Object.values(changes.updated).some(([, to]) => isStudentShapeRecord(to))
-        if (touched) this.scheduler.poke()
+        let touched = false
+        const live = (r: TLRecord) => {
+          touched ||= isStudentShapeRecord(r)
+          if (!isInkRecord(r)) return
+          this.remember(r.id)
+          this.mark(r.id, null)
+        }
+        Object.values(changes.added).forEach(live)
+        Object.values(changes.updated).forEach(([, to]) => live(to))
+        for (const r of Object.values(changes.removed)) {
+          touched ||= isStudentShapeRecord(r)
+          if (!isInkRecord(r)) continue
+          this.changes.delete(r.id)
+          const was = this.known.get(r.id)
+          this.known.delete(r.id)
+          if (was) this.mark(`gone:${r.id}`, was)
+        }
+        if (touched) {
+          this.followUps = 0
+          this.scheduler.poke()
+        }
       },
       { scope: 'document', source: 'user' },
     )
@@ -64,17 +101,20 @@ export class Tutor {
     this.scheduler.dispose()
   }
 
-  /** Help: send now with mode "help". `area` = page-space selection, or whole page if missing. */
+  /** Help: send now with mode "help". `area` = page-space selection; without one, what is on screen. */
   async help(area?: PageRect, question?: string): Promise<boolean> {
     const ok = await this.scheduler.exclusive(() => this.send({ mode: 'help', area, question }).catch(() => {}))
     if (!ok) this.emit({ type: 'error', message: 'Still thinking about the last one…' })
     return ok
   }
 
-  /** Replace the page state (e.g. loaded from Firestore). */
+  /** Replace the page state (e.g. loaded from Firestore). The loaded page counts as already checked. */
   adoptState(state: PageState) {
-    this.state = state
-    saveState(state)
+    this.state = toSaved(state, loadLastBounds())
+    saveState(this.state)
+    this.changes.clear()
+    this.known.clear()
+    for (const s of studentShapes(this.editor)) this.remember(s.id)
     this.drawReading()
   }
 
@@ -86,7 +126,8 @@ export class Tutor {
 
   private drawReading() {
     const old = this.editor.getCurrentPageShapes().filter((s) => isAiShape(s) && s.meta.kind === 'reading')
-    const fresh = this.showReading && this.lastBounds ? readingShapes(this.state.lines, this.lastBounds) : []
+    // saved boxes are already page coordinates
+    const fresh = this.showReading ? readingShapes(this.state.lines, PAGE_FRAME) : []
     this.editor.run(
       () => {
         if (old.length) this.editor.deleteShapes(old)
@@ -100,32 +141,93 @@ export class Tutor {
     for (const fn of this.listeners) fn(e)
   }
 
+  private remember(id: string) {
+    const b = this.editor.getShapePageBounds(id as TLShapeId)
+    if (b) this.known.set(id, rectOf(b))
+  }
+
+  private mark(key: string, gone: PageRect | null) {
+    this.changes.delete(key) // re-insert: newest last
+    this.changes.set(key, { gone, seq: ++this.seq })
+  }
+
   private fingerprint(): string {
     const parts = studentShapes(this.editor).map((s) => JSON.stringify([s.id, s.x, s.y, s.rotation, s.props]))
-    return hashString(parts.sort().join('|'))
+    return hashString(parts.sort().join('|') + '#' + [...this.changes.keys()].join(','))
+  }
+
+  /** Lines whose writing is gone are forgotten here, and their feedback removed. */
+  private sweep(ink: PageRect[], sheets: PageRect[]) {
+    const { state, erased } = sweepErased(this.state, ink, sheets)
+    if (!erased.length) return
+    this.state = state
+    saveState(state)
+    applyResponse(this.editor, { lines: [], actions: [], clear_line_ids: erased, state }, PAGE_FRAME)
+    this.drawReading()
   }
 
   private async send(opts: { mode: CheckRequest['mode']; area?: PageRect; question?: string }) {
-    const shapes = studentShapes(this.editor)
-    const bounds = studentBounds(this.editor, shapes, opts.area)
-    if (!bounds) return
+    const view = rectOf(this.editor.getViewportPageBounds())
+    const items = studentShapes(this.editor).flatMap((shape) => {
+      const b = this.editor.getShapePageBounds(shape)
+      return b ? [{ shape, rect: rectOf(b), sheet: isWorksheetShape(shape) }] : []
+    })
+    const ink = items.filter((i) => !i.sheet).map((i) => i.rect)
+    const sheets = items.filter((i) => i.sheet).map((i) => i.rect)
+    this.sweep(ink, sheets)
+
+    // unsent changes, oldest first
+    const byId = new Map(items.map((i) => [i.shape.id as string, i.rect]))
+    const pending: { key: string; seq: number; rect: PageRect }[] = []
+    for (const [key, c] of this.changes) {
+      const rect = c.gone ?? byId.get(key)
+      if (rect) pending.push({ key, seq: c.seq, rect })
+      else this.changes.delete(key)
+    }
+
+    const win =
+      opts.mode === 'help'
+        ? helpWindow(opts.area, ink, sheets, view)
+        : autoWindow(pending.map((p) => p.rect), ink, sheets, view)
+    if (!win) return
+    /** Changes inside the window are dealt with by this check; the rest wait for their own. */
+    const settle = () => {
+      for (const p of pending) {
+        if (this.changes.get(p.key)?.seq === p.seq && coverage(p.rect, win) > 0.5) this.changes.delete(p.key)
+      }
+      if (!this.changes.size) return
+      if (this.followUps < MAX_FOLLOW_UPS) {
+        this.followUps++
+        this.scheduler.poke()
+      } else this.changes.clear()
+    }
+
+    const visible = items.filter((i) => intersects(i.rect, win))
+    if (opts.mode === 'auto' && !visible.some((i) => !i.sheet)) return settle() // only erasures here: nothing to read
+    if (!visible.length) {
+      this.emit({ type: 'error', message: 'Nothing on screen to help with yet' })
+      return
+    }
+
     this.emit({ type: 'busy', busy: true })
     try {
+      const sent = requestState(this.state, win)
       const req: CheckRequest = {
-        image_base64: await exportPng(this.editor, shapes, bounds),
+        image_base64: await exportPng(this.editor, visible.map((i) => i.shape), win),
         mode: opts.mode,
-        state: this.state,
+        state: sent,
       }
-      if (opts.area) req.help_box = pageToBox(opts.area, bounds)
+      if (opts.area) req.help_box = pageToBox(opts.area, win)
       if (opts.question) req.question = opts.question
-      const reply = await postCheck(req)
-      applyResponse(this.editor, reply, bounds)
-      // the page owns its id; never let a reply (e.g. the mock) rename it
-      this.state = { ...reply.state, page_id: this.state.page_id }
-      saveState(this.state)
-      this.lastBounds = bounds
-      saveLastBounds(bounds)
+      this.lastSent = { window: win, mode: req.mode, state: sent, help_box: req.help_box }
+      const raw = await postCheck(req)
+      // the page owns its id and its frame: fold the window's reply into the whole-page state
+      const { reply, state } = mergeReply(this.state, sent, raw, win)
+      applyResponse(this.editor, reply, win)
+      this.state = state
+      saveState(state)
       this.drawReading()
+      settle()
       this.emit({ type: 'reply', reply })
     } catch (err) {
       this.emit({ type: 'error', message: err instanceof Error ? err.message : 'Something went wrong' })

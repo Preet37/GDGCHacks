@@ -1,6 +1,6 @@
 import type { Editor, TLShape } from 'tldraw'
 import { isAiShape } from './render/actions'
-import type { PageRect } from './render/geometry'
+import { clamp, type PageRect } from './render/geometry'
 import { isWorksheetShape } from './worksheet'
 
 export const EXPORT_PADDING = 32
@@ -61,4 +61,130 @@ export function studentBounds(editor: Editor, shapes = studentShapes(editor), he
   const sheets = shapes.filter(isWorksheetShape)
   const ink = shapes.filter((s) => !isWorksheetShape(s))
   return exportArea(boundsOf(editor, ink), boundsOf(editor, sheets), help)
+}
+
+// ---------------------------------------------------------------------------------------
+// The window: the part of the page that is sent for one check. Never the whole canvas:
+// either the working around the strokes that just changed, or what is on screen (Help).
+// ---------------------------------------------------------------------------------------
+
+/** A stroke this tall must still be readable in a 1280 px image: the window is at most this many line heights. */
+export const LEGIBLE_LINES = 40
+/** Ink closer to the working than this many line heights is part of the same working. */
+export const NEAR_LINES = 2.5
+
+export function rectOf(b: { x: number; y: number; w: number; h: number }): PageRect {
+  return { x: b.x, y: b.y, w: b.w, h: b.h }
+}
+
+export function intersects(a: PageRect, b: PageRect): boolean {
+  return a.x <= b.x + b.w && b.x <= a.x + a.w && a.y <= b.y + b.h && b.y <= a.y + a.h
+}
+
+/** Empty space between two rects (0 if they touch or overlap). */
+export function rectDistance(a: PageRect, b: PageRect): number {
+  const dx = Math.max(0, a.x - (b.x + b.w), b.x - (a.x + a.w))
+  const dy = Math.max(0, a.y - (b.y + b.h), b.y - (a.y + a.h))
+  return Math.hypot(dx, dy)
+}
+
+/** Fraction of `inner` that lies inside `outer` (0 to 1). A zero-area rect counts by its centre. */
+export function coverage(inner: PageRect, outer: PageRect): number {
+  if (inner.w <= 0 || inner.h <= 0) {
+    const cx = inner.x + inner.w / 2
+    const cy = inner.y + inner.h / 2
+    return cx >= outer.x && cx <= outer.x + outer.w && cy >= outer.y && cy <= outer.y + outer.h ? 1 : 0
+  }
+  const hit = intersect(inner, outer)
+  return hit ? (hit.w * hit.h) / (inner.w * inner.h) : 0
+}
+
+/**
+ * Typical height of a line of writing, from the strokes it is made of: the upper quartile,
+ * since many strokes (dots, dashes, small letters) are shorter than the line.
+ */
+export function lineHeight(strokes: PageRect[]): number {
+  const hs = strokes.map((r) => r.h).filter((h) => h > 0).sort((a, b) => a - b)
+  return hs.length ? hs[Math.floor((hs.length - 1) * 0.75)] : 0
+}
+
+export interface WindowLimits {
+  maxW: number
+  maxH: number
+  /** ink within this distance of the working joins it */
+  gap: number
+}
+
+/** Limits for a window around writing of height `lineH`, seen through viewport `view`. */
+export function windowLimits(lineH: number, view: PageRect): WindowLimits {
+  const legible = Math.max(lineH * LEGIBLE_LINES, 600)
+  return {
+    maxW: Math.min(view.w, legible),
+    maxH: Math.min(view.h, legible),
+    // between 8% and 20% of the screen, so a jotted dot or one tall stroke doesn't decide it
+    gap: clamp(lineH * NEAR_LINES, Math.min(view.w, view.h) * 0.08, Math.min(view.w, view.h) * 0.2),
+  }
+}
+
+/**
+ * Where to look: the newest change, plus older unsent changes as long as they still fit
+ * in one window. `changed` is oldest first. Far-away changes are left for a later check.
+ */
+export function seedRect(changed: PageRect[], lim: WindowLimits): PageRect | null {
+  let seed: PageRect | null = null
+  for (let i = changed.length - 1; i >= 0; i--) {
+    const u: PageRect = union(seed, changed[i])!
+    if (!seed || (u.w <= lim.maxW && u.h <= lim.maxH)) seed = u
+  }
+  return seed
+}
+
+/** Grow `seed` over nearby ink (nearest first), never past the size limits. */
+export function clusterAround(seed: PageRect, ink: PageRect[], lim: WindowLimits): PageRect {
+  let area = seed
+  let rest = ink.filter((r) => coverage(r, area) < 1)
+  for (;;) {
+    const near = rest
+      .map((r) => ({ r, d: rectDistance(r, area) }))
+      .filter((c) => c.d <= lim.gap)
+      .sort((a, b) => a.d - b.d)
+    const next = near.find((c) => {
+      const u = union(area, c.r)!
+      return u.w <= lim.maxW && u.h <= lim.maxH
+    })
+    if (!next) return area
+    area = union(area, next.r)!
+    rest = rest.filter((r) => r !== next.r && coverage(r, area) < 1)
+  }
+}
+
+/** Padding around the working; over a worksheet, also some of the printed text around it. */
+export function withContext(working: PageRect, sheets: PageRect[], view: PageRect): PageRect {
+  const padded = grow(working, EXPORT_PADDING)
+  const under = sheets.filter((s) => intersects(s, padded))
+  if (!under.length) return padded
+  const mx = Math.max(EXPORT_PADDING, Math.min(WORKSHEET_CONTEXT, view.w * 0.25))
+  const my = Math.max(EXPORT_PADDING, Math.min(WORKSHEET_CONTEXT, view.h * 0.25))
+  const wide = { x: working.x - mx, y: working.y - my, w: working.w + mx * 2, h: working.h + my * 2 }
+  // printed context stops at the edge of the worksheet
+  const content = grow(under.reduce<PageRect>((acc, s) => union(acc, s)!, working), EXPORT_PADDING)
+  return intersect(wide, content) ?? padded
+}
+
+/**
+ * Auto check: the working around the strokes that changed since the last send.
+ * `changed` oldest first; `ink` = every handwriting shape; `sheets` = worksheet pages.
+ */
+export function autoWindow(changed: PageRect[], ink: PageRect[], sheets: PageRect[], view: PageRect): PageRect | null {
+  const lim = windowLimits(lineHeight(changed), view)
+  const seed = seedRect(changed, lim)
+  return seed && withContext(clusterAround(seed, ink, lim), sheets, view)
+}
+
+/** Help: the selection with the working around it, or simply what is on screen. */
+export function helpWindow(selection: PageRect | undefined, ink: PageRect[], sheets: PageRect[], view: PageRect): PageRect {
+  if (!selection) return rectOf(view)
+  const inside = ink.filter((r) => intersects(r, selection))
+  const lim = windowLimits(lineHeight(inside.length ? inside : [selection]), view)
+  return withContext(clusterAround(selection, ink, lim), sheets, view)
 }

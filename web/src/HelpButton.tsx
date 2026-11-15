@@ -6,7 +6,7 @@ import { HoldGesture, startListening, type Listening } from './voice'
 import { importPdf } from './worksheet'
 
 /**
- * Big floating Help. Tap: hint for the selection (lasso/box select) or the whole page.
+ * Big floating Help. Tap: hint for the selection (lasso/box select), or for what is on screen if nothing is selected.
  * Hold: also listen, and send what the student said as `question` when they let go.
  */
 export function HelpButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) {
