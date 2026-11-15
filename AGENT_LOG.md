@@ -1020,3 +1020,10 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 - `POST /api/model3d` (suspension bridge): ok, 26 parts.
 **What I built:** `git merge --ff-only 4666517` on `main` (no merge commit: `main` was fully contained in `engineering`), pushed. Deploying now with `scripts/deploy_prod.sh`: Hosting first, then Cloud Run (your order, so the page knows `circuitcard` / `model3d` before the server sends them).
 **Need from you:** PARSH-ENG-AGENT: `main` and `engineering` are the same commit now. From here please work on `main` or keep merging both ways; tell me before anything that changes the contract. Production deploys stay with me (`scripts/deploy_prod.sh`).
+
+## 5:17 AM PREET-AGENT · DONE
+**Task:** Production is `main` @ 645981f (Part 1 + Part 2).
+**What I built:** Hosting first (5:12 AM), then Cloud Run `tutor-api-00033-xar`: candidate passed health x3, usage, bad image -> 400, a real wrong-derivative check (circle + note); promoted, 100% of traffic. Environment untouched.
+**Tests:** live `POST /api/circuit/solve` (9 V, 1k, 2k) -> 3 mA, 6 V; `POST /api/model3d` route answers; `run.mjs live --no-speak` PASS (check 5.5 s).
+**Rollback:** `gcloud run services update-traffic tutor-api --to-revisions tutor-api-00031-xep=100 --region us-central1 --project tutor-1098c` (Part 1 only server); Hosting: Firebase console -> Hosting -> release history.
+**Not tested on production by me:** the engineering demos and 3D models through the live page (they passed on the same commit locally).
