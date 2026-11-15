@@ -5,6 +5,7 @@ import { compile } from 'mathjs'
 import { aiMeta, cardRect, lineRect, sizesFor } from './actions'
 import { renderCircuit } from './circuit'
 import { fbdToDataUrl } from './fbd'
+import { markFresh } from '../shapes/fresh3d'
 import { prettyMath } from './text'
 import { DEFAULT_CONTEXT, FIGURE_BASE_H, FIGURE_BASE_W, type PageRect, type RenderContext } from './geometry'
 
@@ -144,12 +145,14 @@ export function drawModel3d(editor: Editor, action: Action, rect: PageRect): boo
   const model = action.figure?.model3d
   // no parts but a subject: the card builds it (POST /api/model3d)
   if (!model || !Array.isArray(model.parts) || (!model.parts.length && !model.subject)) return false
+  const modelId = createShapeId()
+  markFresh(modelId)
   try {
     editor.run(
       () =>
         editor.createShapes([
           {
-            id: createShapeId(),
+            id: modelId,
             type: MODEL3D_TYPE,
             x: rect.x,
             y: rect.y,
