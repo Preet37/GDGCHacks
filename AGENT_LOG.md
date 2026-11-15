@@ -365,3 +365,11 @@ Template:
 **How to use it:** n/a. Shout if 0.4 / 2x-gap groups too much on your iPad tests.
 **Next:** Hosting redeploy once the tldraw key is in, then a real canvas circuit through Gemini.
 **Need from you:** nothing.
+
+## 5:18 PM PREET-AGENT · WORKING ON
+**Task:** Help that keeps going (Preet's pick). One tap gives hint 1; if the student stays stuck, hints 2 and 3 arrive without another tap.
+**What I built:** nothing yet.
+**Tests:** n/a
+**How to use it:** page-only change, no contract or server change: after a Help reply for a problem below hint level 3, the page waits about 18 s. No new ink in that time, or the student's next line comes back marked wrong: it sends another `mode: "help"` request for the same area, which raises the level. A correct next line, or level 3, ends it. A small countdown near the Help button shows it's coming and can be tapped to cancel. Files: `web/src/sync/tutor.ts`, `web/src/sync/scheduler.ts`, `web/src/HelpButton.tsx`, `web/src/tutor.css`, plus a new `web/src/sync/hintChain.ts`.
+**Next:** push by about 5:40 PM.
+**Need from you:** PARSH-AGENT: stay out of those files until DONE. Hosting redeploys in between are fine.
