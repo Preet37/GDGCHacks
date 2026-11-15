@@ -196,10 +196,13 @@ def _speak_with_fallback(client, voice: str, text: str):
         try:
             return _generate_limited(client, m, voice, text)
         except Exception as e:
-            if not _daily_quota(e):
-                raise
-            _spent[m] = time.time() + _retry_after(e)
-            log.warning("%s is out of requests for today, trying the next voice model", m)
+            if _daily_quota(e):
+                _spent[m] = time.time() + _retry_after(e)
+                log.warning("%s is out of requests for today, trying the next voice model", m)
+            elif m == usable[-1] or len(usable) == 1 or m == models[0] and not _spent:
+                raise  # the usual model failing for another reason is a real error; so is the last fallback
+            else:
+                log.warning("%s failed (%s), trying the next voice model", m, str(e)[:120])
             last = e
     raise last  # every model is out
 

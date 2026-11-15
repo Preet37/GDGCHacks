@@ -10,7 +10,6 @@ describe('intentOf', () => {
     ['I am really stuck on this one', 'help'],
     ['I’m confused', 'help'],
     ['what did I do wrong', 'help'],
-    ['how do I factor this', 'help'],
     ['teach me this', 'teach'],
     ['can you walk me through it', 'teach'],
     ["I don't understand", 'teach'],
@@ -19,7 +18,7 @@ describe('intentOf', () => {
     expect(intentOf(text)?.intent).toBe(intent)
   })
 
-  it.each(['so then x is four', 'the helper function', 'pass me the stucko', 'what time is it', ''])('ignores "%s"', (text) => {
+  it.each(['so then x is four', 'the helper function', 'pass me the stucko', 'what time is it', 'how do I factor this', 'is this right', ''])('ignores "%s"', (text) => {
     expect(intentOf(text)).toBeNull()
   })
 

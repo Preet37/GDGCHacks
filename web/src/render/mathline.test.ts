@@ -75,3 +75,13 @@ describe('estimateMath', () => {
     expect(domMathMeasure()('x = \\frac{1}{2}', 20)).toEqual(estimateMath('x = \\frac{1}{2}', 20))
   })
 })
+
+describe('stepTex and percent signs', () => {
+  it('escapes a bare % so the rest of the line is not dropped as a TeX comment', async () => {
+    const { stepTex, texHtml } = await import('./mathline')
+    const tex = stepTex('x = 50% of 80 = \\frac{1}{2} \\cdot 80')
+    expect(tex).toContain('\\%')
+    expect(texHtml(tex)).toContain('80')
+    expect(stepTex('already 50\\% done')).not.toContain('\\\\%')
+  })
+})

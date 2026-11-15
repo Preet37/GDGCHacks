@@ -17,7 +17,9 @@ const TEACH = new RegExp(
   'i',
 )
 const HELP = new RegExp(
-  `\\b(help me|i need (some |a little )?help|can (you|i get some) help|${IM} (so |really |totally |kind of |a bit )?(stuck|lost|confused)|give me a hint|(can|could) i (get|have) a hint|what did i do wrong|where did i go wrong|is (this|that) (right|correct)|what(['’]s| is| do i do| should i do) next|how do i|hey tutor)\\b`,
+  // Only phrases a student says TO the tutor. "how do I…", "is this right" and "what's next" were dropped:
+  // someone explaining the app out loud says those all the time, and each one would fire a hint.
+  `\\b(help me|i need (some |a little )?help|can (you|i get some) help|${IM} (so |really |totally |kind of |a bit )?(stuck|lost|confused)|give me a hint|(can|could) i (get|have) a hint|what did i do wrong|where did i go wrong|hey tutor)\\b`,
   'i',
 )
 

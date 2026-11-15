@@ -1,13 +1,14 @@
 // A recorded walkthrough of the real app: each scene is written with pen strokes on the dev page
-// (its /api proxied to a real server), and the browser is filmed while the tutor answers. Nothing is
-// faked or sped up; a caption bar on the page says what is being shown.
+// (its /api proxied to a real server), and the browser is filmed while the tutor answers. No reply is
+// faked. The joined film is sped up to fit TARGET_S, and a line on the page says so; a caption bar
+// says what is being shown.
 //
 //   node web/e2e/capture.mjs            # all scenes -> $E2E_OUT/capture/scene-<n>.webm, then demo-capture.mp4
 //   node web/e2e/capture.mjs 1 4        # only these scenes (the mp4 is rebuilt from every scene file there)
 //   node web/e2e/capture.mjs --join     # only rebuild the mp4 from the scene files
 //
-// Costs about 10 /api/check calls in all and no voice clips (the lesson's narration is blocked; its
-// subtitles show). Needs the dev page (E2E_URL, default http://localhost:5174), Chrome and ffmpeg.
+// Costs about 10 /api/check calls and one voice clip per lesson step shown (the lesson plays with its
+// real narration; the film itself has no sound). Needs the dev page (E2E_URL, default http://localhost:5174), Chrome and ffmpeg.
 import { execFileSync } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'

@@ -84,7 +84,8 @@ export function stepTex(step: string): string {
   } else {
     body = wordsInMath(s)
   }
-  return `\\displaystyle ${body}`
+  // a bare % starts a comment in TeX and would silently drop the rest of the line
+  return `\\displaystyle ${body.replace(/(?<!\\)%/g, '\\%')}`
 }
 
 /** KaTeX HTML for one line, or null if KaTeX can't typeset it. */

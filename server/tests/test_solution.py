@@ -262,3 +262,25 @@ def test_printed_integral_problem_is_solved_and_checked():
     wrong = [{"plain": "4*x^4/4 + 2*x^2/2 + C", "relation": "integral"}, {"plain": "x^4 + 2*x^2 + C", "relation": "integral"}]
     assert [c["verdict"] for c in solution.check_chain(base, wrong)] == ["correct", "incorrect"]
     assert solution.check_chain("int(cos(x)) dx", [{"plain": "-sin(x) + C", "relation": "integral"}])[0]["verdict"] == "incorrect"
+
+
+def test_chain_never_lets_an_unchecked_or_second_operation_step_pass():
+    """From the 2 AM review: the front of a line is math too, and a tidy-up step is only as good as the step before it."""
+    import solution
+    # words in front are dropped; math in front is not (it would change what is checked)
+    assert solution.math_part("x*sin(x) - int(sin(x)) dx") == ""
+    assert solution.math_part("2*int(x) dx") == ""
+    assert solution.math_part("-int(sin(x)) dx") == ""
+    assert solution.math_part("Find d/dx (x*sin(x))") == "d/dx (x*sin(x))"
+    cc = lambda base, steps: [c["verdict"] for c in solution.check_chain(base, steps)]  # noqa: E731
+    I = lambda p: {"plain": p, "relation": "integral"}      # noqa: E731,E741
+    D = lambda p: {"plain": p, "relation": "derivative"}    # noqa: E731
+    # an unreadable first step cannot vouch for the second (a definite integral: 9, not 8)
+    assert cc("int(2*x, x, 0, 3)", [I("3^2 - 1^2"), I("8")]) == ["unknown", "unknown"]
+    # a second derivative is not a tidy-up of the first
+    assert cc("d/dx (x^3)", [D("3*x^2"), D("6*x")]) == ["correct", "incorrect"]
+    assert cc("d/dx (x*sin(x))", [D("1*sin(x) + x*cos(x)"), D("sin(x) + x*cos(x)")]) == ["correct", "correct"]
+    assert cc("f(x) = 3*x^2 + 2*x", [D("f'(x) = 3*2*x + 2"), D("f'(x) = 6*x + 2")]) == ["correct", "correct"]
+    assert cc("f(x) = 3*x^2 + 2*x", [D("f'(x) = 3*2*x + 2"), D("f'(x) = 6*x + 3")]) == ["correct", "incorrect"]
+    # a step that can't be read, then the right answer: checked against the problem itself
+    assert cc("int(4*x^3 + 2*x) dx", [I("int(4*x^3) dx + int(2*x) dx"), I("x^4 + x^2 + C")]) == ["unknown", "correct"]

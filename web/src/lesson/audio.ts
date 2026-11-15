@@ -19,6 +19,8 @@ export interface AudioPort {
   positionMs(): number
   /** A clip is loading or playing right now. */
   isBusy?(): boolean
+  /** A clip has the output, playing or paused: nothing else should play through it. */
+  isOwned?(): boolean
 }
 
 export interface AudioCallbacks {
@@ -194,6 +196,10 @@ class ElementAudio implements AudioPort {
 
   isBusy() {
     return this.busy && !!this.el && !this.el.paused
+  }
+
+  isOwned() {
+    return this.busy
   }
 }
 
