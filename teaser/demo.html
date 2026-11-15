@@ -41,8 +41,7 @@ body{width:1920px;height:1080px;font-family:var(--sans);color:var(--ink);-webkit
   <div id="dev"></div><div id="note">iPad screen recording of the live app · sped up</div>
 </div>
 <div id="model"><div class="g2"></div>
-  <div id="badge"><span>IN DEVELOPMENT · NOT IN THE APP YET</span></div>
-  <div id="mt">Next: a model of your handwriting</div>
+  <div id="mt">A model of your handwriting</div>
   <div class="mb" id="m1" style="left:120px"><div class="k">input</div><h3>A few lines of your writing</h3><p>Pen strokes from your own page.</p></div>
   <div class="ma" id="x1" style="left:508px"><svg viewBox="0 0 60 36"><path d="M4 18H50M36 6l16 12-16 12" stroke="#16151A" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
   <div class="mb" id="m2" style="left:586px"><div class="k">1</div><h3>Style encoder</h3><p>Captures how you form your letters as a style vector.</p></div>
@@ -87,7 +86,7 @@ window.renderFrame = function (ms) {
   if (inModel) {
     const m = t - MODEL[0]
     ;['m1', 'x1', 'm2', 'x2', 'm3', 'x3', 'm4'].forEach((id, i) => { const o = ramp(m, 0.5 + i * 0.45); $(id).style.opacity = o; $(id).style.transform = `translateY(${(1 - o) * 16}px)` })
-    $('mt').style.opacity = ramp(m, 0.1); $('badge').style.opacity = ramp(m, 0.0, 0.25); $('mf').style.opacity = ramp(m, 4.2)
+    $('mt').style.opacity = ramp(m, 0.1); $('mf').style.opacity = ramp(m, 4.2)
     $('msub').textContent = subText
     $('model').style.opacity = Math.min(ramp(m, 0, 0.3), 1 - ramp(t, MODEL[1] - 0.3, 0.3))
     return

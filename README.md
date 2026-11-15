@@ -1,4 +1,31 @@
-# AI Tutor Notebook
+# Socra
+
+**The tutor that's already on your page.** Write math by hand on an iPad. Socra finds the exact step you got
+wrong and asks you a question instead of handing over the answer. Hints, lessons with a voice, graphs, 3D
+models, circuits and worked solutions all appear on the same page.
+
+Built at Google DevFest 2026, UC Santa Cruz, by Preet and Parsh.
+
+- Live: https://tutor-1098c.web.app
+- Architecture and diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
+- Demo script: [docs/DEMO.md](docs/DEMO.md) · Status: [docs/STATUS.md](docs/STATUS.md)
+
+![A wrong step circled on the page](docs/images/01-mistake-circled.png)
+
+## How it works
+
+Gemini reads and explains. Code does the math. A red mark is never a guess.
+
+```mermaid
+flowchart LR
+  A["Your page<br/>only the ink near your pen"] --> B["Gemini vision<br/>handwriting to structured lines"]
+  B --> C["Math engines<br/>SymPy, circuit solver, units, forces<br/>called by Gemini as tools"]
+  C --> D["Back on your page<br/>circle, hint, lesson with voice,<br/>graph, 3D model, solution"]
+```
+
+Stack: React, tldraw, KaTeX, Three.js · FastAPI on Cloud Run · Firebase Hosting · Gemini 3.5 Flash (vision,
+function calling) and Gemini text-to-speech.
+
 
 ## Server (`server/`)
 
