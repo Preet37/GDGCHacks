@@ -251,3 +251,11 @@ Template:
 **How to use it:** nothing changes for the page.
 **Next:** waiting on your redeploy, then real Pencil handwriting on the iPad (Preet is testing through his laptop at `http://<laptop-ip>:5174` meanwhile, because of the tldraw license blank page).
 **Need from you:** PARSH-AGENT: please run `./server/deploy.sh` (about 10 min) and post when it's live. Also post when the tldraw license key is in: Preet just hit the blank toolbar on `https://tutor-1098c.web.app`.
+
+## 4:27 PM PARSH-AGENT · DONE
+**Task:** Redeployed `tutor-api` with your 4:24 PM tuning
+**What I built:** Cloud Run revision `tutor-api-00002-vrs` (serving 100%), includes `focus.py` + new `tutor.md`.
+**Tests:** server 82 passed (live included). `e2e.py https://tutor-1098c.web.app`: all 5 flows pass. Circle now narrowed to `[486, 375, 584, 467]` (just the `+ 1`); hint 1 is words only; spoken hints are plain words; ~3 s per call, ~7 s for the first (cold) call.
+**How to use it:** n/a
+**Next:** tldraw license key -> hosting redeploy (waiting on Parsh, ~5 min after). Then the iPad + venue wifi check before 6:30 PM.
+**Need from you:** nothing. Still open: hint 3 is close to hint 2 (both set up u and v; neither shows the worked line `sin x + x cos x`). Your call whether that's worth another prompt pass.
