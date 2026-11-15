@@ -41,8 +41,6 @@ _BOX = {
     "description": "[ymin, xmin, ymax, xmax], each 0-1000, copied from or inside a line's box",
 }
 
-_VEC3 = {"type": "array", "items": {"type": "number"}, "minItems": 3, "maxItems": 3}
-
 _FIGURE = {
     "type": "object",
     "properties": {
@@ -58,33 +56,15 @@ _FIGURE = {
         "y_range": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
         "x_log": {"type": "boolean", "description": "true = logarithmic x axis (x_range must be positive)"},
         "title": {"type": "string"},
+        # A JSON string, not a nested schema: with function calling forced (mode ANY) Gemini compiles every tool schema
+        # for constrained decoding, and a nested model3d schema pushed the tool set over its limit (every check got
+        # a 400 INVALID_ARGUMENT). engineering.build_model3d parses and cleans it.
         "model3d": {
-            "type": "object",
-            "description": "kind model3d only. Any units, z up, x along the length, y across",
-            "properties": {
-                "parts": {"type": "array", "maxItems": 40, "items": {
-                    "type": "object",
-                    "properties": {
-                        "id": {"type": "string"},
-                        "name": {"type": "string", "description": "what it is called, e.g. 'Main cable'"},
-                        "shape": {"type": "string", "enum": ["box", "cylinder", "sphere", "member"],
-                                  "description": "member = a beam, bar, rod or cable from start to end"},
-                        "at": _VEC3, "size": {**_VEC3, "description": "box: x, y, z extents; cylinder: [r, r, height] "
-                                                                     "standing on z; sphere: [r, r, r]; member: [radius, 0, 0]"},
-                        "start": _VEC3, "end": _VEC3,
-                        "load": {"type": "string", "enum": ["tension", "compression", "bending", "none"]},
-                        "explain": {"type": "string", "description": "its job and the force it carries, 1-2 plain sentences"},
-                    },
-                    "required": ["id", "name", "shape", "load", "explain"],
-                }},
-                "loads": {"type": "array", "maxItems": 8, "items": {
-                    "type": "object",
-                    "properties": {"at": _VEC3, "dir": _VEC3, "label": {"type": "string"}},
-                    "required": ["at", "dir", "label"],
-                }},
-                "summary": {"type": "string", "description": "one line: how the structure carries its load"},
-            },
-            "required": ["parts"],
+            "type": "string",
+            "description": "kind model3d only: a JSON object {\"parts\": [{\"id\", \"name\", \"shape\": box|cylinder|"
+                           "sphere|member, \"at\": [x,y,z], \"size\": [x,y,z], \"start\": [x,y,z], \"end\": [x,y,z], "
+                           "\"load\": tension|compression|bending|none, \"explain\"}], \"loads\": [{\"at\", \"dir\", "
+                           "\"label\"}], \"summary\"}. z up. See 3D models in your instructions",
         },
     },
     "required": ["kind", "expressions", "x_range"],
@@ -544,7 +524,13 @@ def _parse_actions(raw: Any, lines: list[ReadLine] | None = None) -> list[Action
         if "figure" in a:
             a["figure"] = fix_figure(a["figure"])  # give every graph a window that shows the curve
             if isinstance(a["figure"], dict) and a["figure"].get("kind") == "model3d":
-                model = engineering.build_model3d(a["figure"].get("model3d"))
+                raw = a["figure"].get("model3d")
+                if isinstance(raw, str):
+                    try:
+                        raw = json.loads(raw)
+                    except ValueError:
+                        raw = None
+                model = engineering.build_model3d(raw)
                 if model is None:
                     continue  # nothing in it can be drawn
                 a["figure"] = {**a["figure"], "model3d": model, "expressions": [], "x_range": [0, 1]}

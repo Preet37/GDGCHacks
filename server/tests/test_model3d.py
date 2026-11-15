@@ -59,3 +59,17 @@ def test_tutor_figure_action_is_cleaned_or_dropped():
     acts = _parse_actions([good, bad])
     assert len(acts) == 1 and acts[0].figure.kind == "model3d" and acts[0].figure.model3d.parts[0].shape == "member"
     assert acts[0].figure.expressions == []
+
+
+def test_model3d_from_the_tutor_comes_as_a_json_string():
+    raw = json.dumps({"parts": [{"id": "t", "name": "Tower", "shape": "cylinder", "at": [0, 0, 5], "size": [1, 1, 10],
+                                 "load": "compression", "explain": "pushed"}]})
+    acts = _parse_actions([{"type": "figure", "line_id": "L1", "figure": {"kind": "model3d", "expressions": [], "x_range": [0, 1], "model3d": raw}},
+                           {"type": "figure", "line_id": "L1", "figure": {"kind": "model3d", "expressions": [], "x_range": [0, 1], "model3d": "{not json"}}])
+    assert len(acts) == 1 and acts[0].figure.model3d.parts[0].name == "Tower"
+
+
+def test_schema_keeps_model3d_flat():
+    # forced function calling has a limit on schema complexity: a nested model3d schema broke every check (400)
+    from teach import _FIGURE
+    assert _FIGURE["properties"]["model3d"]["type"] == "string"
