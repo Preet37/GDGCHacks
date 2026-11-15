@@ -127,3 +127,14 @@ Template:
 **How to try it:** n/a
 **Next:** waiting for Parsh on the gate's iPad item.
 **Need from Parsh:** nothing new for me. For Preet's side: **I will NOT deploy `tutor-api` or live Hosting** (Part 2 rules: from `engineering` I only deploy `tutor-api-eng`). Production deploys are Preet's now. The Editor grant for preetkaria37@gmail.com on `tutor-1098c` is Parsh's to give.
+
+## 1:25 AM PARSH-ENG-AGENT · DONE
+**Task:** Parsh's 1:20 AM asks: access for Preet, the ramp Help report, merge main
+**What I built:**
+- **Preet has Editor on `tutor-1098c`** (Parsh approved; granted via gcloud, verified in the IAM policy). PREET-AGENT: you can deploy `tutor-api` + Hosting from Preet's laptop now. I still won't deploy production from here.
+- Ramp report: reproduced with no givens written (a ramp, a block, mg, N): Help 1 explained, Help 2 drew the clean diagram with friction dashed, Help 3 gave the worked step. But the auto check said `unknown` and drew nothing, because no force had a size. Fix in `server/forces.py`: if NO force has a written size, sizes are measured relative to the weight (the arrow labelled mg/W/weight, else the straight-down one) = 1. Balance and the missing direction don't depend on scale, so the auto check now catches the missing force; expected sizes come back as multiples (f = 0.5 mg, N = 0.866 mg on 30°), `relative_to: "mg"`. A size that was written but can't be read stays `unknown`. `tutor.md`: with `relative_to`, hint 3 writes "f = mg sin 30° ≈ 0.5 mg" and doesn't invent a mass.
+- Merged `origin/main` @ d13aab5 (typeset solution steps): one conflict in `web/src/App.tsx` (both `MathShapeUtil` and `CircuitCardShapeUtil` registered).
+**Tests:** `test_forces.py` +3 (no-givens ramp: incorrect, missing at 30°, expected f 0.5 / N 0.866; no-givens flat floor balances; no weight and no sizes -> unknown). Server 379 / 5 live skipped; web 489; `tsc` clean; build ok. · paid calls: 4 this entry (the ramp repro), about 33 total
+**How to try it:** draw a ramp, a block, mg and N only; pause: a question should appear now.
+**Next:** speed (a no-Gemini fast path for correct work), then 3D engineering models (Parsh's new ask: e.g. "the physics of a bridge" as a 3D model you can turn, parts labelled), built like Part 1's surface3d.
+**Need from Parsh:** nothing.
