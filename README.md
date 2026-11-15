@@ -59,10 +59,13 @@ gcloud auth login && gcloud config set project <project-id>
 Note: the container is built from `server/` only, so MOCK mode in the deployed service can't find
 `contract/examples/`; deploy with a real key.
 
-### Next thing to build
+### Math checker (`server/verify.py`)
 
-`server/verify.py` is a stub that always says `unknown`. Replace it with real SymPy checks, keeping the signature
-`verify_step(before: str, after: str, relation: str) -> {"verdict": "correct"|"incorrect"|"unknown", "detail": str}`.
+`verify_step(before, after, relation) -> {"verdict": "correct"|"incorrect"|"unknown", "detail"}` uses SymPy:
+`equals`/`simplify` (symbolic, then a random numeric spot check), `derivative`, `integral` (constant allowed),
+`solve` (plugs in the roots, notes missing ones, compares solution sets for intermediate equations).
+Labels like `f(x) =`, `f'(x) =`, `y =`, `dy/dx =` are dropped; `3x`, `^`, `−`, `²`, `d/dx(...)` are understood.
+Anything it can't parse is `unknown`; it never raises. Tests: `server/tests/test_verify.py`.
 
 ## Web page (`web/`)
 

@@ -109,8 +109,11 @@ def test_verify_and_submit_same_turn(incorrect):
     assert r.finished and r.verdicts == {"L2": "incorrect"} and len(r.actions) == 1
 
 
-def test_verify_stub():
-    assert verify.verify_step("x", "x", "equals") == {"verdict": "unknown", "detail": "checker not built yet"}
+def test_verify_contract():
+    # the real checker lives in verify.py (tests in test_verify.py); teach only relies on this shape
+    out = verify.verify_step("x", "x", "equals")
+    assert set(out) == {"verdict", "detail"}
+    assert out["verdict"] in ("correct", "incorrect", "unknown")
 
 
 load_dotenv(pathlib.Path(__file__).resolve().parents[1] / ".env")
