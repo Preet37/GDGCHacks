@@ -13,7 +13,7 @@ export interface ReadLine {
   source?: "handwriting" | "printed"; // printed = typed worksheet text (context only, never marked); missing = handwriting
 }
 
-export type ActionType = "circle" | "underline" | "note" | "figure" | "ask" | "speak";
+export type ActionType = "circle" | "underline" | "note" | "figure" | "ask" | "speak" | "lesson";
 
 export interface FigureSpec {
   kind: "plot2d" | "surface3d";
@@ -32,6 +32,7 @@ export interface Action {
   side?: "right" | "below" | "inline";  // inline (note only): written straight after the end of the line, at the handwriting's size
   options?: string[];         // ask: choices, e.g. ["x^2", "x_2"]
   figure?: FigureSpec;        // figure only
+  lesson?: Lesson;            // lesson only: placed next to `box` like a figure
 }
 
 export interface ProblemState {
@@ -48,7 +49,7 @@ export interface PageState {
 
 export interface CheckRequest {
   image_base64: string;       // PNG, longest side <= 1280 px
-  mode: "auto" | "help";      // auto = sent after a pause; help = user tapped Help
+  mode: "auto" | "help" | "explain";  // auto = sent after a pause; help = Help tapped; explain = "Teach me" tapped
   help_box?: Box;             // help mode: area the user selected (missing = whole page)
   question?: string;          // help mode: what the student asked out loud, transcribed (missing = no question)
   state: PageState;
@@ -60,4 +61,38 @@ export interface CheckResponse {
   clear_line_ids: string[];   // lines whose old feedback should be removed (fixed or erased)
   state: PageState;           // updated state for the page to save
   debug?: { model: string; read_ms: number; teach_ms: number; tool_calls: string[] };
+}
+
+// ---- Lessons: "Teach me". A short narrated, animated explanation the page plays next to the work. ----
+
+export interface LessonMark {
+  type: "point" | "tangent" | "secant" | "area" | "vline" | "hline" | "label";
+  expr?: number;              // index into the visual's expressions (default 0)
+  x?: number;                 // point/tangent/vline/label: where. secant/area: left end
+  x2?: number;                // secant/area: right end
+  y?: number;                 // hline/label
+  to_x?: number;              // animate x from `x` to `to_x` while the step plays (a sliding tangent or point)
+  to_x2?: number;             // animate x2 the same way (a secant closing in, an area growing)
+  text?: string;              // label text, plain words
+  color?: "red" | "green" | "blue" | "black";
+}
+
+export interface LessonVisual {
+  kind: "plot2d" | "surface3d";
+  expressions: string[];      // math.js syntax, same rules as FigureSpec
+  x_range: [number, number];
+  y_range?: [number, number];
+  marks?: LessonMark[];       // drawn on top of the plot (plot2d only)
+}
+
+export interface LessonStep {
+  say: string;                // narration, read aloud: plain spoken words, no LaTeX, no symbols
+  write?: string;             // one line of math written out for this step, LaTeX
+  caption?: string;           // short on-screen text, plain words with inline $math$
+  visual?: LessonVisual;      // the picture for this step. Missing = keep the previous step's picture
+}
+
+export interface Lesson {
+  title: string;
+  steps: LessonStep[];        // 3 to 7 steps
 }

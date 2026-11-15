@@ -1,0 +1,226 @@
+{
+  "lines": [
+    {
+      "line_id": "L1",
+      "problem_id": "P1",
+      "latex": "f(x) = x^2",
+      "plain": "f(x) = x^2",
+      "box": [
+        150,
+        80,
+        230,
+        380
+      ],
+      "relation": "start",
+      "confidence": "high"
+    },
+    {
+      "line_id": "L2",
+      "problem_id": "P1",
+      "latex": "f'(x) = 2x",
+      "plain": "f'(x) = 2*x",
+      "box": [
+        260,
+        80,
+        340,
+        380
+      ],
+      "relation": "derivative",
+      "confidence": "high"
+    }
+  ],
+  "actions": [
+    {
+      "type": "lesson",
+      "box": [
+        260,
+        80,
+        340,
+        380
+      ],
+      "line_id": "L2",
+      "side": "right",
+      "lesson": {
+        "title": "Why the derivative of x² is 2x",
+        "steps": [
+          {
+            "say": "A derivative tells you how steep a curve is at each point. Here is the curve y equals x squared.",
+            "write": "f(x) = x^2",
+            "caption": "The curve $y = x^2$",
+            "visual": {
+              "kind": "plot2d",
+              "expressions": [
+                "x^2"
+              ],
+              "x_range": [
+                -3,
+                3
+              ],
+              "y_range": [
+                -1,
+                9
+              ],
+              "marks": []
+            }
+          },
+          {
+            "say": "Pick two points on the curve and join them. The slope of that line is the average steepness between them.",
+            "caption": "Slope between two points",
+            "visual": {
+              "kind": "plot2d",
+              "expressions": [
+                "x^2"
+              ],
+              "x_range": [
+                -3,
+                3
+              ],
+              "y_range": [
+                -1,
+                9
+              ],
+              "marks": [
+                {
+                  "type": "secant",
+                  "x": 1,
+                  "x2": 2.5,
+                  "color": "blue"
+                }
+              ]
+            }
+          },
+          {
+            "say": "Now slide the second point toward the first. The line settles into the tangent at x equals one.",
+            "write": "\\frac{f(x+h)-f(x)}{h} \\to f'(x)",
+            "caption": "Let the gap shrink",
+            "visual": {
+              "kind": "plot2d",
+              "expressions": [
+                "x^2"
+              ],
+              "x_range": [
+                -3,
+                3
+              ],
+              "y_range": [
+                -1,
+                9
+              ],
+              "marks": [
+                {
+                  "type": "secant",
+                  "x": 1,
+                  "x2": 2.5,
+                  "to_x2": 1.02,
+                  "color": "blue"
+                }
+              ]
+            }
+          },
+          {
+            "say": "Slide that tangent along the curve. It tilts more the further out you go: at x equals one the slope is two, at x equals two it is four.",
+            "caption": "The slope is always twice $x$",
+            "visual": {
+              "kind": "plot2d",
+              "expressions": [
+                "x^2"
+              ],
+              "x_range": [
+                -3,
+                3
+              ],
+              "y_range": [
+                -1,
+                9
+              ],
+              "marks": [
+                {
+                  "type": "tangent",
+                  "x": -2,
+                  "to_x": 2,
+                  "color": "red"
+                },
+                {
+                  "type": "point",
+                  "x": -2,
+                  "to_x": 2,
+                  "color": "red"
+                }
+              ]
+            }
+          },
+          {
+            "say": "So the steepness of x squared at any point is two times x. That is the power rule: bring the two down and lower the power by one.",
+            "write": "f'(x) = 2x",
+            "caption": "Power rule: bring the power down, lower it by one",
+            "visual": {
+              "kind": "plot2d",
+              "expressions": [
+                "x^2",
+                "2*x"
+              ],
+              "x_range": [
+                -3,
+                3
+              ],
+              "y_range": [
+                -6,
+                9
+              ],
+              "marks": [
+                {
+                  "type": "label",
+                  "expr": 1,
+                  "x": 2,
+                  "text": "slope of the curve",
+                  "color": "red"
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  ],
+  "clear_line_ids": [],
+  "state": {
+    "page_id": "demo",
+    "lines": [
+      {
+        "line_id": "L1",
+        "problem_id": "P1",
+        "latex": "f(x) = x^2",
+        "plain": "f(x) = x^2",
+        "box": [
+          150,
+          80,
+          230,
+          380
+        ],
+        "relation": "start",
+        "confidence": "high"
+      },
+      {
+        "line_id": "L2",
+        "problem_id": "P1",
+        "latex": "f'(x) = 2x",
+        "plain": "f'(x) = 2*x",
+        "box": [
+          260,
+          80,
+          340,
+          380
+        ],
+        "relation": "derivative",
+        "confidence": "high"
+      }
+    ],
+    "problems": [
+      {
+        "problem_id": "P1",
+        "hint_level": 0
+      }
+    ],
+    "flagged_line_ids": []
+  }
+}

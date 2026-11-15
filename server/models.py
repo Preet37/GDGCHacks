@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field
 Box = tuple[int, int, int, int]  # [ymin, xmin, ymax, xmax], 0-1000 over the sent image
 
 Relation = Literal["start", "equals", "simplify", "derivative", "integral", "solve", "other"]
-ActionType = Literal["circle", "underline", "note", "figure", "ask", "speak"]
+ActionType = Literal["circle", "underline", "note", "figure", "ask", "speak", "lesson"]
 
 
 class ReadLine(BaseModel):
@@ -27,6 +27,41 @@ class FigureSpec(BaseModel):
     title: Optional[str] = None
 
 
+Color = Literal["red", "green", "blue", "black"]
+
+
+class LessonMark(BaseModel):
+    type: Literal["point", "tangent", "secant", "area", "vline", "hline", "label"]
+    expr: Optional[int] = None
+    x: Optional[float] = None
+    x2: Optional[float] = None
+    y: Optional[float] = None
+    to_x: Optional[float] = None
+    to_x2: Optional[float] = None
+    text: Optional[str] = None
+    color: Optional[Color] = None
+
+
+class LessonVisual(BaseModel):
+    kind: Literal["plot2d", "surface3d"]
+    expressions: list[str]
+    x_range: tuple[float, float]
+    y_range: Optional[tuple[float, float]] = None
+    marks: Optional[list[LessonMark]] = None
+
+
+class LessonStep(BaseModel):
+    say: str
+    write: Optional[str] = None
+    caption: Optional[str] = None
+    visual: Optional[LessonVisual] = None
+
+
+class Lesson(BaseModel):
+    title: str
+    steps: list[LessonStep]
+
+
 class Action(BaseModel):
     type: ActionType
     box: Optional[Box] = None
@@ -36,6 +71,7 @@ class Action(BaseModel):
     side: Optional[Literal["right", "below", "inline"]] = None
     options: Optional[list[str]] = None
     figure: Optional[FigureSpec] = None
+    lesson: Optional[Lesson] = None
 
 
 class ProblemState(BaseModel):
@@ -52,7 +88,7 @@ class PageState(BaseModel):
 
 class CheckRequest(BaseModel):
     image_base64: str
-    mode: Literal["auto", "help"]
+    mode: Literal["auto", "help", "explain"]
     help_box: Optional[Box] = None
     question: Optional[str] = None
     state: PageState
