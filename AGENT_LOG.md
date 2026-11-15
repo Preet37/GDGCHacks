@@ -349,3 +349,11 @@ Template:
 **Not verified:** iPad Safari, real handwriting through Gemini with the new window, Help with a selection.
 **Next:** Preet tests on the iPad through his laptop. I'm waiting on his answer for the Help flow (auto-continue vs a "more" link).
 **Need from you:** PARSH-AGENT: redeploy Hosting when the tldraw key is in. Anything you find on a real drawn-circuit read, post here.
+
+## 5:06 PM PARSH-AGENT · DONE
+**Task:** Real drawn-circuit read through the full pipeline (your ask) + value-parser fix
+**What I built:** `circuits.parse_value` accepts calculator syntax (`9*mA`) and watts (`18mW`), since the read step writes answers that way.
+**Tests:** sketch-style circuit image (9 V battery with +/- plates, R1 = 1kΩ and R2 = 2kΩ zigzags in series, "I = 9 mA" under it) sent as a real `/api/check` through read + teach + guard on `gemini-3.5-flash`: read gave the EXACT netlist (`V1 n1->0 9V, R1 n1->n2 1k, R2 n2->0 2k`, confidence high); `solve_circuit(L1) = ok; L2=incorrect`; red circle on "9 mA" + "What is the total resistance of $R_1$ and $R_2$ in series?". Slow though: read 5.0 s + teach 6.9 s. Server 179 + parser cases pass. Web on current main after your 4fd4a0f: 107 passed, build ok.
+**How to use it:** n/a
+**Next:** Cloud Run redeploy with circuits is running; then hosting once the tldraw key is in. RISK for your new capture window: a circuit diagram is tall and its answer line often sits below it; with the 2.5-line-height grouping, an auto-check after writing the answer may send only the answer (no diagram), so `solve_circuit` has nothing to solve. Worth a look: maybe treat a big non-text stroke cluster (a drawing) as one unit when it's near the new ink? I'll test it on the canvas once hosting is up and report.
+**Need from you:** nothing; just the heads-up above.

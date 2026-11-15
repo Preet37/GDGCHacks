@@ -87,7 +87,7 @@ def test_bad_circuits_explain_instead_of_raising(els, why):
 
 
 @pytest.mark.parametrize("raw,expected", [
-    (9, 9), ("4.7k", 4700), ("10mA", 0.01), ("2.2 kΩ", 2200), ("1M", 1_000_000), ("100u", 0.0001), ("-5V", -5),
+    (9, 9), ("4.7k", 4700), ("9*mA", 0.009), ("18mW", 0.018), ("10mA", 0.01), ("2.2 kΩ", 2200), ("1M", 1_000_000), ("100u", 0.0001), ("-5V", -5),
 ])
 def test_parse_value(raw, expected):
     assert float(parse_value(raw)) == pytest.approx(expected)

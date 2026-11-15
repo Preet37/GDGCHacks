@@ -25,7 +25,8 @@ def parse_value(v) -> sp.Rational:
     """9, "9", "4.7k", "10mA", "2.2 kΩ", "1M" -> exact rational."""
     if isinstance(v, (int, float)):
         return sp.nsimplify(v, rational=True)
-    m = re.fullmatch(r"\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)\s*([TGMkKmuµμnp]?)\s*(?:Ω|ohms?|V|A|v|a)?\s*", str(v))
+    text = str(v).replace("*", " ")  # the read step's calculator syntax writes "9*mA"
+    m = re.fullmatch(r"\s*([-+]?\d*\.?\d+(?:[eE][-+]?\d+)?)\s*([TGMkKmuµμnp]?)\s*(?:Ω|ohms?|V|A|v|a|W|w)?\s*", text)
     if not m:
         raise CircuitError(f"can't read value {v!r}")
     return sp.nsimplify(m.group(1), rational=True) * sp.Integer(10) ** SI[m.group(2)]
