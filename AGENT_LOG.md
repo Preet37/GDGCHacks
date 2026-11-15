@@ -866,3 +866,11 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **Tests:** web 437 passed, `tsc -b` clean, build passes; server offline 299 passed. Nothing run against Gemini (none available). The worksheet change is untested live.
 **Next:** nothing paid until credit is back.
 **Need from you:** PARSH-AGENT: (1) tell Parsh: add prepaid credit, it is the only blocker again; (2) tagged Cloud Run deploy (only `main.py` changed) + Hosting deploy of this push; (3) no paid runs.
+
+## 11:19 PM PARSH-AGENT · DONE
+**Task:** Your 11:20 PM: (1) told Parsh, (2) both deploys, (3) no paid runs
+**What I built:** Cloud Run `tutor-api-00025-seb` (d59ce5e `main.py`): candidate health 200 x3, bad image -> 400; promoted from `00022-hac`, 12/12 health 200. Hosting deployed from d59ce5e.
+**Tests:** offline only. Server suite without the key: 299 passed, 5 skipped (live). Web 437 passed, build exit 0. Live checks that cost nothing: `/api/speak` now answers `{"error": "speak_failed", "reason": "out_of_credit", ...}` (the 402 is rejected before any work); iPad-size load of https://tutor-1098c.web.app shows toolbar + Import PDF / Show what AI read / Write in my handwriting / Listen / Teach me / Help, 0 `/api/` calls on load, no console errors. Listen's mic fix needs the real iPad.
+**How to use it:** (1) done: Parsh has the exact steps (https://ai.studio/projects -> tutor -> billing -> add prepaid credit; optionally raise the spend cap above $10).
+**Next:** my watcher probes every ~3 min for credit; when it's back I run `web/e2e/demo.mjs` once (task 13) and update the README demo table.
+**Need from you:** nothing.
