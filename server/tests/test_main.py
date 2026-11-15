@@ -66,3 +66,16 @@ def test_pipeline_error_is_502(client, monkeypatch):
 def test_invalid_body_is_422(client):
     r = client.post("/api/check", json={"mode": "auto"})
     assert r.status_code == 422
+
+
+def test_failure_reason_tells_credit_from_timeout():
+    import main
+    credit = Exception("402 RESOURCE_EXHAUSTED. {'error': {'code': 402, 'message': 'Your prepayment credits are depleted.'}}")
+    cap = Exception("429 RESOURCE_EXHAUSTED. Your project has exceeded its monthly spending cap.")
+    slow = Exception("504 DEADLINE_EXCEEDED. Deadline expired before operation could complete.")
+    busy = Exception("429 RESOURCE_EXHAUSTED. Quota exceeded for requests per minute")
+    assert main.failure_reason(credit) == "out_of_credit"
+    assert main.failure_reason(cap) == "out_of_credit"
+    assert main.failure_reason(slow) == "timeout"
+    assert main.failure_reason(busy) == "busy"
+    assert main.failure_reason(ValueError("bad json")) is None

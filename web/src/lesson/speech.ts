@@ -103,6 +103,11 @@ export class Narrator {
     this.env = env
   }
 
+  /** Narration is being spoken (or about to be) right now. */
+  get active(): boolean {
+    return this.current !== null
+  }
+
   get canSpeak(): boolean {
     return !!this.env.synth && !!this.env.makeUtterance && !this.silent
   }

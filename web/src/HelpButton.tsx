@@ -200,9 +200,9 @@ export function HelpButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) 
   }, [free.on, tutor])
   const toggleHands = () => {
     if (free.on) return hands.stop()
-    // sound may only start inside a tap: unlock it now for the answers that come later
-    primeSpeech()
+    // the microphone first, then sound: both may only start inside a tap
     hands.start()
+    primeSpeech()
   }
 
   const gesture = useMemo(() => {

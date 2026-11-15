@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { BaseBoxShapeUtil, HTMLContainer, T, useEditor, type RecordProps, type TLShape } from 'tldraw'
+import { BaseBoxShapeUtil, HTMLContainer, T, useEditor, useValue, type RecordProps, type TLShape } from 'tldraw'
 import type { FigureSpec } from '../contract'
 import { trySampleSurface } from '../render/figure3d/sample'
 import type { SurfaceView } from '../render/figure3d/scene'
@@ -41,6 +41,8 @@ function Surface3dCard({ shape }: { shape: Surface3dShape }) {
   const viewRef = useRef<SurfaceView | null>(null)
   const [glFailed, setGlFailed] = useState(false)
   const [touched, setTouched] = useState(false)
+  const zoom = useValue('zoom', () => editor.getZoomLevel(), [editor])
+  const hintScale = Math.min(2.5, Math.max(1, 0.8 / zoom))
 
   // Only the spec is stored; the grid is recomputed whenever it changes (and on page load).
   const specKey = JSON.stringify(spec)
@@ -194,8 +196,25 @@ function Surface3dCard({ shape }: { shape: Surface3dShape }) {
             }}
           >
             {!touched && (
-              <div style={{ position: 'absolute', right: 8, bottom: 6, fontSize: 11, color: '#999', pointerEvents: 'none' }}>
-                drag to rotate
+              <div
+                style={{
+                  position: 'absolute',
+                  left: '50%',
+                  bottom: 10,
+                  // the card shrinks with the page; the hint is kept readable when zoomed out
+                  transform: `translateX(-50%) scale(${hintScale})`,
+                  transformOrigin: 'center bottom',
+                  padding: '6px 14px',
+                  borderRadius: 999,
+                  background: 'rgba(20, 24, 33, 0.82)',
+                  color: '#fff',
+                  fontSize: 15,
+                  fontWeight: 600,
+                  whiteSpace: 'nowrap',
+                  pointerEvents: 'none',
+                }}
+              >
+                ↻ Drag to spin it
               </div>
             )}
           </div>

@@ -9,6 +9,7 @@ import {
   EXPORT_PADDING,
   hasWorksheet,
   helpWindow,
+  markOnSheet,
   intersect,
   LEGIBLE_LINES,
   pointedAt,
@@ -273,5 +274,26 @@ describe('has_worksheet: is an imported worksheet in the picture that is sent', 
   it('is true when any worksheet page reaches into the window', () => {
     expect(hasWorksheet([{ x: 0, y: 2000, w: 800, h: 1000 }, { x: 700, y: 500, w: 800, h: 1000 }], win)).toBe(true)
     expect(hasWorksheet([{ x: -100, y: -100, w: 2000, h: 2000 }], win)).toBe(true)
+  })
+})
+
+describe('markOnSheet', () => {
+  const sheet = { x: 0, y: 0, w: 3000, h: 4000 }
+  const circle = { x: 200, y: 1500, w: 700, h: 120 }
+  it('is null when nothing was drawn on the print', () => {
+    expect(markOnSheet([], [sheet])).toBeNull()
+    expect(markOnSheet([{ x: 3400, y: 900, w: 300, h: 200 }], [sheet])).toBeNull()
+    expect(markOnSheet([circle], [])).toBeNull()
+  })
+  it('takes the last mark on the print, not later scribbles in the margin', () => {
+    const margin = { x: 3300, y: 1100, w: 300, h: 300 }
+    expect(markOnSheet([circle, margin], [sheet])).toEqual(circle)
+  })
+  it('joins a circle and the arrow that leaves it', () => {
+    const arrow = { x: 850, y: 1300, w: 2300, h: 280 } // runs off the page edge, mostly on it
+    const m = markOnSheet([{ x: 300, y: 300, w: 400, h: 100 }, circle, arrow], [sheet])!
+    expect(m.x).toBe(200)
+    expect(m.y).toBe(1300)
+    expect(m.x + m.w).toBe(3150)
   })
 })

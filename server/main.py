@@ -69,11 +69,24 @@ def check(req: CheckRequest):
     except Exception as e:  # never crash the request
         pipeline.finish(entry, t0, e)
         log.exception("check failed")
-        return JSONResponse(status_code=502, content={"error": "pipeline_failed", "detail": f"{type(e).__name__}: {e}"[:300]})
+        return JSONResponse(status_code=502, content={"error": "pipeline_failed", "reason": failure_reason(e),
+                                                      "detail": f"{type(e).__name__}: {e}"[:300]})
     pipeline.finish(entry, t0)
     log.info("check %s mode=%s total_ms=%d actions=%d", source, req.mode,
              int((time.perf_counter() - t0) * 1000), len(resp.actions))
     return resp
+
+
+def failure_reason(e: Exception) -> str | None:
+    """Why Gemini failed, when the page can say something more useful than "try again"."""
+    text = f"{type(e).__name__}: {e}".lower()
+    if "spending cap" in text or "prepayment credits" in text or " 402 " in text or "billing" in text:
+        return "out_of_credit"
+    if "deadline" in text or "timed out" in text or "timeout" in text or " 504 " in text:
+        return "timeout"
+    if " 429 " in text or "resource_exhausted" in text or " 503 " in text or "overloaded" in text:
+        return "busy"
+    return None
 
 
 @app.get("/api/debug/recent")
@@ -98,6 +111,6 @@ def speak_route(req: SpeakRequest):
         return JSONResponse(status_code=400, content={"error": "no_text", "detail": str(e)})
     except Exception as e:  # never crash the request
         log.warning("speak failed: %s", e)
-        return JSONResponse(status_code=502, content={"error": "speak_failed", "detail": f"{e}"[:300]})
+        return JSONResponse(status_code=502, content={"error": "speak_failed", "reason": failure_reason(e), "detail": f"{e}"[:300]})
     log.info("speak ms=%d bytes=%d chars=%d", int((time.perf_counter() - t0) * 1000), len(audio), len(req.text))
     return Response(content=audio, media_type=mime, headers={"Cache-Control": "private, max-age=86400"})

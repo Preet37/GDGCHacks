@@ -119,10 +119,12 @@ export class HandsFree {
   start(): boolean {
     if (this.snap.on) return true
     this.duds = 0
-    this.set({ on: true, error: null, heard: '' })
-    this.sync()
-    if (!this.rec) {
-      this.stop("This browser can't listen. Hold Help to ask instead")
+    this.set({ on: true, phase: 'listening', error: null, heard: '' })
+    // opened here, inside the tap, whatever else is going on: Safari only lets a page start
+    // listening from a tap the first time
+    const why = this.open()
+    if (why) {
+      this.stop(why === 'none' ? "This browser can't listen. Hold Help to ask instead" : "Couldn't start the microphone. Tap Listen again")
       return false
     }
     this.loop()
@@ -168,9 +170,10 @@ export class HandsFree {
     if (phase !== this.snap.phase) this.set({ phase, ...(phase === 'listening' ? { heard: '' } : {}) })
   }
 
-  private open() {
+  /** Open the microphone. Returns why it couldn't: 'none' = no recognizer here, 'refused' = it would not start. */
+  private open(): 'none' | 'refused' | null {
     const rec = this.deps.make()
-    if (!rec) return
+    if (!rec) return 'none'
     const session = ++this.session
     const mine = () => session === this.session
     const finals: string[] = []
@@ -212,8 +215,10 @@ export class HandsFree {
     try {
       rec.start()
       this.rec = rec
+      return null
     } catch {
       this.rec = null
+      return 'refused'
     }
   }
 

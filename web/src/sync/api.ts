@@ -3,7 +3,19 @@ import { mockReply } from './mock'
 
 const MOCK = new URLSearchParams(location.search).has('mock') || import.meta.env.VITE_MOCK === '1'
 
-export class ApiError extends Error {}
+export class ApiError extends Error {
+  /** true = trying again won't help (the Gemini account is out of credit): keep the message up */
+  sticky = false
+}
+
+/** What to tell the student when the server says why it failed. */
+export function failureMessage(body: { error?: string; reason?: string | null }): { message: string; sticky: boolean } {
+  if (body.error === 'bad_image') return { message: "Couldn't read the page image", sticky: false }
+  if (body.reason === 'out_of_credit') return { message: 'The tutor is offline: its Gemini account is out of credit. Nothing will be checked until it is topped up.', sticky: true }
+  if (body.reason === 'timeout') return { message: 'That took too long. Zoom in on one problem and try again', sticky: false }
+  if (body.reason === 'busy') return { message: 'Gemini is busy right now. Try again in a moment', sticky: false }
+  return { message: 'The tutor had a hiccup, try again', sticky: false }
+}
 
 /** POST /api/check. With ?mock (or VITE_MOCK=1) it returns an example reply without a server. */
 export async function postCheck(req: CheckRequest): Promise<CheckResponse> {
@@ -33,7 +45,10 @@ export async function postCheck(req: CheckRequest): Promise<CheckResponse> {
   }
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new ApiError(body.error === 'bad_image' ? "Couldn't read the page image" : 'The tutor had a hiccup, try again')
+    const why = failureMessage(body)
+    const err = new ApiError(why.message)
+    err.sticky = why.sticky
+    throw err
   }
   return res.json()
 }

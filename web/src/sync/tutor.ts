@@ -5,12 +5,12 @@ import { isAiShape } from '../render/actions'
 import { applyResponse, renderContext } from '../render/apply'
 import { readingRects, readingShapes } from '../render/reading'
 import { pageToBox, type PageRect } from '../render/geometry'
-import { autoWindow, checkShapes, coverage, EXPORT_PADDING, hasWorksheet, helpWindow, intersects, pointedAt, rectOf, studentShapes, union } from '../page'
+import { autoWindow, checkShapes, coverage, EXPORT_PADDING, hasWorksheet, helpWindow, intersects, markOnSheet, pointedAt, rectOf, studentShapes, union } from '../page'
 import { givenLines, openPractices, solvedPractices, type OpenPractice } from '../practice/given'
 import { isGivenShape, shapeUse } from '../practice/kind'
 import { bindPractice, markSolved } from '../practice/write'
 import { isWorksheetShape } from '../worksheet'
-import { postCheck } from './api'
+import { ApiError, postCheck } from './api'
 import { exportPng } from './exportImage'
 import { boxRect, mergeReply, PAGE_FRAME, requestState, sweepErased, toSaved, type SavedState } from './frame'
 import { HintChain, MAX_HINT_LEVEL, mistakeProblems, raisedProblem, stuckMsFromUrl, type HelpResult, type HelpTarget } from './hintChain'
@@ -19,12 +19,14 @@ import { hashString, PauseScheduler } from './scheduler'
 import { silence, type CheckStatus } from './status'
 
 export const PAUSE_MS = 2000
+/** Below this zoom a whole worksheet page is in view: Help looks at the marked part, not all of it. */
+export const FAR_ZOOM = 0.5
 /** After a check, changes left in other parts of the page get their own check, at most this many in a row. */
 export const MAX_FOLLOW_UPS = 2
 
 export type TutorEvent =
   | { type: 'busy'; busy: boolean }
-  | { type: 'error'; message: string }
+  | { type: 'error'; message: string; sticky?: boolean }
   | { type: 'reply'; reply: CheckResponse; mode?: CheckRequest['mode'] }
   /** the last hint (the worked step) was just given: a good moment to offer a lesson instead */
   | { type: 'offer-lesson' }
@@ -371,7 +373,7 @@ export class Tutor {
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Something went wrong'
       this.setStatus({ at: Date.now(), mode: opts.mode, error: message })
-      this.emit({ type: 'error', message })
+      this.emit({ type: 'error', message, sticky: err instanceof ApiError && err.sticky })
       throw err
     } finally {
       this.emit({ type: 'busy', busy: false })
@@ -409,11 +411,23 @@ export class Tutor {
       }
     }
 
+    // Zoomed far out over a worksheet with nothing selected: the whole sheet is too much to read
+    // (slow, and too small to read well). The student's last mark on the print (a circle round a
+    // problem, an underline) says which part they mean, so that is treated as their selection.
+    let area = opts.area
+    if (opts.mode !== 'auto' && !area && !opts.window && sheets.length && this.editor.getZoomLevel() < FAR_ZOOM) {
+      const marks = items
+        .filter((i) => !i.sheet && !i.given && intersects(i.rect, view))
+        .sort((a, b) => (this.drawnAt.get(a.shape.id) ?? 0) - (this.drawnAt.get(b.shape.id) ?? 0))
+        .map((i) => i.rect)
+      area = markOnSheet(marks, sheets) ?? undefined
+    }
+
     const win =
       opts.mode !== 'auto'
         ? opts.window
           ? this.chainWindow(opts.window, opts.problemId)
-          : helpWindow(opts.area, ink, sheets, view)
+          : helpWindow(area, ink, sheets, view)
         : autoWindow(pending.map((p) => p.rect), ink, sheets, view, this.feedbackRects())
     const skip = (why: string) => {
       if (!quiet) this.setStatus({ at: Date.now(), mode: opts.mode, skipped: why })
@@ -442,7 +456,7 @@ export class Tutor {
       state: sent,
     }
     // what the request is about: the selection, or else the last thing the student drew
-    const about = opts.area ?? (opts.mode === 'auto' ? undefined : this.lastDrawn(visible, win))
+    const about = area ?? (opts.mode === 'auto' ? undefined : this.lastDrawn(visible, win))
     if (about) req.help_box = pageToBox(about, win)
     if (opts.question) req.question = opts.question
     const placed = visible.filter((i) => i.given).map((i) => ({ meta: i.shape.meta as Record<string, unknown>, rect: i.rect }))

@@ -290,3 +290,20 @@ export function pointedAt(strokes: PageRect[], view: PageRect): PageRect | null 
   const c = recentCluster(strokes, lineH)
   return c && { x: c.x, y: c.y - lineH, w: c.w, h: c.h + lineH * 2 }
 }
+
+/** A stroke counts as a mark on the worksheet when this much of it lies on a printed page. */
+export const ON_SHEET = 0.8
+
+/**
+ * The student's last mark on the print: a circle round a problem, an underline, a tick.
+ * `strokes` are oldest first. Marks touching that one are part of it (a circle and its arrow).
+ * null = nothing was drawn on a worksheet page.
+ */
+export function markOnSheet(strokes: PageRect[], sheets: PageRect[]): PageRect | null {
+  const on = strokes.filter((r) => sheets.some((s) => coverage(r, s) >= ON_SHEET))
+  const last = on.at(-1)
+  if (!last) return null
+  let mark = last
+  for (const r of on) if (intersects(r, mark)) mark = union(mark, r) ?? mark
+  return mark
+}

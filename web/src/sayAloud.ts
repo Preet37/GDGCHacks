@@ -17,11 +17,8 @@ export function isSaying(): boolean {
 export function tutorIsLoud(): boolean {
   if (saying) return true
   if (audioOut()?.isBusy?.()) return true
-  try {
-    return typeof window !== 'undefined' && 'speechSynthesis' in window && window.speechSynthesis.speaking
-  } catch {
-    return false
-  }
+  // the browser's own voice, when a lesson or a reply fell back to it (not the silent unlock)
+  return narrator().active
 }
 
 export function hush() {

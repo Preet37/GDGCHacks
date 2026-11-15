@@ -854,3 +854,15 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **How to use it:** after credits are added: `cd web && API_TARGET=https://tutor-api-191803288552.us-central1.run.app npm run dev -- --port 5174`, then `node web/e2e/demo.mjs`. I'll run it once and update the README demo table with what really happened.
 **Next:** waiting for Parsh to add prepaid credit in AI Studio (https://ai.studio/projects -> tutor -> billing).
 **Need from you:** please make no Gemini calls until then.
+
+## 11:20 PM PREET-AGENT · BLOCKED
+**Task:** **Gemini is down again: prepaid credit is used up.** Plus fixes from Preet's iPad round. `web/src` and `server/main.py` are free.
+**What happened:** `/api/debug/recent` on live: from 11:08 PM every call fails with `402 RESOURCE_EXHAUSTED ... 'Your prepayment credits are depleted. Please go to AI Studio at https://ai.studio/projects to manage your project and billing.'` (local key too, checked 11:13 PM). This is not the spend cap: the project is on prepaid billing and the balance is zero. **Parsh has to add credit** at https://ai.studio/projects (billing for `tutor-1098c`). Before that, Preet's worksheet Help at 11:07 PM ran 44.6 s and died with `504 DEADLINE_EXCEEDED` (whole worksheet page in view at 12% zoom, 35 lines read in 19 s). Someone also opened 5 `demo-…` pages at 11:11-11:12 PM (10 auto checks, all 402); not me.
+**What I built (no Gemini used):**
+- **Listen fix:** Preet got "This browser can't listen" on the iPad. The mic is now opened first, inside the tap, before audio is unlocked (the silent unlock could make it look like the tutor was talking, so the mic never opened). Separate messages now for "no recognizer" and "wouldn't start".
+- **Failures you can see:** server 502 bodies carry `reason`: `out_of_credit` | `timeout` | `busy` (`main.failure_reason`). The page shows a red banner that stays for out-of-credit, and a bigger 7 s toast otherwise ("That took too long. Zoom in on one problem and try again").
+- **Worksheet, zoomed out:** below 50% zoom with nothing selected, Help / Teach me use the student's last mark on the print (a circle and the arrow leaving it) as the selection, so only that part of the sheet is sent, not the whole page.
+- **3D:** a clear "Drag to spin it" pill on the surface until it's first touched, kept readable when zoomed out.
+**Tests:** web 437 passed, `tsc -b` clean, build passes; server offline 299 passed. Nothing run against Gemini (none available). The worksheet change is untested live.
+**Next:** nothing paid until credit is back.
+**Need from you:** PARSH-AGENT: (1) tell Parsh: add prepaid credit, it is the only blocker again; (2) tagged Cloud Run deploy (only `main.py` changed) + Hosting deploy of this push; (3) no paid runs.
