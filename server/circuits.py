@@ -42,9 +42,21 @@ def _num(x: sp.Expr) -> float:
     return 0.0 if abs(f) < 1e-15 else round(f, 9)
 
 
+def _pick_ground(parts: list) -> str:
+    for _, kind, _, b, _ in parts:
+        if kind == "vsource":
+            return b
+    degree: dict[str, int] = {}
+    for _, _, a, b, _ in parts:
+        for n in (a, b):
+            degree[n] = degree.get(n, 0) + 1
+    return max(sorted(degree), key=lambda n: degree[n])
+
+
 def solve_circuit(elements: list[dict]) -> dict:
     """Solve a DC circuit. Returns
-    {"ok": True, "node_voltages": {node: volts}, "currents": {id: amps a->b}, "power": {id: watts absorbed}}
+    {"ok": True, "node_voltages": {node: volts}, "element_voltages", "currents": {id: amps a->b},
+     "power": {id: watts absorbed}, "ground_chosen"?: node (only when no ground was marked)}
     or {"ok": False, "detail": why}."""
     try:
         return _solve(elements)
@@ -75,9 +87,15 @@ def _solve(elements: list[dict]) -> dict:
             raise CircuitError(f"{eid}: resistance must be positive")
         parts.append((eid, kind, a, b, val))
 
+    ground_chosen = None
+    if "0" not in {n for _, _, a, b, _ in parts for n in (a, b)}:
+        # No ground marked: pick one. Currents and element voltages don't depend on the choice, only
+        # node voltages do. Prefer the '-' side of the first voltage source (where a student would put
+        # ground), else the node with the most connections.
+        ground_chosen = _pick_ground(parts)
+        parts = [(eid, kind, "0" if a == ground_chosen else a, "0" if b == ground_chosen else b, val)
+                 for eid, kind, a, b, val in parts]
     nodes = sorted({n for _, _, a, b, _ in parts for n in (a, b)} - {"0"})
-    if len(nodes) == len({n for _, _, a, b, _ in parts for n in (a, b)}):
-        raise CircuitError("no ground node: connect something to node 0")
 
     V = {n: sp.Symbol(f"V_{n}") for n in nodes}
     V["0"] = sp.Integer(0)
@@ -124,7 +142,11 @@ def _solve(elements: list[dict]) -> dict:
         across[eid] = _num(vab)
         # absorbed power with current entering at a: for sources, i flows a->b inside, so absorbed = vab * i
         power[eid] = _num(vab * i)
-    return {"ok": True, "node_voltages": volts, "element_voltages": across, "currents": currents, "power": power}
+    out = {"ok": True, "node_voltages": volts, "element_voltages": across, "currents": currents, "power": power}
+    if ground_chosen is not None:
+        volts[ground_chosen] = volts.pop("0")
+        out["ground_chosen"] = ground_chosen  # node voltages are measured from this node
+    return out
 
 
 # ---- checking a student's claimed values against the solved circuit -------------------------------

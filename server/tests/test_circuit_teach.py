@@ -61,7 +61,8 @@ def test_right_answer_guard_drops_a_wrong_red_circle():
 
 
 def test_unsolvable_circuit_reports_and_sets_no_verdict():
-    out = teach_mod._run_circuit({"circuit_line_id": "L1", "elements": [NETLIST[1]],
+    contradictory = [NETLIST[0], {"id": "V2", "kind": "vsource", "a": "n1", "b": "0", "value": "5"}]
+    out = teach_mod._run_circuit({"circuit_line_id": "L1", "elements": contradictory,
                                   "claims": [{"line_id": "L2", "quantity": "current", "element": "R1", "value": 1}]},
                                  _lines(), teach_mod.TeachResult())
     assert out["ok"] is False

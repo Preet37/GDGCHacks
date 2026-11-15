@@ -70,7 +70,6 @@ def test_power_balances():
 
 
 @pytest.mark.parametrize("els,why", [
-    ([R("R1", "a", "b", 10)], "ground"),
     ([Vs("V1", "a", "0", 5), R("R1", "a", "0", 10), R("R2", "x", "y", 10)], "single solution"),  # floating
     ([Vs("V1", "a", "0", 5), Vs("V2", "a", "0", 3)], "single solution"),                         # contradictory
     ([Is("I1", "0", "a", 1), Is("I2", "a", "0", 2)], "single solution"),
@@ -117,3 +116,25 @@ def test_check_claim(claim, verdict):
 
 def test_element_voltages_reported():
     assert solve_circuit(DIVIDER)["element_voltages"]["R2"] == pytest.approx(6.0)
+
+
+def test_no_ground_marked_picks_the_source_minus_side():
+    # Preet's lite-model read: same divider, but nothing labelled ground
+    out = solve_circuit([Vs("V1", "n1", "n3", 9), R("R1", "n1", "n2", "1k"), R("R2", "n2", "n3", "2k")])
+    assert out["ok"]
+    assert out["ground_chosen"] == "n3"
+    assert out["node_voltages"]["n3"] == 0.0
+    assert out["node_voltages"]["n2"] == pytest.approx(6.0)
+    assert out["currents"]["R2"] == pytest.approx(0.003)
+    assert check_claim(out, {"quantity": "current", "element": "R1", "value": "9mA"})["verdict"] == "incorrect"
+
+
+def test_no_ground_and_no_source_picks_busiest_node():
+    out = solve_circuit([Is("I1", "a", "b", "1m"), R("R1", "b", "a", "1k"), R("R2", "b", "a", "1k")])
+    assert out["ok"]
+    assert out["ground_chosen"] in ("a", "b")
+    assert out["element_voltages"]["R1"] == pytest.approx(0.5) or out["element_voltages"]["R1"] == pytest.approx(-0.5)
+
+
+def test_marked_ground_reports_no_choice():
+    assert "ground_chosen" not in solve_circuit(DIVIDER)
