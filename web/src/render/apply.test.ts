@@ -76,7 +76,7 @@ describe('staleShapeIds', () => {
     expect(staleShapeIds(shapes, { actions: [], clear_line_ids: ['L3'] }, frame)).toEqual(['n', 'l'])
   })
 
-  it('a lesson card survives a hint for its line, and is replaced by a new lesson for it', () => {
+  it('a lesson card survives a hint for its line; a new lesson replaces only the old lesson', () => {
     const shapes: OldShape[] = [
       { id: 'n', meta: { ai: true, line_id: 'L3', kind: 'note' } },
       { id: 'l', meta: { ai: true, line_id: 'L3', kind: 'lesson' } },
@@ -84,6 +84,15 @@ describe('staleShapeIds', () => {
     const hint: Action = { type: 'note', line_id: 'L3', text: 'Try again' }
     expect(staleShapeIds(shapes, { actions: [hint], clear_line_ids: [] }, frame)).toEqual(['n'])
     const lesson: Action = { type: 'lesson', line_id: 'L3', lesson: { title: 't', steps: [] } }
-    expect(staleShapeIds(shapes, { actions: [lesson], clear_line_ids: [] }, frame)).toEqual(['n', 'l'])
+    expect(staleShapeIds(shapes, { actions: [lesson], clear_line_ids: [] }, frame)).toEqual(['l'])
+  })
+
+  it('a lesson never removes the inline answer or marks already on its line', () => {
+    const shapes: OldShape[] = [
+      { id: 'answer', meta: { ai: true, line_id: 'L2', kind: 'note' } },
+      { id: 'ring', meta: { ai: true, line_id: 'L2', kind: 'circle' } },
+    ]
+    const lesson: Action = { type: 'lesson', line_id: 'L2', box: [480, 60, 590, 470], lesson: { title: 't', steps: [] } }
+    expect(staleShapeIds(shapes, { actions: [lesson], clear_line_ids: [] }, frame)).toEqual([])
   })
 })

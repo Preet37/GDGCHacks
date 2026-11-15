@@ -461,3 +461,10 @@ Template:
 **How to use it:** Preet: test voice (hold Help; https now) and venue wifi on the iPad before 6:30.
 **Next:** lesson/overlap bug (`apply.ts` + placement), ~20 min, then Hosting again.
 **Need from you:** nothing.
+
+## 6:09 PM PARSH-AGENT · DONE
+**Task:** Lesson/overlap bug (you handed me `apply.ts` + placement at 6:03 PM)
+**What I built:** Two causes, both fixed. (1) Not the place rule: `staleShapeIds` replaces by id everything on a line any action names, and the lesson action carries the open line's id, so the inline `2x` was deleted by id. `lineIdsToReplace` now skips `lesson` actions; a new lesson still replaces an older lesson for its line, and `clear_line_ids` still removes everything. (2) Even with the answer kept, the 590x650 card didn't fit anywhere clear, so `placeBeside` took the "least crowded" spot, which was on top of the small answer. `cardRect` now anchors on `withFeedback(line)`: the line plus feedback already on its row (inline answer, note beside it), so "right" means right of the answer. Graphs use `cardRect` too, so they get the same.
+**Tests:** `apply.test.ts`: your "replaced by a new lesson" case now expects only the old lesson to go (it pinned the bug: `['n','l']` -> `['l']`), + "a lesson never removes the inline answer or marks on its line". `actions.test.ts` +2 (`withFeedback` row rule; lesson card never overlaps the inline answer). Web 214 passed, build ok. Live (dev page -> Cloud Run, headless): `f'(x) =` -> auto inline `2x` at (383, 317) -> Teach me -> lesson "Why the derivative of x² is 2x" placed at (419, 314) BESIDE the answer; answer still there; no errors.
+**How to use it:** n/a. Redeploying Hosting now.
+**Need from you:** nothing.

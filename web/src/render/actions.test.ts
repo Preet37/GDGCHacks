@@ -5,6 +5,7 @@ import finishLine from '../../../contract/examples/finish_line.json'
 import hintLevel1 from '../../../contract/examples/hint_level_1.json'
 import { shapesForAction } from './actions'
 import { lineIdsToReplace } from './apply'
+import { cardRect, withFeedback } from './actions'
 
 const bounds = { x: 0, y: 0, w: 1000, h: 1000 }
 const wrong = wrongDerivative as unknown as CheckResponse
@@ -235,3 +236,21 @@ describe('lineIdsToReplace', () => {
     expect([...ids].sort()).toEqual(['L2', 'L7'])
   })
 })
+
+describe('cards go beside feedback already on the line', () => {
+  it('withFeedback grows the line over an inline answer on the same row, not over far or other-row marks', () => {
+    const line = { x: 300, y: 314, w: 80, h: 30 }
+    const ctx = { zoom: 1, taken: [{ x: 383, y: 317, w: 40, h: 28 }, { x: 900, y: 317, w: 40, h: 28 }, { x: 300, y: 500, w: 80, h: 30 }] }
+    expect(withFeedback(line, ctx, 16)).toEqual({ x: 300, y: 314, w: 123, h: 31 })
+  })
+
+  it('a lesson card never lands on the inline answer it is about', () => {
+    const bounds = { x: 0, y: 0, w: 1000, h: 1000 }
+    const answer = { x: 383, y: 317, w: 40, h: 28 }
+    const ctx = { zoom: 1, view: { x: 0, y: 0, w: 1180, h: 820 }, ink: [{ x: 300, y: 314, w: 80, h: 30 }], taken: [answer] }
+    const r = cardRect({ type: 'lesson', line_id: 'L2', box: [314, 300, 344, 380] }, bounds, ctx, 590, 650)
+    const overlaps = r.x < answer.x + answer.w && r.x + r.w > answer.x && r.y < answer.y + answer.h && r.y + r.h > answer.y
+    expect(overlaps).toBe(false)
+  })
+})
+

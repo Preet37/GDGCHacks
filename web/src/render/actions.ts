@@ -96,6 +96,16 @@ function inkedRect(rect: PageRect, ctx: RenderContext): PageRect {
   return strokesIn(rect, ctx.ink).reduce(unionRect, rect)
 }
 
+/**
+ * The line plus feedback already written on it (an inline answer, a note beside it): a card is
+ * placed beside all of that, so it never lands on top of the answer it is about.
+ */
+export function withFeedback(rect: PageRect, ctx: RenderContext, gap: number): PageRect {
+  const near = (t: PageRect) =>
+    t.y < rect.y + rect.h && t.y + t.h > rect.y && t.x < rect.x + rect.w + gap * 2 && t.x + t.w > rect.x - gap * 2
+  return (ctx.taken ?? []).filter(near).reduce(unionRect, rect)
+}
+
 function preferredSide(action: Action): Side {
   return action.side === 'below' ? 'below' : 'right'
 }
@@ -106,7 +116,8 @@ function preferredSide(action: Action): Side {
  */
 export function cardRect(action: Action, bounds: PageRect, ctx: RenderContext, w: number, h: number): PageRect {
   const sz = sizesFor(action, bounds, ctx)
-  const r = placeBeside(inkedRect(anchorRect(action, bounds), ctx), [{ w, h }], preferredSide(action), sz.gap, ctx)
+  const anchor = withFeedback(inkedRect(anchorRect(action, bounds), ctx), ctx, sz.gap)
+  const r = placeBeside(anchor, [{ w, h }], preferredSide(action), sz.gap, ctx)
   claim(ctx, r)
   return r
 }

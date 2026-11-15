@@ -15,10 +15,14 @@ const MARK_KINDS = new Set(['note', 'ask', 'circle', 'underline'])
 /** Two boxes are the same writing if they share this much of the smaller one. */
 export const SAME_WRITING = 0.5
 
-/** Line ids whose old feedback must go: anything re-addressed by an action, plus clear_line_ids. */
+/**
+ * Line ids whose old feedback must go: anything re-addressed by an action, plus clear_line_ids.
+ * A lesson doesn't count: it is played beside the work and never replaces the marks or the
+ * finished answer already on that line (it only replaces an older lesson, see staleShapeIds).
+ */
 export function lineIdsToReplace(response: Pick<CheckResponse, 'actions' | 'clear_line_ids'>): Set<string> {
   const ids = new Set(response.clear_line_ids)
-  for (const action of response.actions) if (action.line_id) ids.add(action.line_id)
+  for (const action of response.actions) if (action.line_id && action.type !== 'lesson') ids.add(action.line_id)
   return ids
 }
 
