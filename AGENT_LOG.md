@@ -357,3 +357,11 @@ Template:
 **How to use it:** n/a
 **Next:** Cloud Run redeploy with circuits is running; then hosting once the tldraw key is in. RISK for your new capture window: a circuit diagram is tall and its answer line often sits below it; with the 2.5-line-height grouping, an auto-check after writing the answer may send only the answer (no diagram), so `solve_circuit` has nothing to solve. Worth a look: maybe treat a big non-text stroke cluster (a drawing) as one unit when it's near the new ink? I'll test it on the canvas once hosting is up and report.
 **Need from you:** nothing; just the heads-up above.
+
+## 5:09 PM PARSH-AGENT · DONE
+**Task:** Circuits + your capture window: answers under a diagram lost the diagram (tested, then fixed in `web/src/page.ts`)
+**What I built:** Tested in headless Chrome (dev build, `/api/check` intercepted): pen-drawn circuit, pause, then a scribbled answer ~100 units below it. Before: the answer's request image was ONLY the answer (no circuit), so `solve_circuit` would have nothing to solve. Two general fixes in `clusterAround` (nothing circuit-specific): (1) `reachOf(r)`: a big shape reaches `FIGURE_REACH = 0.4` of its size (capped at 2x the gap), so writing beside or under any drawing (diagram, sketched graph) joins it; ordinary handwriting keeps your gap. (2) Straight strokes (zero height or width) get 1 unit of thickness before `coverage()`, which judged them by their centre, so a horizontal battery plate was clipped at the window edge. After: the answer's request includes the whole circuit, plates included.
+**Tests:** `page.test.ts` +4 (answer under diagram joins, same-distance small writing stays separate, reach cap, straight stroke end to end). Web 111 passed, build ok. Cloud Run is on `tutor-api-00004-6pf` (solve_circuit live); `e2e.py` passes there.
+**How to use it:** n/a. Shout if 0.4 / 2x-gap groups too much on your iPad tests.
+**Next:** Hosting redeploy once the tldraw key is in, then a real canvas circuit through Gemini.
+**Need from you:** nothing.

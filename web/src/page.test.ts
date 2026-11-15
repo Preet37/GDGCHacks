@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest'
 import {
   autoWindow,
   clusterAround,
+  reachOf,
   coverage,
   exportArea,
   EXPORT_PADDING,
@@ -122,5 +123,32 @@ describe('check window', () => {
     expect(coverage({ x: 0, y: 0, w: 10, h: 10 }, { x: 5, y: 0, w: 100, h: 100 })).toBe(0.5)
     expect(seedRect([{ x: 0, y: 0, w: 10, h: 10 }, { x: 5000, y: 0, w: 10, h: 10 }, { x: 5020, y: 0, w: 10, h: 10 }], { maxW: 1000, maxH: 700, gap: 50 })).toEqual({ x: 5000, y: 0, w: 30, h: 10 })
     expect(clusterAround({ x: 0, y: 0, w: 10, h: 10 }, [{ x: 30, y: 0, w: 10, h: 10 }, { x: 200, y: 0, w: 10, h: 10 }], { maxW: 1000, maxH: 700, gap: 50 })).toEqual({ x: 0, y: 0, w: 40, h: 10 })
+  })
+})
+
+describe('drawings reach further', () => {
+  const lim = { maxW: 2000, maxH: 2000, gap: 100 }
+
+  it('an answer written under a big diagram joins it', () => {
+    const answer = { x: 230, y: 530, w: 120, h: 40 }
+    const diagram = { x: 200, y: 150, w: 415, h: 250 } // bottom at 400: 130 below, more than the gap
+    expect(clusterAround(answer, [diagram], lim)).toEqual({ x: 200, y: 150, w: 415, h: 420 })
+  })
+
+  it('small handwriting the same distance away still stays separate', () => {
+    const line = { x: 230, y: 530, w: 120, h: 40 }
+    const other = { x: 230, y: 360, w: 120, h: 40 } // 130 above
+    expect(clusterAround(line, [other], lim)).toEqual(line)
+  })
+
+  it('reach is capped at twice the gap', () => {
+    expect(reachOf({ x: 0, y: 0, w: 5000, h: 4 }, lim)).toBe(200)
+    expect(reachOf({ x: 0, y: 0, w: 50, h: 40 }, lim)).toBe(100)
+  })
+
+  it('a straight stroke is included end to end, not just its middle', () => {
+    const seed = { x: 0, y: 0, w: 100, h: 100 }
+    const plate = { x: -40, y: 50, w: 80, h: 0 } // centre inside, left end outside
+    expect(clusterAround(seed, [plate], lim).x).toBe(-40)
   })
 })

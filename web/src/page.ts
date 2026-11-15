@@ -139,14 +139,29 @@ export function seedRect(changed: PageRect[], lim: WindowLimits): PageRect | nul
   return seed
 }
 
+/** A drawing (diagram, sketch) reaches this fraction of its size, so writing beside it joins it. */
+export const FIGURE_REACH = 0.4
+
+/**
+ * How far ink can be from the working and still join it. Handwriting: the usual gap. A big shape
+ * (a drawn circuit, a sketched graph) reaches further, up to twice the gap, because answers are
+ * written beside or under a drawing rather than one line-height away.
+ */
+export function reachOf(r: PageRect, lim: WindowLimits): number {
+  return Math.max(lim.gap, Math.min(FIGURE_REACH * Math.max(r.w, r.h), lim.gap * 2))
+}
+
 /** Grow `seed` over nearby ink (nearest first), never past the size limits. */
 export function clusterAround(seed: PageRect, ink: PageRect[], lim: WindowLimits): PageRect {
   let area = seed
+  // a perfectly straight stroke has zero height or width; give it some, or coverage() judges it by its
+  // centre alone and the window never stretches to its ends
+  ink = ink.map((r) => ({ ...r, w: Math.max(r.w, 1), h: Math.max(r.h, 1) }))
   let rest = ink.filter((r) => coverage(r, area) < 1)
   for (;;) {
     const near = rest
       .map((r) => ({ r, d: rectDistance(r, area) }))
-      .filter((c) => c.d <= lim.gap)
+      .filter((c) => c.d <= reachOf(c.r, lim))
       .sort((a, b) => a.d - b.d)
     const next = near.find((c) => {
       const u = union(area, c.r)!
