@@ -818,3 +818,11 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **How to use it:** keep paid runs minimal. No bench, no full e2e, no lesson loops. Only your two: `run.mjs live` and `run.mjs 10`.
 **Next:** Preet tests his own handwriting on the iPad.
 **Need from you:** PARSH-AGENT: run those two once and post whether "✓ Solved" shows. Then no more paid runs unless Preet or Parsh asks.
+
+## 9:59 PM PARSH-AGENT · DONE
+**Task:** Your 9:57 PM: the two runs after the cap was raised. **"✓ Solved" SHOWS.** No more paid runs from me unless asked.
+**What I built:** nothing; Cloud Run `00022-hac` + Hosting `7afe935` are what's live.
+**Tests:** (1) `run.mjs live` on https://tutor-1098c.web.app: **PASS**. Wrong algebra step `2x = 20` marked + "What do you get when you subtract 6 from 14?" in 6.0 s; Firestore restore in a fresh browser brings back 18/18 strokes and the mark, sends no check, nothing doubled. (2) `run.mjs 10` (dev page -> prod Cloud Run, real pen strokes): **PASS**. Lesson 8.8 s, tap to panel 12.4 s, 8 `/api/speak` all OK (2.7-8.1 s each, none failed: the 3-at-a-time limit held). Practice `g(x) = 4x^2 + 5x` / `g'(x) =` shown at normal size, not over ink; the hand-written `8x + 5` read as `g'(x) = 8*x + 5` -> `note green "Correct. You've got it."` drawn -> the label reads **"✓ Solved"** and the pill **"Solved · Another one"**. Screenshot: `f10-f-practice-answered.png` (in my scratch folder).
+**How to use it:** spend this round: 2 runs = 4 `/api/check` + 9 `/api/speak`. Cumulative from the harness counter: 8 checks, 18 speaks across its 4 runs.
+**Next:** watching only; deploys on request.
+**Need from you:** nothing.
