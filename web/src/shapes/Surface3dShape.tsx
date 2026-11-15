@@ -3,6 +3,7 @@ import { BaseBoxShapeUtil, HTMLContainer, T, useEditor, useValue, type RecordPro
 import type { FigureSpec } from '../contract'
 import { trySampleSurface } from '../render/figure3d/sample'
 import type { SurfaceView } from '../render/figure3d/scene'
+import { isFresh } from './fresh3d'
 import { prettyMath } from '../render/text'
 
 export const SURFACE3D_TYPE = 'surface3d'
@@ -42,6 +43,10 @@ function Surface3dCard({ shape }: { shape: Surface3dShape }) {
   const viewRef = useRef<SurfaceView | null>(null)
   const [glFailed, setGlFailed] = useState(false)
   const [touched, setTouched] = useState(false)
+  // a card restored with a saved page waits for a tap before it starts WebGL (see fresh3d.ts)
+  const [live, setLive] = useState(() => isFresh(shape.id))
+  const liveRef = useRef(live)
+  liveRef.current = live
   const zoom = useValue('zoom', () => editor.getZoomLevel(), [editor])
   const hintScale = Math.min(2.5, Math.max(1, 0.8 / zoom))
 
@@ -56,7 +61,7 @@ function Surface3dCard({ shape }: { shape: Surface3dShape }) {
   // One WebGL renderer per shape, created on mount and freed on unmount.
   useEffect(() => {
     const host = hostRef.current
-    if (!host || !grid) return
+    if (!host || !grid || !live) return
     let cancelled = false
     let view: SurfaceView | null = null
     setGlFailed(false)
@@ -76,7 +81,7 @@ function Surface3dCard({ shape }: { shape: Surface3dShape }) {
       view?.dispose()
       viewRef.current = null
     }
-  }, [grid])
+  }, [grid, live])
 
   useEffect(() => {
     viewRef.current?.resize(viewW, viewH)
@@ -97,6 +102,10 @@ function Surface3dCard({ shape }: { shape: Surface3dShape }) {
     }
     const down = (e: PointerEvent) => {
       claim(e)
+      if (!liveRef.current) {
+        setLive(true) // the tap that wakes a restored card
+        return
+      }
       if (active !== null || (e.pointerType === 'mouse' && e.button !== 0)) return
       active = e.pointerId
       lastX = e.clientX
@@ -196,7 +205,24 @@ function Surface3dCard({ shape }: { shape: Surface3dShape }) {
               WebkitTouchCallout: 'none',
             }}
           >
-            {!touched && (
+            {!live && (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  fontSize: 16,
+                  fontWeight: 600,
+                  color: '#2563eb',
+                  pointerEvents: 'none',
+                }}
+              >
+                Tap to show the 3D graph
+              </div>
+            )}
+            {live && !touched && (
               <div
                 style={{
                   position: 'absolute',

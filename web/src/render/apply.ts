@@ -7,7 +7,7 @@ import { drawFigures, notice } from './figure'
 import { TEXT_LINE_HEIGHT, boxToPage, overlapRatio, type PageRect, type RenderContext } from './geometry'
 import { sheetInk } from './sheetInk'
 import { domMathMeasure } from './mathline'
-import { fontMeasure, headingShape, panTo, revealSolution, solutionLayout, solutionShapes } from './solution'
+import { fontMeasure, headingShape, revealSolution, solutionLayout, solutionShapes } from './solution'
 import { mathToPlain, mathToSpeech } from './text'
 
 type LessonModule = { renderLesson: (editor: Editor, action: Action, rect: PageRect, about?: PageRect | null) => Promise<void> }
@@ -229,13 +229,11 @@ export function applyResponse(editor: Editor, response: CheckResponse, bounds: P
   const hand = handwritingEnabled()
   const solutions: PageRect[] = [] // revealed step by step, the camera following: not part of the one-off reveal below
   const batches = response.actions.map((a) => {
-    if (drawnByHand(a, hand, (action) => handForAction(editor, action, bounds, ctx))) {
+    // A worked solution is never written with the student's letter shapes: several lines of copied
+    // glyphs, fractions flattened onto one line, came out unreadable on the iPad. It is typeset
+    // (or written in the tutor's font). Handwriting mode still covers a finished line.
+    if (a.type !== 'solution' && drawnByHand(a, hand, (action) => handForAction(editor, action, bounds, ctx))) {
       drawn++
-      if (a.type === 'solution') {
-        const rect = ctx.taken!.at(-1)!
-        solutions.push(rect)
-        panTo(editor, rect)
-      }
       return []
     }
     if (a.type !== 'solution') return shapesForAction(a, bounds, ctx)

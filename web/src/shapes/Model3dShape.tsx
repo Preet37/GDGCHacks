@@ -4,6 +4,7 @@ import type { Model3dFigure } from '../contract'
 import { hasLooks, LOAD_COLORS, LOAD_WORDS, loadsUsed, partGroups, thinStroke, TL_COLORS, type ModelMark } from '../render/model3d/geometry'
 import type { ModelView } from '../render/model3d/scene'
 import { buildModel3d } from '../sync/api'
+import { isFresh } from './fresh3d'
 
 /**
  * Engineering (Part 2): a 3D model of a structure (a bridge, a truss, a crane) the student can turn and tap.
@@ -58,6 +59,8 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
   const viewRef = useRef<ModelView | null>(null)
   const [glFailed, setGlFailed] = useState(false)
   const [touched, setTouched] = useState(false)
+  // a card restored with a saved page waits for a tap before it starts WebGL (see fresh3d.ts)
+  const [live, setLive] = useState(() => isFresh(shape.id))
   const [selected, setSelected] = useState<string | null>(null)
   const [mode, setMode] = useState<'turn' | 'draw'>('turn')
   // real materials when the model has them; older models (force colours only) start in Forces
@@ -81,7 +84,7 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
 
   useEffect(() => {
     const host = hostRef.current
-    if (!host || !model.parts.length) return
+    if (!host || !model.parts.length || !live) return
     let cancelled = false
     let view: ModelView | null = null
     setGlFailed(false)
@@ -102,7 +105,7 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
       viewRef.current = null
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [modelKey])
+  }, [modelKey, live])
 
   useEffect(() => {
     viewRef.current?.resize(viewW, viewH)
@@ -362,6 +365,14 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
               WebkitTouchCallout: 'none',
             }}
           >
+            {!live && !unbuilt && (
+              <button
+                onClick={() => setLive(true)}
+                style={{ position: 'absolute', inset: 0, zIndex: 4, border: 0, background: 'rgba(255,255,255,0.6)', color: '#2563eb', fontSize: 16, fontWeight: 600, touchAction: 'manipulation' }}
+              >
+                Tap to show the 3D model
+              </button>
+            )}
             {unbuilt && (
               <div
                 data-model3d-building={buildError ? 'error' : 'busy'}

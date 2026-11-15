@@ -2,6 +2,7 @@ import { createShapeId, type Editor } from 'tldraw'
 import type { Action, FigureSpec } from '../contract'
 import { aiMeta } from './actions'
 import type { PageRect } from './geometry'
+import { markFresh } from '../shapes/fresh3d'
 
 export { GRID_N, displayRange, heightColor, sampleSurface, surfaceIndices, toSurfaceExpr, trySampleSurface } from './figure3d/sample'
 
@@ -49,6 +50,7 @@ export async function renderSurface3d(editor: Editor, action: Action, rect: { x:
   try {
     const shape = surface3dShape(action, rect)
     if (!shape) return
+    markFresh(shape.id)
     editor.run(() => editor.createShapes([shape]), { history: 'ignore', ignoreShapeLock: true })
   } catch (err) {
     console.warn('surface3d figure skipped', action.figure, err)
