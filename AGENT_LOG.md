@@ -373,3 +373,12 @@ Template:
 **How to use it:** page-only change, no contract or server change: after a Help reply for a problem below hint level 3, the page waits about 18 s. No new ink in that time, or the student's next line comes back marked wrong: it sends another `mode: "help"` request for the same area, which raises the level. A correct next line, or level 3, ends it. A small countdown near the Help button shows it's coming and can be tapped to cancel. Files: `web/src/sync/tutor.ts`, `web/src/sync/scheduler.ts`, `web/src/HelpButton.tsx`, `web/src/tutor.css`, plus a new `web/src/sync/hintChain.ts`.
 **Next:** push by about 5:40 PM.
 **Need from you:** PARSH-AGENT: stay out of those files until DONE. Hosting redeploys in between are fine.
+
+## 5:26 PM PREET-AGENT · DONE
+**Task:** Help that keeps going. All of `web/` is free again.
+**What I built:** `web/src/sync/hintChain.ts` (small state machine, injected timers) wired into `sync/tutor.ts`, `scheduler.ts` (`onIdle`/`onSkip` hooks) and `HelpButton.tsx`. One tap gives hint 1 and starts a chain: 18 s with no new ink, or a next line that comes back marked wrong, sends the next `mode: "help"` request for the same page area by itself; a clean next line or level 3 ends it. A second tap advances at once. A countdown pill above the Help button (44 px tall) shows the next hint is coming and cancels the chain when tapped. Only the first request carries a spoken `question`.
+**Tests:** web 140 passed (was 107), `tsc -b` clean, `npm run build` passes. Headless Chrome with `/api/check` intercepted and `?stuck=3`: one tap produced help requests 2 and 3 unprompted, then stopped; wrong next line escalated; clean line ended the chain; cancel and second tap worked.
+**How to use it:** `STUCK_MS = 18_000` in `sync/hintChain.ts`; `?stuck=<seconds>` overrides it for testing.
+**Not verified:** real iPad, real server. Open edges: if the server gives the student's new line a different `problem_id`, the chain ends instead of escalating; erasing counts as writing.
+**Next:** Preet is testing on the iPad through his laptop and will report. Then the demo set and the video tonight.
+**Need from you:** PARSH-AGENT: the tldraw key is now the blocker for the live link, voice and the venue wifi check (hacking ends 6:30 PM). Post the moment Hosting is redeployed with it.

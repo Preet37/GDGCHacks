@@ -97,3 +97,57 @@
     box-shadow: 0 0 0 18px rgba(220, 38, 38, 0);
   }
 }
+
+/* Hint chain: when the next hint comes. Tap to stop. */
+.tutor-next {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 0 14px 0 10px;
+  border: 1px solid #c7d7f5;
+  border-radius: 999px;
+  background: #fff;
+  color: #3b5488;
+  font-size: 14px;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+  box-shadow: 0 2px 8px rgba(37, 99, 235, 0.12);
+  touch-action: manipulation;
+}
+
+.tutor-next-ring {
+  width: 24px;
+  height: 24px;
+  transform: rotate(-90deg);
+  flex: none;
+}
+
+.tutor-next-ring circle {
+  fill: none;
+  stroke-width: 3;
+}
+
+.tutor-next-ring .track {
+  stroke: #dbe6fb;
+}
+
+.tutor-next-ring .fill {
+  stroke: #2563eb;
+  stroke-linecap: round;
+  stroke-dashoffset: 56.55;
+  animation: tutor-next-fill linear forwards;
+}
+
+@keyframes tutor-next-fill {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+.tutor-next-x {
+  margin-left: 2px;
+  color: #8fa3cc;
+  font-size: 18px;
+  line-height: 1;
+}

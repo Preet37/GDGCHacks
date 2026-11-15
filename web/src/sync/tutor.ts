@@ -4,11 +4,12 @@ import { isAiShape } from '../render/actions'
 import { applyResponse } from '../render/apply'
 import { readingShapes } from '../render/reading'
 import { pageToBox, type PageRect } from '../render/geometry'
-import { autoWindow, coverage, helpWindow, intersects, rectOf, studentShapes } from '../page'
+import { autoWindow, coverage, EXPORT_PADDING, helpWindow, intersects, rectOf, studentShapes, union } from '../page'
 import { isWorksheetShape } from '../worksheet'
 import { postCheck } from './api'
 import { exportPng } from './exportImage'
-import { mergeReply, PAGE_FRAME, requestState, sweepErased, toSaved, type SavedState } from './frame'
+import { boxRect, mergeReply, PAGE_FRAME, requestState, sweepErased, toSaved, type SavedState } from './frame'
+import { HintChain, mistakeProblems, raisedProblem, stuckMsFromUrl, type HelpResult, type HelpTarget } from './hintChain'
 import { emptyState, loadLastBounds, loadState, saveState } from './pageState'
 import { hashString, PauseScheduler } from './scheduler'
 
@@ -26,6 +27,11 @@ function isStudentShapeRecord(r: TLRecord): boolean {
   return r.typeName === 'shape' && !isAiShape(r)
 }
 
+/** What one request did (see hintChain.ts). */
+interface SendOutcome extends HelpResult {
+  mistakes: string[]
+}
+
 /** A change not yet sent: a live stroke (looked up by id when sending) or the place where one was erased. */
 interface Change {
   gone: PageRect | null
@@ -39,6 +45,10 @@ export class Tutor {
   showReading = false
   /** What the last request covered and carried (for the dev console and tests). */
   lastSent: { window: PageRect; mode: CheckRequest['mode']; state: PageState; help_box?: CheckRequest['help_box'] } | null = null
+  /** One tap on Help, then hints keep coming while the student is stuck (see hintChain.ts). */
+  readonly hints: HintChain
+  /** counts changes the student made, to tell whether a check is already out of date when it returns */
+  private touches = 0
   private changes = new Map<string, Change>()
   private seq = 0
   private followUps = 0
@@ -56,7 +66,21 @@ export class Tutor {
     this.scheduler = new PauseScheduler({
       delayMs: PAUSE_MS,
       key: () => this.fingerprint(),
-      send: () => this.send({ mode: 'auto' }),
+      send: async () => {
+        const at = this.touches
+        let out: SendOutcome | null = null
+        try {
+          out = await this.send({ mode: 'auto' })
+        } finally {
+          this.hints.checked(out && { dirty: this.touches !== at, mistakes: out.mistakes })
+        }
+      },
+      onSkip: () => this.hints.checked(null),
+      onIdle: () => this.hints.idle(),
+    })
+    this.hints = new HintChain({
+      stuckMs: stuckMsFromUrl(typeof location === 'undefined' ? '' : location.search),
+      request: (target) => this.requestHelp(target),
     })
     this.unlisten = editor.store.listen(
       ({ changes }) => {
@@ -79,6 +103,8 @@ export class Tutor {
         }
         if (touched) {
           this.followUps = 0
+          this.touches++
+          this.hints.ink()
           this.scheduler.poke()
         }
       },
@@ -99,19 +125,33 @@ export class Tutor {
   dispose() {
     this.unlisten()
     this.scheduler.dispose()
+    this.hints.dispose()
   }
 
-  /** Help: send now with mode "help". `area` = page-space selection; without one, what is on screen. */
+  /**
+   * Help was tapped: send now with mode "help". `area` = page-space selection; without one, what is on screen.
+   * This starts a hint chain (or, during one on the same thing, brings its next hint right away).
+   */
   async help(area?: PageRect, question?: string): Promise<boolean> {
-    const ok = await this.scheduler.exclusive(() => this.send({ mode: 'help', area, question }).catch(() => {}))
-    if (!ok) this.emit({ type: 'error', message: 'Still thinking about the last one…' })
-    return ok
+    const res = await this.hints.tap(area, question, rectOf(this.editor.getViewportPageBounds()))
+    if (res === 'busy') this.emit({ type: 'error', message: 'Still thinking about the last one…' })
+    return res !== 'busy'
+  }
+
+  /** One help request, never alongside another request. */
+  private async requestHelp(target: HelpTarget): Promise<HelpResult | 'busy' | null> {
+    let out: SendOutcome | null = null
+    const ok = await this.scheduler.exclusive(async () => {
+      out = await this.send({ mode: 'help', ...target }).catch(() => null)
+    })
+    return ok ? out : 'busy'
   }
 
   /** Replace the page state (e.g. loaded from Firestore). The loaded page counts as already checked. */
   adoptState(state: PageState) {
     this.state = toSaved(state, loadLastBounds())
     saveState(this.state)
+    this.hints.cancel()
     this.changes.clear()
     this.known.clear()
     for (const s of studentShapes(this.editor)) this.remember(s.id)
@@ -166,7 +206,19 @@ export class Tutor {
     this.drawReading()
   }
 
-  private async send(opts: { mode: CheckRequest['mode']; area?: PageRect; question?: string }) {
+  /** A hint chain's follow-up: the window its first request sent, stretched over what the problem has grown to. */
+  private chainWindow(first: PageRect, problemId?: string): PageRect {
+    let win = first
+    for (const l of this.state.lines) {
+      if (l.problem_id !== problemId) continue
+      const r = boxRect(l.box)
+      win = union(win, { x: r.x - EXPORT_PADDING, y: r.y - EXPORT_PADDING, w: r.w + EXPORT_PADDING * 2, h: r.h + EXPORT_PADDING * 2 })!
+    }
+    return win
+  }
+
+  /** Returns what the request did, or null if nothing was sent. */
+  private async send(opts: { mode: CheckRequest['mode'] } & HelpTarget): Promise<SendOutcome | null> {
     const view = rectOf(this.editor.getViewportPageBounds())
     const items = studentShapes(this.editor).flatMap((shape) => {
       const b = this.editor.getShapePageBounds(shape)
@@ -187,9 +239,11 @@ export class Tutor {
 
     const win =
       opts.mode === 'help'
-        ? helpWindow(opts.area, ink, sheets, view)
+        ? opts.window
+          ? this.chainWindow(opts.window, opts.problemId)
+          : helpWindow(opts.area, ink, sheets, view)
         : autoWindow(pending.map((p) => p.rect), ink, sheets, view)
-    if (!win) return
+    if (!win) return null
     /** Changes inside the window are dealt with by this check; the rest wait for their own. */
     const settle = () => {
       for (const p of pending) {
@@ -203,10 +257,13 @@ export class Tutor {
     }
 
     const visible = items.filter((i) => intersects(i.rect, win))
-    if (opts.mode === 'auto' && !visible.some((i) => !i.sheet)) return settle() // only erasures here: nothing to read
+    if (opts.mode === 'auto' && !visible.some((i) => !i.sheet)) {
+      settle() // only erasures here: nothing to read
+      return null
+    }
     if (!visible.length) {
       this.emit({ type: 'error', message: 'Nothing on screen to help with yet' })
-      return
+      return null
     }
 
     this.emit({ type: 'busy', busy: true })
@@ -224,11 +281,13 @@ export class Tutor {
       // the page owns its id and its frame: fold the window's reply into the whole-page state
       const { reply, state } = mergeReply(this.state, sent, raw, win)
       applyResponse(this.editor, reply, win)
+      const raised = raisedProblem(this.state.problems, state.problems, opts.problemId)
       this.state = state
       saveState(state)
       this.drawReading()
       settle()
       this.emit({ type: 'reply', reply })
+      return { window: win, raised, mistakes: mistakeProblems(reply) }
     } catch (err) {
       this.emit({ type: 'error', message: err instanceof Error ? err.message : 'Something went wrong' })
       throw err

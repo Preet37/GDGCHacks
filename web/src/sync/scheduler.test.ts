@@ -77,6 +77,64 @@ describe('PauseScheduler', () => {
   })
 })
 
+describe('PauseScheduler hooks', () => {
+  beforeEach(() => vi.useFakeTimers())
+  afterEach(() => vi.useRealTimers())
+
+  it('onIdle runs after every request, when exclusive is free again; onSkip when a pause had nothing new', async () => {
+    const onIdle = vi.fn()
+    const onSkip = vi.fn()
+    const s: PauseScheduler = new PauseScheduler({
+      delayMs: 100,
+      key: () => 'same',
+      send: async () => {},
+      onSkip,
+      onIdle: () => {
+        onIdle()
+        expect(s.busy).toBe(false)
+      },
+    })
+    s.poke()
+    await vi.advanceTimersByTimeAsync(100)
+    expect(onIdle).toHaveBeenCalledTimes(1)
+    expect(onSkip).not.toHaveBeenCalled()
+    s.poke()
+    await vi.advanceTimersByTimeAsync(100)
+    expect(onSkip).toHaveBeenCalledTimes(1)
+    expect(onIdle).toHaveBeenCalledTimes(1)
+    await s.exclusive(async () => {})
+    expect(onIdle).toHaveBeenCalledTimes(2)
+  })
+
+  it('a request started from onIdle goes through exclusive without overlapping', async () => {
+    let inFlight = 0
+    let max = 0
+    const job = async () => {
+      max = Math.max(max, ++inFlight)
+      await new Promise((r) => setTimeout(r, 50))
+      inFlight--
+    }
+    let owed = true
+    const results: boolean[] = []
+    const s: PauseScheduler = new PauseScheduler({
+      delayMs: 100,
+      key: () => String(Math.random()),
+      send: job,
+      onIdle: () => {
+        if (!owed) return
+        owed = false
+        void s.exclusive(job).then((ok) => results.push(ok))
+      },
+    })
+    s.poke()
+    await vi.advanceTimersByTimeAsync(120)
+    expect(await s.exclusive(job)).toBe(false) // the auto check is in flight
+    await vi.advanceTimersByTimeAsync(500)
+    expect(results).toEqual([true])
+    expect(max).toBe(1)
+  })
+})
+
 describe('hashString', () => {
   it('is stable and sensitive to changes', () => {
     expect(hashString('abc')).toBe(hashString('abc'))

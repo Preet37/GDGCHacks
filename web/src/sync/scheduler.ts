@@ -3,6 +3,10 @@ export interface SchedulerOptions {
   /** Fingerprint of what would be sent; a send is skipped if it matches the last one sent. */
   key: () => string
   send: () => Promise<void>
+  /** A pause ended but nothing had changed since the last send, so nothing was sent. */
+  onSkip?: () => void
+  /** A request (auto or exclusive) just finished and nothing is in flight. */
+  onIdle?: () => void
 }
 
 /**
@@ -51,7 +55,10 @@ export class PauseScheduler {
   private async fire() {
     this.timer = null
     const key = this.opts.key()
-    if (key === this.lastKey) return
+    if (key === this.lastKey) {
+      this.opts.onSkip?.()
+      return
+    }
     this.lastKey = key
     await this.run(this.opts.send).catch(() => {
       // allow retrying the same page after a failure
@@ -69,6 +76,7 @@ export class PauseScheduler {
         this.changedDuringFlight = false
         this.poke()
       }
+      this.opts.onIdle?.()
     }
   }
 }
