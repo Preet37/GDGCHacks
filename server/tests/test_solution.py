@@ -113,7 +113,8 @@ def test_request_belongs_to_the_nearest_problem_when_read_as_its_own():
     assert solution.requested_problems([PROBLEM, stray, other]) == {"P1"}
     assert solution.requested_problems([PROBLEM, SOLVE, other]) == {"P1"}
     _, _, out = _run([_submit(_sol([S("2x = 6", "2*x = 6"), S("x = 3", "x = 3")], line_id="L3"))], [PROBLEM, stray, other])
-    assert out.actions == []   # "solve" was written by P1, not P2
+    # "solve" was written by P1, not P2: the P2 solution is dropped, and P1's request is answered with a note
+    assert [(a.type, a.color, a.line_id) for a in out.actions] == [("note", "blue", SOLVE.line_id)]
 
 
 def test_continues_from_the_students_last_correct_line():

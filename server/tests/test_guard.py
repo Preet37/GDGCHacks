@@ -266,3 +266,21 @@ def test_memory_feeds_the_guard_and_keeps_hint_texts():
     assert memory.marked("pg") == {}
     assert memory.previous_hints("pg", [ProblemState(problem_id="P1", hint_level=0)]) == {}   # the ladder started over
     assert memory.previous_hints("pg", probs) == {}
+
+
+def test_a_solve_request_never_gets_silence():
+    from internal import TeachResult
+    from models import PageState, ReadLine
+    from guard import merge, NO_SOLUTION
+    l1 = ReadLine(line_id="L1", problem_id="P1", latex="x2 + 6 = 14", plain="x2 + 6 = 14", box=(100, 50, 200, 500),
+                  relation="start", confidence="high")
+    l2 = ReadLine(line_id="L2", problem_id="P1", latex="solve it", plain="solve it", box=(100, 550, 200, 800),
+                  relation="other", confidence="high")
+    state = PageState(page_id="t")
+    for result in (TeachResult(), TeachResult(finished=False)):       # nothing submitted / ran out of turns
+        r = merge(state, [l1, l2], result, "auto")
+        assert [(a.type, a.color, a.line_id, a.text) for a in r.actions] == [("note", "blue", "L2", NO_SOLUTION)]
+        again = merge(r.state, [l1, l2], result, "auto")               # said once, not on every check
+        assert again.actions == []
+    plain = merge(state, [l1], TeachResult(), "auto")                   # no request: still nothing
+    assert plain.actions == []

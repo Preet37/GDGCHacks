@@ -117,6 +117,29 @@ def _try_first(lines: list[ReadLine], actions: list[Action], by_line: dict, set_
     return out
 
 
+NO_SOLUTION = "I couldn't work this one out reliably. Check it's written the way you meant, or tap Help."
+
+
+def _no_silence(lines: list[ReadLine], actions: list[Action], by_line: dict, settled: set,
+                solved: dict | None = None) -> list[Action]:
+    """The student wrote "solve" and nothing is coming back for that problem (the steps failed the checker,
+    or the model ran out of turns): say so in one blue note beside the word, once. Silence looks broken."""
+    out = []
+    for l in lines:
+        if not solution.is_request(l) or l.line_id in settled:
+            continue
+        pid = solution._request_problem(l, lines)
+        if pid is None:
+            continue
+        mine = {o.line_id for o in lines if o.problem_id == pid}
+        answered = (any(a.line_id == l.line_id or a.line_id in mine for a in actions + out)
+                    or bool(mine & settled)                       # that problem already has feedback on the page
+                    or any(i in mine for i in (solved or {})))    # or a solution was already written under it
+        if not answered:
+            out.append(Action(type="note", line_id=l.line_id, box=l.box, color="blue", side="right", text=NO_SOLUTION))
+    return out
+
+
 def _ordered_unique(items):
     seen, out = set(), []
     for x in items:
@@ -177,10 +200,15 @@ def merge(state: PageState, lines: list[ReadLine], result: TeachResult, mode: st
                        or _new_mistake(a, by_line[a.line_id], result.verdicts, marked)
                        or _new_solution(a, by_line[a.line_id], solved)]
         actions += _try_first(lines, actions, by_line, set_work, settled if mode == "auto" else set())
+        actions += _no_silence(lines, actions, by_line, settled if mode == "auto" else set(), solved)
         clear = list(result.clear_line_ids)
         hint_updates = result.hint_updates if mode == "help" else []  # the hint ladder only moves when Help is tapped
     else:
-        actions, clear, hint_updates = [], [], []
+        # The model never finished. Nothing it said is used, but a "solve" request still gets an answer.
+        before = {l.line_id: l.plain for l in state.lines}
+        by_line = {l.line_id: l for l in lines}
+        settled = {i for i in state.flagged_line_ids if i in by_line and before.get(i) == by_line[i].plain}
+        actions, clear, hint_updates = _no_silence(lines, [], by_line, settled, solved), [], []
 
     # Hint levels
     problems = [p.model_copy() for p in state.problems]
