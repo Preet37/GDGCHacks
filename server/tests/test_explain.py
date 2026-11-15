@@ -58,6 +58,8 @@ STEPS = [
     {"write": "x^2 + C"},                                         # no narration: dropped
     {"say": "That area is \\frac{1}{2} base times height, which is x^2.", "write": "$\\int 2x\\,dx = x^{2} + C$"},
     {"say": "So the answer is x squared plus C.", "visual": {"kind": "plot2d", "expressions": ["?? (("], "x_range": [0, 1]}},
+    {"say": "Your line kept the two. The area grows like x squared, not two x squared."},
+    {"say": "Now you try. What is the integral of 6x?", "caption": "Try it: $\\int 6x\\,dx$"},
 ]
 SUBMIT = ("submit_lesson", {"title": "Why the integral of 2x is x²", "steps": STEPS, "line_id": "L2"})
 
@@ -67,7 +69,7 @@ def test_tool_call_then_submit():
     r = explain_mod.explain(client, "fake", _lines(), _req())
     assert r.finished and r.hint_updates == [] and r.clear_line_ids == []
     # the student's own lines were checked before the model was asked, and it was told about the mistake
-    assert r.tool_calls[0] == "verify_step(L1->L2, integral) = incorrect"
+    assert r.tool_calls[:2] == ["verify_step(L1->L2, integral) = incorrect", "target(L2, problem P1)"]
     sent = json.loads(client.calls[0][0].parts[0].text)
     assert sent["checks"][0]["line_id"] == "L2" and sent["checks"][0]["verdict"] == "incorrect"
     assert [l["line_id"] for l in sent["problem"]] == ["L1", "L2"] and sent["anchor_line_id"] == "L2"
@@ -75,18 +77,18 @@ def test_tool_call_then_submit():
     cfg = client.configs[0]
     assert [t.name for t in cfg.tools[0].function_declarations] == ["compute_step", "verify_step", "submit_lesson"]
     assert cfg.tool_config.function_calling_config.mode == "ANY"
-    assert r.tool_calls[1] == "compute_step(?->?, integral) = x^2 + C"
+    assert r.tool_calls[2] == "compute_step(?->?, integral) = x^2 + C"
     assert client.calls[1][-1].parts[0].function_response.response["latex"] == "x^{2} + C"
     # one lesson action, anchored to the student's line
     (a,) = r.actions
     assert (a.type, a.line_id, a.box, a.side) == ("lesson", "L2", (180, 80, 240, 400), "right")
     assert a.lesson.title == "Why the integral of 2x is x²"
-    assert len(a.lesson.steps) == 4                               # the step with no `say` was dropped
+    assert len(a.lesson.steps) == 6                               # the step with no `say` was dropped
 
 
 def test_lesson_is_made_safe_to_play():
     lesson, problems = build_lesson(SUBMIT[1])
-    s1, s2, s3, s4 = lesson.steps
+    s1, s2, s3, s4 = lesson.steps[:4]
     # y_range is always there and shows the curve
     assert s1.visual.y_range[0] <= -2 and s1.visual.y_range[1] >= 8
     # marks: the area stays, the bad index and the far-off line go, the near miss is pulled onto the plot
@@ -113,9 +115,9 @@ def test_speech_safe():
     assert speech_safe(None) == ""
 
 
-def test_steps_capped_at_seven_and_title_defaulted():
-    lesson, _ = build_lesson({"steps": [{"say": f"step {i}"} for i in range(10)]})
-    assert len(lesson.steps) == 7 and lesson.title
+def test_steps_capped_at_nine_and_title_defaulted():
+    lesson, _ = build_lesson({"steps": [{"say": f"step {i}"} for i in range(12)]})
+    assert len(lesson.steps) == 9 and lesson.title
     assert build_lesson({"steps": "nope"})[0] is None
 
 
@@ -148,8 +150,14 @@ def test_short_lesson_is_sent_back_then_accepted_as_a_last_resort():
     short = ("submit_lesson", {"title": "t", "steps": STEPS[:2]})
     client = FakeClient([_resp(short), _resp(SUBMIT)])
     r = explain_mod.explain(client, "fake", _lines(), _req())
-    assert len(r.actions[0].lesson.steps) == 4 and len(client.calls) == 2
+    assert len(r.actions[0].lesson.steps) == 6 and len(client.calls) == 2
     assert client.calls[1][-1].parts[0].function_response.response["ok"] is False
+    # a lesson under six steps is sent back once to be deepened; if it comes back the same it is played
+    five = ("submit_lesson", {"title": "t", "steps": STEPS[:5]})
+    client = FakeClient([_resp(five)])
+    r = explain_mod.explain(client, "fake", _lines(), _req())
+    assert r.finished and len(r.actions[0].lesson.steps) == 4 and len(client.calls) == 2
+    assert "6 to 9 steps" in str(client.calls[1][-1].parts[0].function_response.response)
     # the model never does better: the two-step lesson is still played
     r = explain_mod.explain(FakeClient([_resp(short)]), "fake", _lines(), _req())
     assert r.finished and len(r.actions[0].lesson.steps) == 2
@@ -217,7 +225,7 @@ def test_contract_example_validates():
     # the example passes through the cleaner unchanged in substance
     raw = json.loads(EXAMPLE.read_text())["actions"][0]["lesson"]
     lesson, problems = build_lesson(raw)
-    assert problems == [] and len(lesson.steps) == 5
+    assert problems == ["a lesson needs 6 to 9 steps, this has 5"] and len(lesson.steps) == 5  # the example predates deeper lessons
     assert [s.say for s in lesson.steps] == [s["say"] for s in raw["steps"]]
     assert [[m.type for m in s.visual.marks] for s in lesson.steps] == \
         [[m["type"] for m in s["visual"]["marks"]] for s in raw["steps"]]
@@ -245,4 +253,37 @@ def test_pipeline_explain_mode(monkeypatch):
     assert body["actions"][0]["lesson"]["steps"][0]["visual"]["y_range"]
     assert body["state"]["flagged_line_ids"] == [] and body["state"]["problems"][0]["hint_level"] == 2
     assert set(body["debug"]) == {"model", "read_ms", "teach_ms", "tool_calls"}
-    assert body["debug"]["tool_calls"][-1].startswith("submit_lesson(4 steps")
+    assert body["debug"]["tool_calls"][-1].startswith("submit_lesson(6 steps")
+
+
+def test_log_axis_visual_and_target_in_the_request():
+    # a frequency response: log-spaced sampling finds a window, x_log is kept, marks sit at plain x values
+    v = clean_visual({"kind": "plot2d", "expressions": ["20*log10(abs(1/(x*sqrt(x^2 + 25))))", "20*log10(1/(5*x))"],
+                      "x_range": [0.1, 100], "x_log": True,
+                      "marks": [{"type": "vline", "x": 5}, {"type": "label", "x": 5, "text": "corner at 5"},
+                                {"type": "point", "x": 0.5, "to_x": 50}]})
+    assert v.x_log is True and v.x_range == (0.1, 100)
+    assert v.y_range[0] < -80 and 6 < v.y_range[1] < 40          # +6 dB at 0.1 down to -80 dB at 100
+    assert [(m.type, m.x) for m in v.marks] == [("vline", 5), ("label", 5), ("point", 0.5)]
+    # a linear plot says nothing about x_log, and a log axis is given a positive range
+    assert clean_visual(PLOT).x_log is None
+    assert clean_visual({"kind": "plot2d", "expressions": ["1/x"], "x_range": [0, 100], "x_log": True}).x_range == (0.1, 100)
+    assert "x_log" in explain_mod._VISUAL["properties"]
+    assert explain_mod.SUBMIT_DECL.parameters_json_schema["properties"]["steps"]["maxItems"] == 9
+
+    # the model is told which line the student pointed at, and where the other lines sit
+    stem = _line("L1", "1. Sketch the Bode plot of each", (100, 60, 130, 900), "other", "P1", "printed")
+    a = _line("L2", "a) G(s) = 1/(s*(s+5))", (150, 100, 185, 480), "other", "P1", "printed")
+    b = _line("L3", "b) G(s) = 10/(s+2)", (200, 100, 235, 450), "other", "P2", "printed")
+    two = _line("L4", "2. Design a lead compensator", (400, 60, 430, 900), "other", "P3", "printed")
+    client = FakeClient([_resp(SUBMIT)])
+    r = explain_mod.explain(client, "fake", [stem, a, b, two], _req(help_box=(238, 100, 243, 440)))
+    sent = json.loads(client.calls[0][0].parts[0].text)
+    assert sent["target_line_id"] == "L3" and [l["line_id"] for l in sent["problem"]] == ["L3"]
+    assert [(l["line_id"], l["where"]) for l in sent["other_lines_on_the_page"]] == \
+        [("L1", "above the target"), ("L2", "above the target"), ("L4", "below the target")]
+    assert r.actions[0].line_id == "L3" and r.tool_calls[0] == "target(L3, problem P2)"
+    # nothing pointed at and no handwriting: the first printed problem, not the last one on the page
+    client = FakeClient([_resp(SUBMIT)])
+    r = explain_mod.explain(client, "fake", [stem, a, b, two], _req())
+    assert json.loads(client.calls[0][0].parts[0].text)["target_line_id"] == "L1" and r.actions[0].line_id == "L1"

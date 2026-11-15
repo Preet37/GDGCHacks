@@ -20,6 +20,7 @@ import compute
 import teach
 from figures import _function, fix_figure
 from internal import TeachResult
+from target import pick_line
 from models import Action, CheckRequest, Lesson, LessonStep, LessonVisual, ReadLine
 from verify import LABEL, split_line
 
@@ -27,7 +28,8 @@ log = logging.getLogger(__name__)
 
 PROMPT_PATH = pathlib.Path(__file__).resolve().parent / "prompts" / "explain.md"
 MAX_ROUNDS = 5
-MIN_STEPS, MAX_STEPS = 3, 7
+MIN_STEPS, MAX_STEPS = 6, 9
+PLAYABLE_STEPS = 3  # a lesson shorter than MIN_STEPS is sent back once; after that this many steps will do
 MAX_MARKS = 6
 SLACK = 0.25  # a mark this share of the x range outside it is pulled to the edge; further out it is dropped
 
@@ -63,6 +65,8 @@ _VISUAL = {
                                        "surface3d: one expression in x and y"},
         "x_range": _PAIR,
         "y_range": _PAIR,
+        "x_log": {"type": "boolean", "description": "true = logarithmic x axis (x_range must be positive): "
+                                                    "frequency plots, anything spanning several powers of ten"},
         "marks": {"type": "array", "items": _MARK, "description": "plot2d only: drawn on top of the plot"},
     },
     "required": ["kind", "expressions", "x_range"],
@@ -71,8 +75,8 @@ _VISUAL = {
 _STEP = {
     "type": "object",
     "properties": {
-        "say": {"type": "string", "description": "narration, read aloud: plain spoken words, no LaTeX, no symbols, "
-                                                 "under about 30 words"},
+        "say": {"type": "string", "description": "narration, read aloud: two or three sentences of plain spoken words, "
+                                                 "no LaTeX, no symbols, up to about 45 words"},
         "write": {"type": "string", "description": "one line of worked math for this step, LaTeX, no $"},
         "caption": {"type": "string", "description": "short on-screen text, plain words, inline math in $...$"},
         "visual": _VISUAL,
@@ -136,31 +140,25 @@ def _build_config(thinking=None) -> types.GenerateContentConfig:
     )
 
 
-# ---- which problem the student is looking at (the same rule as help mode) ----
+# ---- which problem the student is looking at (the same rule as help mode: target.pick_line) ----
 
-def _overlap(a, b) -> bool:
-    return a[0] < b[2] and b[0] < a[2] and a[1] < b[3] and b[1] < a[3]
+def pick_target(lines: list[ReadLine], help_box=None) -> tuple[list[ReadLine], ReadLine | None, ReadLine | None]:
+    """(the lines of the problem to explain, the line to place the lesson beside, the line pointed at).
+
+    The target is the line `help_box` lies on or sits nearest to, printed lines included; else the latest
+    handwritten line; else the first printed line in view. The anchor is that problem's last handwritten
+    line, or the target itself if the problem has no handwriting yet.
+    """
+    chosen = pick_line(lines, help_box)
+    if chosen is None:
+        return [], None, None
+    problem = [l for l in lines if l.problem_id == chosen.problem_id]
+    own = [l for l in problem if l.source != "printed"]
+    return problem, (own[-1] if own else chosen), chosen
 
 
 def pick_problem(lines: list[ReadLine], help_box=None) -> tuple[list[ReadLine], ReadLine | None]:
-    """(the lines of the problem to explain, the line to place the lesson beside).
-
-    Lines overlapping `help_box` first; else the handwritten problem with the latest line; else a printed
-    problem in view. The anchor is that problem's last handwritten line, or its last line if it has none.
-    """
-    if not lines:
-        return [], None
-    hand = [l for l in lines if l.source != "printed"]
-    chosen = None
-    if help_box:
-        hits = [l for l in lines if _overlap(l.box, help_box)]
-        hand_hits = [l for l in hits if l.source != "printed"]
-        chosen = (hand_hits or hits or [None])[-1]
-    if chosen is None:
-        chosen = (hand or lines)[-1]
-    problem = [l for l in lines if l.problem_id == chosen.problem_id]
-    own = [l for l in problem if l.source != "printed"]
-    return problem, (own or problem)[-1]
+    return pick_target(lines, help_box)[:2]
 
 
 def _check_problem(problem: list[ReadLine], lines: list[ReadLine], result: TeachResult) -> list[dict]:
@@ -177,17 +175,21 @@ def _check_problem(problem: list[ReadLine], lines: list[ReadLine], result: Teach
 
 
 def _page_json(lines: list[ReadLine], req: CheckRequest, problem: list[ReadLine], anchor: ReadLine,
-               checks: list[dict]) -> str:
+               checks: list[dict], target: ReadLine | None = None) -> str:
     def brief(l: ReadLine) -> dict:
         return {"line_id": l.line_id, "problem_id": l.problem_id, "latex": l.latex, "plain": l.plain,
                 "relation": l.relation, "source": l.source or "handwriting"}
     ids = {l.line_id for l in problem}
+    target = target or anchor
+    at = next((i for i, l in enumerate(lines) if l.line_id == target.line_id), len(lines))
     return json.dumps({
+        "target_line_id": target.line_id,
         "problem": [brief(l) for l in problem],
         "checks": checks,
         "anchor_line_id": anchor.line_id,
         "question": req.question,
-        "other_lines_on_the_page": [brief(l) for l in lines if l.line_id not in ids],
+        "other_lines_on_the_page": [dict(brief(l), where="above the target" if i < at else "below the target")
+                                    for i, l in enumerate(lines) if l.line_id not in ids],
     }, indent=1)
 
 
@@ -203,7 +205,9 @@ _COMMAND_WORDS = {"cdot": " times ", "times": " times ", "div": " divided by ", 
 _SYMBOL_WORDS = {"²": " squared", "³": " cubed", "√": " the square root of ", "π": " pi ", "∫": " the integral of ",
                  "×": " times ", "·": " times ", "÷": " divided by ", "≤": " is at most ", "≥": " is at least ",
                  "≠": " is not ", "≈": " is about ", "→": " goes to ", "∞": " infinity ", "−": "-", "–": "-",
-                 "′": "'", "θ": " theta "}
+                 "′": "'", "θ": " theta ", "ω": " omega ", "Ω": " omega ", "α": " alpha ", "β": " beta ", "γ": " gamma ",
+                 "δ": " delta ", "Δ": " delta ", "λ": " lambda ", "μ": " mu ", "σ": " sigma ", "τ": " tau ",
+                 "φ": " phi ", "ζ": " zeta ", "°": " degrees ", "±": " plus or minus "}
 
 
 def speech_safe(text: Any) -> str:
@@ -366,8 +370,8 @@ def clean_visual(raw: Any) -> LessonVisual | None:
                 fns.append(f)
         if not exprs:
             return None
-        spec = fix_figure({"kind": "plot2d", "expressions": exprs,
-                           "x_range": raw.get("x_range"), "y_range": raw.get("y_range")})
+        spec = fix_figure({"kind": "plot2d", "expressions": exprs, "x_range": raw.get("x_range"),
+                           "y_range": raw.get("y_range"), "x_log": raw.get("x_log") is True})
         xr, yr = spec.get("x_range"), spec.get("y_range")
         if not xr or not yr or not xr[0] < xr[1] or not yr[0] < yr[1]:
             return None  # no window that shows the curve
@@ -377,8 +381,8 @@ def clean_visual(raw: Any) -> LessonVisual | None:
             mark = _clean_mark(m, fns, index, xr, yr)
             if mark is not None and len(marks) < MAX_MARKS:
                 marks.append(mark)
-        return LessonVisual.model_validate({"kind": "plot2d", "expressions": exprs, "x_range": xr,
-                                            "y_range": yr, "marks": marks})
+        return LessonVisual.model_validate({"kind": "plot2d", "expressions": exprs, "x_range": xr, "y_range": yr,
+                                            "x_log": True if spec.get("x_log") else None, "marks": marks})
     except Exception as e:
         log.warning("dropping lesson visual %s: %s", raw, e)
         return None
@@ -436,16 +440,17 @@ def _action(lesson: Lesson, line_id: Any, problem: list[ReadLine], anchor: ReadL
 
 def explain(client, model: str, lines: list[ReadLine], req: CheckRequest) -> TeachResult:
     result = TeachResult()
-    problem, anchor = pick_problem(lines, req.help_box)
+    problem, anchor, target = pick_target(lines, req.help_box)
     if anchor is None:
         result.finished = False
         result.tool_calls.append("explain: nothing on the page to explain")
         return result
     checks = _check_problem(problem, lines, result)
+    result.tool_calls.append(f"target({target.line_id}, problem {target.problem_id})")
     contents: list = [types.Content(role="user", parts=[types.Part.from_text(
-        text=_page_json(lines, req, problem, anchor, checks))])]
+        text=_page_json(lines, req, problem, anchor, checks, target))])]
     fallback: tuple[Lesson, Any] | None = None  # a short or picture-less lesson, used if nothing better comes
-    asked_for_motion = False
+    asked_for_motion = asked_for_length = False
 
     def done(lesson: Lesson, line_id: Any) -> TeachResult:
         result.actions = [_action(lesson, line_id, problem, anchor)]
@@ -478,7 +483,9 @@ def explain(client, model: str, lines: list[ReadLine], req: CheckRequest) -> Tea
                 lesson, problems = build_lesson(args)
                 n = len(lesson.steps) if lesson else 0
                 result.tool_calls.append(f"submit_lesson({n} steps" + (f"; {'; '.join(problems)}" if problems else "") + ")")
-                good = lesson is not None and n >= MIN_STEPS and any(s.visual for s in lesson.steps)
+                enough = n >= MIN_STEPS or (asked_for_length and n >= PLAYABLE_STEPS)
+                asked_for_length = asked_for_length or (lesson is not None and PLAYABLE_STEPS <= n < MIN_STEPS)
+                good = lesson is not None and enough and any(s.visual for s in lesson.steps)
                 if good and not _moves(lesson) and not asked_for_motion:
                     # Asked once only: a still lesson is better than a slow one.
                     asked_for_motion = True

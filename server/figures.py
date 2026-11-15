@@ -57,12 +57,14 @@ def _function(expression: str):
     return sp.lambdify(x, expr, modules=["math", {"Abs": abs, "sign": lambda v: (v > 0) - (v < 0)}])
 
 
-def _sample(f, lo: float, hi: float) -> list[float]:
-    """Values at evenly spaced x. Points where the function is undefined or not finite are left out."""
+def _sample(f, lo: float, hi: float, log_x: bool = False) -> list[float]:
+    """Values at evenly spaced x (evenly spaced on a log axis when `log_x`: the same number of samples in
+    every decade). Points where the function is undefined or not finite are left out."""
     ys = []
     for i in range(SAMPLES + 1):
+        t = i / SAMPLES
         try:
-            y = float(f(lo + (hi - lo) * i / SAMPLES))
+            y = float(f(lo * (hi / lo) ** t if log_x else lo + (hi - lo) * t))
         except Exception:  # division by zero, sqrt of a negative, overflow, complex result
             continue
         if math.isfinite(y):
@@ -112,9 +114,9 @@ def _nice(v: float, span: float) -> float:
     return round(v, digits)
 
 
-def _window(expressions, x_range):
+def _window(expressions, x_range, log_x: bool = False):
     """(y_range that shows the curves, heights it must include, the kept sample values), or None."""
-    curves = [_sample(_function(e), x_range[0], x_range[1]) for e in expressions]
+    curves = [_sample(_function(e), x_range[0], x_range[1], log_x) for e in expressions]
     every = [y for ys in curves for y in ys]
     if len(every) < 3:
         return None
@@ -148,11 +150,19 @@ def _fix_plot2d(spec: dict) -> dict:
     if x_range[0] == x_range[1]:
         return spec
     out = dict(spec, x_range=x_range)
+    log_x = spec.get("x_log") is True
+    out.pop("x_log", None)
+    if log_x and x_range[1] > 0:  # a log axis needs a positive range; one that starts at or below 0 gets three decades
+        if x_range[0] <= 0:
+            x_range[0] = x_range[1] / 1000.0
+        out["x_log"] = True
+    else:
+        log_x = False
 
     given = _range(spec.get("y_range")) if spec.get("y_range") is not None else None
     usable = given is not None and given[0] < given[1]
     try:
-        found = _window(out["expressions"], x_range)
+        found = _window(out["expressions"], x_range, log_x)
     except Exception as e:
         log.info("figure window not computed for %s: %s", spec.get("expressions"), e)
         found = None

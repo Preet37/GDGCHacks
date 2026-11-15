@@ -94,3 +94,20 @@ def test_surface_gets_both_ranges():
     kept = fix_figure({**base, "x_range": [-3, 3], "y_range": [0, 1]})
     assert kept["x_range"] == [-3, 3] and kept["y_range"] == [0, 1]
     FigureSpec.model_validate(fix_figure({**base, "x_range": [-3, 3]}))
+
+
+def test_log_axis_is_sampled_in_every_decade():
+    from figures import _sample
+    # evenly spaced samples would put 99.9% of the points above x = 1 and miss the left of the plot
+    ys = _sample(lambda x: x, 0.001, 1000, True)
+    assert sum(1 for y in ys if y < 1) == sum(1 for y in ys if y > 1) and abs(ys[0] - 0.001) < 1e-12
+    bode = {"kind": "plot2d", "expressions": ["20*log10(abs(1/(x*sqrt(x^2 + 25))))"], "x_range": [0.01, 1000], "x_log": True}
+    out = fix_figure(dict(bode))
+    lo, hi = out["y_range"]
+    assert out["x_log"] is True and hi > 26 and lo < -120            # +26 dB at 0.01, -120 dB at 1000: both on the plot
+    assert fix_figure(dict(bode, y_range=[0, 1]))["y_range"] == out["y_range"]      # a bad window is still replaced
+    # x_range must be positive on a log axis
+    assert fix_figure(dict(bode, x_range=[0, 100]))["x_range"] == [0.1, 100.0]
+    assert fix_figure(dict(bode, x_range=[-5, 100]))["x_range"] == [0.1, 100.0]
+    assert "x_log" not in fix_figure(dict(bode, x_range=[-10, -1]))                 # no positive part: a plain axis
+    assert "x_log" not in fix_figure({"kind": "plot2d", "expressions": ["x^2"], "x_range": [-3, 3], "x_log": False})

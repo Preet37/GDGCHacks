@@ -1,4 +1,4 @@
-"""FastAPI app: GET /api/health, POST /api/check."""
+"""FastAPI app: GET /api/health, POST /api/check, POST /api/speak, GET /api/debug/recent."""
 import json
 import logging
 import os
@@ -8,11 +8,13 @@ import time
 from dotenv import load_dotenv
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
+from pydantic import BaseModel
 
 load_dotenv(pathlib.Path(__file__).resolve().parent / ".env")
 
 from images import ImageError  # noqa: E402
+import pipeline  # noqa: E402  (light: Gemini and the math are imported when a check runs)
 from models import CheckRequest, CheckResponse  # noqa: E402
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -47,20 +49,51 @@ def health():
 @app.post("/api/check", response_model=CheckResponse, response_model_exclude_none=True)
 def check(req: CheckRequest):
     t0 = time.perf_counter()
+    entry = pipeline.begin(req)  # summary for GET /api/debug/recent
     try:
         if mock_mode():
             resp = load_mock()
             source = "mock"
+            entry["mock"] = True
         else:
-            import pipeline
             resp = pipeline.run_check(req)
             source = "pipeline"
     except ImageError as e:
+        pipeline.finish(entry, t0, e)
         log.warning("check bad image: %s", e)
         return JSONResponse(status_code=400, content={"error": "bad_image", "detail": str(e)})
     except Exception as e:  # never crash the request
+        pipeline.finish(entry, t0, e)
         log.exception("check failed")
         return JSONResponse(status_code=502, content={"error": "pipeline_failed", "detail": f"{type(e).__name__}: {e}"[:300]})
+    pipeline.finish(entry, t0)
     log.info("check %s mode=%s total_ms=%d actions=%d", source, req.mode,
              int((time.perf_counter() - t0) * 1000), len(resp.actions))
     return resp
+
+
+@app.get("/api/debug/recent")
+def debug_recent():
+    """The last 30 requests, newest first: what was read, what the model submitted, what was sent. No images."""
+    return {"count": len(pipeline.RECENT), "requests": pipeline.recent()}
+
+
+class SpeakRequest(BaseModel):
+    text: str
+    voice: str | None = None
+
+
+@app.post("/api/speak")
+def speak_route(req: SpeakRequest):
+    """Narration as audio. Body {"text", "voice"?}; replies with the audio bytes (audio/wav)."""
+    import speak
+    t0 = time.perf_counter()
+    try:
+        audio, mime = speak.synthesize(req.text, req.voice)
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": "no_text", "detail": str(e)})
+    except Exception as e:  # never crash the request
+        log.warning("speak failed: %s", e)
+        return JSONResponse(status_code=502, content={"error": "speak_failed", "detail": f"{e}"[:300]})
+    log.info("speak ms=%d bytes=%d chars=%d", int((time.perf_counter() - t0) * 1000), len(audio), len(req.text))
+    return Response(content=audio, media_type=mime, headers={"Cache-Control": "private, max-age=86400"})

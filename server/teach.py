@@ -6,6 +6,7 @@ student asked for a line to be finished, solve_circuit for a drawn circuit), the
 import json
 import logging
 import pathlib
+import re
 from typing import Any
 
 import gemini
@@ -15,10 +16,12 @@ from pydantic import ValidationError
 
 import circuits
 import compute
+import memory
 import verify
 from figures import fix_figure
 from internal import HintUpdate, TeachResult
 from models import Action, CheckRequest, ReadLine
+from target import pick_line
 
 log = logging.getLogger(__name__)
 
@@ -44,6 +47,7 @@ _FIGURE = {
         },
         "x_range": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
         "y_range": {"type": "array", "items": {"type": "number"}, "minItems": 2, "maxItems": 2},
+        "x_log": {"type": "boolean", "description": "true = logarithmic x axis (x_range must be positive)"},
         "title": {"type": "string"},
     },
     "required": ["kind", "expressions", "x_range"],
@@ -57,7 +61,7 @@ _ACTION = {
         "line_id": {"type": "string", "description": "the line this action is about"},
         "color": {"type": "string", "enum": ["red", "green", "blue", "black"],
                   "description": "black only for an inline note that finishes the student's line"},
-        "text": {"type": "string", "description": "note/ask/speak text, under 15 words, inline math in $...$"},
+        "text": {"type": "string", "description": "note/ask/speak text. Plain words, inline math in $...$, Greek letters as symbols (ω, not \\omega). A mistake note: one short question, under 15 words. A help-mode hint: up to about 35 words that explain"},
         "side": {"type": "string", "enum": ["right", "below", "inline"],
                  "description": "inline (note only): written straight after the end of the line"},
         "options": {"type": "array", "items": {"type": "string"}, "description": "ask only: choices"},
@@ -194,11 +198,18 @@ def _build_config(thinking=None) -> types.GenerateContentConfig:
 
 
 def _page_json(lines: list[ReadLine], req: CheckRequest) -> str:
+    extra = {}
+    if req.mode == "help":
+        # What the student is pointing at (their selection, or their latest ink), and what Help already told them.
+        target = pick_line(lines, req.help_box)
+        extra["target"] = {"line_id": target.line_id, "problem_id": target.problem_id} if target else None
+        extra["previous_hints"] = memory.previous_hints(req.state.page_id, req.state.problems)
     return json.dumps(
         {
             "mode": req.mode,
             "help_box": list(req.help_box) if req.help_box else None,
             "question": req.question,
+            **extra,
             "lines": [l.model_dump() for l in lines],
             "previous_lines": [l.model_dump() for l in req.state.lines],
             "problems": [p.model_dump() for p in req.state.problems],
@@ -349,6 +360,32 @@ def _parse_actions(raw: Any, lines: list[ReadLine] | None = None) -> list[Action
     return _tidy(actions, by_id)
 
 
+_GREEK = {"alpha": "α", "beta": "β", "gamma": "γ", "delta": "δ", "epsilon": "ε", "varepsilon": "ε", "zeta": "ζ",
+          "eta": "η", "theta": "θ", "kappa": "κ", "lambda": "λ", "mu": "μ", "nu": "ν", "xi": "ξ", "pi": "π",
+          "rho": "ρ", "sigma": "σ", "tau": "τ", "phi": "φ", "varphi": "φ", "chi": "χ", "psi": "ψ", "omega": "ω",
+          "Gamma": "Γ", "Delta": "Δ", "Theta": "Θ", "Lambda": "Λ", "Pi": "Π", "Sigma": "Σ", "Phi": "Φ",
+          "Psi": "Ψ", "Omega": "Ω"}
+_WORD_SYMBOLS = {"cdot": "·", "times": "×", "div": "÷", "pm": "±", "le": "≤", "leq": "≤", "ge": "≥", "geq": "≥",
+                 "ne": "≠", "neq": "≠", "approx": "≈", "to": "→", "rightarrow": "→", "infty": "∞", "sqrt": "√",
+                 "angle": "∠", "circ": "°", "degree": "°"}
+
+
+def plain_note(text: str) -> str:
+    """Notes are shown as plain text. Greek letters become symbols everywhere; outside `$...$` no LaTeX
+    command is left behind (math stays inside `$...$`, which the page knows how to show)."""
+    s = re.sub(r"\\([A-Za-z]+)", lambda m: _GREEK.get(m.group(1), m.group(0)), text or "")
+    parts = re.split(r"(\$[^$]*\$)", s)
+    for i in range(0, len(parts), 2):  # the pieces outside $...$
+        t = parts[i]
+        if "\\" not in t:
+            continue
+        t = re.sub(r"\\[dt]?frac\s*\{([^{}]*)\}\s*\{([^{}]*)\}", r"\1/\2", t)
+        t = re.sub(r"\\(?:text|mathrm|mathbf|operatorname)\s*\{([^{}]*)\}", r"\1", t)
+        t = re.sub(r"\\([A-Za-z]+)", lambda m: _WORD_SYMBOLS.get(m.group(1), m.group(1)), t)
+        parts[i] = t.replace("\\", "")
+    return "".join(parts)
+
+
 def _tidy(actions: list[Action], by_id: dict) -> list[Action]:
     """Shape fixes that hold for any subject: marks carry no words, and words are never lost or empty."""
     noted = {a.line_id for a in actions if a.type == "note" and a.line_id}
@@ -356,6 +393,8 @@ def _tidy(actions: list[Action], by_id: dict) -> list[Action]:
     for a in actions:
         if a.type in ("note", "ask", "speak") and not (a.text or "").strip():
             continue  # nothing to show or say
+        if a.type in ("note", "ask") and "\\" in (a.text or ""):
+            a = a.model_copy(update={"text": plain_note(a.text)})
         if a.type == "note" and a.color == "black" and is_open(getattr(by_id.get(a.line_id), "plain", "")):
             a = a.model_copy(update={"side": "inline"})  # an answer to an open line is always written on that line
         if a.side == "inline":
@@ -365,15 +404,17 @@ def _tidy(actions: list[Action], by_id: dict) -> list[Action]:
             else:
                 # It continues the student's own line: their ink colour, placed by the line's real box.
                 a = a.model_copy(update={"color": "black", "box": line.box})
-        if a.type in ("circle", "underline") and a.text:
+        if a.type in ("circle", "underline", "figure") and a.text:
             # The page draws a mark without words. If the model put the hint on the mark and sent no
             # note for that line, move the words into a note beside the whole line.
             if a.line_id not in noted:
                 line = by_id.get(a.line_id)
-                out.append(Action(type="note", line_id=a.line_id, color=a.color, side=a.side or "right",
+                fig = a.type == "figure"  # words on a graph are an explanation: blue, under the line, graph stays put
+                out.append(Action(type="note", line_id=a.line_id, color=a.color or ("blue" if fig else None),
+                                  side="below" if fig else (a.side or "right"),
                                   text=a.text, box=line.box if line is not None else a.box))
                 noted.add(a.line_id)
-            a = a.model_copy(update={"text": None, "side": None})
+            a = a.model_copy(update={"text": None} if a.type == "figure" else {"text": None, "side": None})
         out.append(a)
     return out
 
@@ -392,8 +433,32 @@ def _apply_submit(args: dict, result: TeachResult, lines: list[ReadLine] | None 
     result.tool_calls.append(f"submit_feedback({len(result.actions)}/{n} actions kept)")
 
 
+def _explains(text: str) -> bool:
+    """True if the words tell the student something: at least one sentence that is not a question."""
+    sentences = [t for t in re.split(r"(?<=[.!?])\s+", (text or "").strip()) if t]
+    return any(not t.rstrip().endswith("?") and len(t.split()) >= 3 for t in sentences)
+
+
+def help_gap(actions: list[Action], req: CheckRequest) -> str | None:
+    """What is missing from a reply to a Help tap, or None. Help must tell the student something: an empty
+    reply, or one made only of questions, is sent back once to be fixed."""
+    if req.mode != "help":
+        return None
+    told = any((a.type == "note" and a.color != "red" and (a.color == "black" or a.side == "inline" or _explains(a.text)))
+               or a.type == "figure" for a in actions)
+    if told:
+        return None
+    asked = (req.question or "").strip()
+    return ("The student tapped Help" + (f" and asked: \"{asked}\"" if asked else "") + ". This reply does not tell "
+            "them anything: it has no hint note, or its notes are only questions. Send a blue hint `note` that "
+            + ("answers their question directly in one or two plain sentences first, then, if useful, one thing to try."
+               if asked else "explains in plain words (see Help mode: each level says more than the last).")
+            + " Keep any red circle on a real mistake. Then call submit_feedback again.")
+
+
 def teach(client, model: str, lines: list[ReadLine], req: CheckRequest) -> TeachResult:
     result = TeachResult()
+    sent_back: dict | None = None  # a Help reply that explained nothing, kept in case nothing better comes
     contents: list = [
         types.Content(role="user", parts=[types.Part.from_text(text=_page_json(lines, req))])
     ]
@@ -433,11 +498,22 @@ def teach(client, model: str, lines: list[ReadLine], req: CheckRequest) -> Teach
                 id=call.id, name=call.name, response=out)))
 
         if submit is not None:
-            _apply_submit(submit, result, lines)
-            result.finished = True
-            return result
+            gap = help_gap(_parse_actions(submit.get("actions"), lines), req) if sent_back is None else None
+            if gap is None:
+                _apply_submit(submit, result, lines)
+                result.finished = True
+                return result
+            sent_back = submit
+            result.tool_calls.append("submit_feedback sent back: Help must explain, not only ask")
+            for part in replies:
+                if part.function_response.name == "submit_feedback":
+                    part.function_response.response = {"ok": False, "fix_and_submit_again": gap}
         contents.append(types.Content(role="user", parts=replies))
 
+    if sent_back is not None:  # it never did better: a question is still better than silence
+        _apply_submit(sent_back, result, lines)
+        result.finished = True
+        return result
     result.finished = False
     result.actions, result.clear_line_ids, result.hint_updates = [], [], []
     return result

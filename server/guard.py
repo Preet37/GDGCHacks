@@ -16,14 +16,20 @@ def _answer(action: Action) -> bool:
     return action.type == "note" and (action.color == "black" or action.side == "inline")
 
 
-def _unrequested(action: Action, line: ReadLine | None, result: TeachResult) -> bool:
+def _stray_ask(action: Action, line: ReadLine | None) -> bool:
+    """An `ask` is only for a line the reader was unsure of. On an automatic check, a question about a
+    confidently read line ("What are you looking to find?") is a nudge nobody asked for."""
+    return action.type == "ask" and (line is None or line.confidence != "low")
+
+
+def _unrequested(action: Action, line: ReadLine | None, result: TeachResult, kept: list[Action]) -> bool:
     """On an automatic check the tutor only points out mistakes. True for a note that does anything else:
     a hint, a nudge or praise nobody asked for. Notes that stay: red ones (a mistake), an answer on an open
     line, anything on an open line (the student asked for it to be finished), and a note that goes with a
-    figure or a question (ask) on the same line."""
+    figure or a question (ask) that is itself being sent for the same line."""
     if action.type != "note" or action.color == "red" or _answer(action) or _open(line):
         return False
-    if action.line_id and any(a.type in ("figure", "ask") and a.line_id == action.line_id for a in result.actions):
+    if action.line_id and any(a.type in ("figure", "ask") and a.line_id == action.line_id for a in kept):
         return False
     if action.color is None:  # the model forgot the colour: it is a mistake note if the line is marked as one
         return not (result.verdicts.get(action.line_id) == "incorrect" or any(
@@ -69,9 +75,19 @@ def _ordered_unique(items):
     return out
 
 
+def _new_mistake(action: Action, line: ReadLine, verdicts: dict, marked: dict | None) -> bool:
+    """A red mark for a line the checker called incorrect, which the page is not known to carry yet. A line
+    can be flagged for other reasons (a hint, a question about the handwriting, a graph); that must not
+    hide its mistake."""
+    return (marked is not None and action.color == "red" and action.type in MARK_TYPES | {"note"}
+            and verdicts.get(action.line_id) == "incorrect" and marked.get(action.line_id) != line.plain)
+
+
 def merge(state: PageState, lines: list[ReadLine], result: TeachResult, mode: str = "auto",
-          question: str | None = None) -> CheckResponse:
-    """`mode` is the request's mode ("auto", "help" or "explain"); `question` is what the student asked out loud."""
+          question: str | None = None, marked: dict | None = None) -> CheckResponse:
+    """`mode` is the request's mode ("auto", "help" or "explain"); `question` is what the student asked out loud.
+    `marked` (line_id -> the line's text when a mistake mark was last sent for it) is what the server
+    remembers of this page; None = nothing known, and a flagged, unchanged line then gets nothing new."""
     if mode == "explain":
         # Teach me: the lesson goes through as it is. It is not feedback on a line, so it changes nothing
         # the checks rely on: no hint levels, nothing cleared, and its line is not added to flagged_line_ids
@@ -82,15 +98,19 @@ def merge(state: PageState, lines: list[ReadLine], result: TeachResult, mode: st
         by_line = {l.line_id: l for l in lines}
         actions = [a for a in result.actions if _keep(a, result.verdicts, by_line, state, mode, question)]
         if mode == "auto":
-            actions = [a for a in actions if not _unrequested(a, by_line.get(a.line_id), result)]
+            # Nobody asked: nothing is read aloud, and a question only goes to a line that was hard to read.
+            actions = [a for a in actions if a.type != "speak" and not _stray_ask(a, by_line.get(a.line_id))]
+            actions = [a for a in actions if not _unrequested(a, by_line.get(a.line_id), result, actions)]
             # No repeats: a line that already has feedback on the page and reads exactly as it did last
             # time gets nothing new from an automatic check. (Help may add to it: that's the hint ladder.)
+            # The one thing that still goes through is a mistake mark the line does not have yet.
             before = {l.line_id: l.plain for l in state.lines}
             settled = {i for i in state.flagged_line_ids
                        if i in by_line and before.get(i) == by_line[i].plain}
-            actions = [a for a in actions if a.line_id not in settled]
+            actions = [a for a in actions if a.line_id not in settled
+                       or _new_mistake(a, by_line[a.line_id], result.verdicts, marked)]
         clear = list(result.clear_line_ids)
-        hint_updates = result.hint_updates
+        hint_updates = result.hint_updates if mode == "help" else []  # the hint ladder only moves when Help is tapped
     else:
         actions, clear, hint_updates = [], [], []
 

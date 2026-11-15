@@ -275,6 +275,86 @@ def test_figure_window_is_fixed_on_submit():
     assert c.figure.y_range is None
 
 
+def _help(question=None, **kw):
+    return CheckRequest(image_base64="", mode="help", question=question, state=PageState(page_id="t", **kw), **kw.pop("req", {}))
+
+
+QUESTION_ONLY = ("submit_feedback", {"actions": [{"type": "note", "line_id": "L1", "color": "blue", "side": "below",
+                                                  "text": "What do you think happens to the slope there?"}],
+                                     "clear_line_ids": [], "hint_updates": [{"problem_id": "P1", "hint_level": 1}]})
+ANSWER = ("submit_feedback", {"actions": [{"type": "note", "line_id": "L1", "color": "blue", "side": "below",
+                                           "text": "The graph turns around where its slope is zero. Where is $f'(x) = 0$?"}],
+                              "clear_line_ids": [], "hint_updates": [{"problem_id": "P1", "hint_level": 1}]})
+
+
+def test_help_reply_that_only_asks_a_question_is_sent_back_once():
+    lines = _lines()[:1]
+    client = FakeClient([_resp(QUESTION_ONLY), _resp(ANSWER)])
+    r = teach_mod.teach(client, "fake", lines, _help("why does the graph turn around at those points?"))
+    assert r.finished and r.actions[0].text.startswith("The graph turns around") and len(client.calls) == 2
+    back = client.calls[1][-1].parts[0].function_response.response
+    assert back["ok"] is False and "why does the graph turn around" in back["fix_and_submit_again"]
+    assert "submit_feedback sent back" in r.tool_calls[0]
+    # no question asked: a hint that is only a question is sent back too, and so is an empty reply
+    for first in (QUESTION_ONLY, ("submit_feedback", {"actions": [], "clear_line_ids": [], "hint_updates": []})):
+        client = FakeClient([_resp(first), _resp(ANSWER)])
+        assert teach_mod.teach(client, "fake", lines, _help()).actions[0].text.startswith("The graph") and len(client.calls) == 2
+    # the model never does better: its question is still shown rather than nothing, after one extra try
+    client = FakeClient([_resp(QUESTION_ONLY)])
+    r = teach_mod.teach(client, "fake", lines, _help())
+    assert r.finished and len(r.actions) == 1 and len(client.calls) == 2
+    # an explanation, an inline answer or a graph is a real reply; automatic checks are never sent back
+    assert len(FakeClient([_resp(ANSWER)]).calls) == 0
+    client = FakeClient([_resp(ANSWER)])
+    teach_mod.teach(client, "fake", lines, _help())
+    assert len(client.calls) == 1
+    client = FakeClient([_resp(QUESTION_ONLY)])
+    teach_mod.teach(client, "fake", lines, _req("auto"))
+    assert len(client.calls) == 1
+    told = lambda **a: teach_mod.help_gap([teach_mod.Action(**a)], _help()) is None
+    assert told(type="note", color="black", side="inline", text="$12x$") and told(type="figure")
+    assert told(type="note", color="green", text="Correct! Tap Teach me to see why.")
+    assert not told(type="note", color="red", text="This is wrong.") and not told(type="ask", text="Did you mean $x^2$?")
+
+
+def test_help_request_carries_the_target_and_the_hints_already_given():
+    import json
+    import memory
+    from models import ProblemState
+    printed = ReadLine(line_id="L0", problem_id="P0", latex="a) x^2", plain="a) Differentiate x^2", box=(40, 80, 70, 500),
+                       relation="other", confidence="high", source="printed")
+    lines = [printed] + _lines()
+    hint = teach_mod.Action(type="note", line_id="L2", color="blue", text="A derivative measures how steep the curve is.")
+    memory.remember("t", "help", lines, [hint], [])
+    client = FakeClient([_resp(ANSWER)])
+    req = CheckRequest(image_base64="", mode="help", help_box=(72, 90, 76, 480),       # an underline under the printed part
+                       state=PageState(page_id="t", problems=[ProblemState(problem_id="P1", hint_level=1)]))
+    teach_mod.teach(client, "fake", lines, req)
+    sent = json.loads(client.calls[0][0].parts[0].text)
+    assert sent["target"] == {"line_id": "L0", "problem_id": "P0"}
+    assert sent["previous_hints"] == {"P1": ["A derivative measures how steep the curve is."]}
+    # no selection: the latest handwritten line. Automatic checks carry neither field.
+    client = FakeClient([_resp(ANSWER)])
+    teach_mod.teach(client, "fake", lines, _help())
+    assert json.loads(client.calls[0][0].parts[0].text)["target"] == {"line_id": "L2", "problem_id": "P1"}
+    client = FakeClient([_resp(ANSWER)])
+    teach_mod.teach(client, "fake", lines, _req("auto"))
+    assert not {"target", "previous_hints"} & set(json.loads(client.calls[0][0].parts[0].text))
+
+
+def test_notes_are_plain_text_with_greek_symbols():
+    plain = teach_mod.plain_note
+    assert plain(r"The line bends at \omega = 5, where $\frac{1}{\omega}$ takes over.") == \
+        "The line bends at ω = 5, where $\\frac{1}{ω}$ takes over."
+    assert plain(r"Use \text{Bode} form: \frac{1}{5} \cdot K, angle \to -90\circ") == "Use Bode form: 1/5 · K, angle → -90°"
+    assert plain("What is the derivative of $2x$?") == "What is the derivative of $2x$?"
+    acts = teach_mod._parse_actions([{"type": "note", "line_id": "L1", "color": "blue", "text": r"Here \alpha and \Omega matter."},
+                                     {"type": "ask", "line_id": "L1", "text": r"Did you mean \theta?", "options": ["a", "b"]}], _lines())
+    assert [a.text for a in acts] == ["Here α and Ω matter.", "Did you mean θ?"]
+    text = teach_mod._ACTION["properties"]["text"]["description"]
+    assert "35 words" in text and "15 words" in text
+
+
 def test_verify_contract():
     # the real checker lives in verify.py (tests in test_verify.py); teach only relies on this shape
     out = verify.verify_step("x", "x", "equals")

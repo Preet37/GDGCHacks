@@ -47,3 +47,12 @@ def test_existing_note_is_not_duplicated():
            {"type": "note", "line_id": "L2", "color": "red", "box": list(LINE.box), "text": "the real note"}]
     out = _parse_actions(raw, [LINE])
     assert [a.type for a in out] == ["circle", "note"] and out[0].text is None
+
+
+def test_words_on_a_figure_become_a_note():
+    raw = [{"type": "figure", "line_id": "L2", "box": list(LINE.box), "side": "right", "text": "It turns where the slope is zero.",
+            "figure": {"kind": "plot2d", "expressions": ["x^2"], "x_range": [-2, 2]}}]
+    out = _parse_actions(raw, [LINE])
+    assert sorted(a.type for a in out) == ["figure", "note"]
+    assert [a.text for a in out if a.type == "note"] == ["It turns where the slope is zero."]
+    assert [a.text for a in out if a.type == "figure"] == [None]

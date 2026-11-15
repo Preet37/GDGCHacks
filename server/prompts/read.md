@@ -48,12 +48,15 @@ You also get `previous_lines`: the reading of this same page from a moment ago. 
 - New lines get the next unused number (if previous ids go up to L7, the next new line is L8; same for problems). Never reuse an id of a previous line for a different line.
 - Lines that are no longer on the page are simply left out.
 - If `previous_lines` is empty, number from L1 and P1.
+- One exception to reusing a `problem_id`: if `previous_lines` put several lettered parts of a printed problem under one `problem_id`, split them now. The first part (and the stem) keeps the id; each other part gets the next unused problem number.
 
 ## Printed worksheets
 
 The page may have a printed worksheet (typed text from an imported PDF) underneath the handwriting. Printed text is context, never student work:
 
-- Include each printed problem statement or instruction that the handwriting is working on as a line, with `source: "printed"`, `relation: "other"` and the `problem_id` of the handwritten problem it belongs to. `latex` is just the text (words in `\text{...}`, math in LaTeX) and `plain` is the printed text or expression. Do not add any marker or label to `latex` or `plain`.
+- Include each printed problem statement or instruction in view as a line, with `source: "printed"` and `relation: "other"`, whether or not the student has written under it yet. `latex` is just the text (words in `\text{...}`, math in LaTeX) and `plain` is the printed text or expression. Do not add any marker or label to `latex` or `plain`, but do keep the printed part letter or number at the front (`a) G(s) = 1/(s*(s+5))`).
+- **Each lettered or numbered part is its own line and its own problem.** A worksheet problem often has a shared instruction (the stem, like "1. Sketch the plot for each of the following") followed by parts `a)`, `b)`, `c)`. Give every part its own line with a `box` tight around just that part, and its own `problem_id`, so that one part can be picked out. The stem is one more printed line; it shares the `problem_id` of the first part under it. Never merge two parts, or a stem and a part, into one line. A problem with no parts is one problem.
+- Handwriting belongs to the printed part it is working on: give it that part's `problem_id` (usually the part it is written under or beside).
 - Skip printed headers, page numbers, names, logos and instructions not tied to any problem.
 - Printed lines do not count when choosing relations: the first handwritten line under a printed problem is `start`.
 - Only typed text gets `source: "printed"`. Handwriting is always `source: "handwriting"`, even when it copies the problem.
@@ -70,6 +73,10 @@ The student may draw an electric circuit (resistors as zigzags or boxes, voltage
   - `value` exactly as labelled, with its prefix (`"4.7k"`, `"9"`, `"2mA"`). Use the student's element labels as `id`; if an element has none, use `R1`, `R2`, `V1`, ...
   - If you can't tell how something is connected or what a value is, still give your best netlist and set `confidence: "low"`.
 - What the student writes about the circuit ("I = 3 mA", "V_{R2} = 6 V", "R_{eq} = 3k") are ordinary lines in the same problem with `relation: "other"`, transcribed exactly, mistakes included.
+
+## Pointing marks
+
+An underline, circle, box, arrow, tick or bracket that the student drew on or beside printed text (or their own writing) is a pointing mark, not writing. It is not a line: leave it out, and do not let it change how the text it points at is read.
 
 ## Words
 

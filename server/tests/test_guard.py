@@ -18,8 +18,8 @@ def test_marks_on_printed_lines_dropped():
                  Action(type="note", line_id="L2", text="check this")],
         verdicts={"L2": "incorrect"})
     out = merge(state(), [printed, line("L2")], res)
-    assert [(a.type, a.line_id) for a in out.actions] == [("speak", "L1"), ("note", "L2")]
-    assert out.state.flagged_line_ids == ["L1", "L2"]
+    assert [(a.type, a.line_id) for a in out.actions] == [("note", "L2")]   # nothing is read aloud unasked either
+    assert out.state.flagged_line_ids == ["L2"]
     assert out.lines[0].source == "printed"
 
 
@@ -44,9 +44,11 @@ def test_hint_updates_applied_and_created():
     st = state(problems=[ProblemState(problem_id="P1", hint_level=1)])
     res = TeachResult(hint_updates=[HintUpdate(problem_id="P1", hint_level=2),
                                     HintUpdate(problem_id="P2", hint_level=3)])
-    out = merge(st, [line("L1")], res)
+    out = merge(st, [line("L1")], res, "help")
     levels = {p.problem_id: p.hint_level for p in out.state.problems}
     assert levels == {"P1": 2, "P2": 3}
+    # the hint ladder only moves when Help is tapped
+    assert merge(st, [line("L1")], res, "auto").state.problems[0].hint_level == 1
     assert st.problems[0].hint_level == 1  # input not mutated
 
 
@@ -54,7 +56,7 @@ def test_hint_levels_clamped():
     res = TeachResult.model_construct(actions=[], clear_line_ids=[], tool_calls=[], verdicts={}, finished=True,
                                       hint_updates=[HintUpdate.model_construct(problem_id="P1", hint_level=7),
                                                     HintUpdate.model_construct(problem_id="P2", hint_level=-2)])
-    out = merge(state(), [], res)
+    out = merge(state(), [], res, "help")
     levels = {p.problem_id: p.hint_level for p in out.state.problems}
     assert levels == {"P1": 3, "P2": 0}
 
@@ -98,7 +100,7 @@ def test_help_mode_allows_a_blue_hint_on_a_printed_problem():
     assert out.state.problems[0].hint_level == 1
     # the same actions on an automatic check: nothing is written on printed text
     auto = merge(state(), [printed], res)
-    assert [a.type for a in auto.actions] == ["speak"]
+    assert auto.actions == [] and auto.state.problems == []
 
 
 def open_line(i="L2"):
@@ -162,7 +164,7 @@ def test_answer_is_only_written_on_an_open_line_or_when_asked_out_loud():
 
 
 def test_auto_mode_drops_notes_nobody_asked_for():
-    lines = [line("L1"), line("L2"), line("L3"), line("L4"), open_line("L5")]
+    lines = [line("L1"), line("L2"), line("L3"), line("L4").model_copy(update={"confidence": "low"}), open_line("L5")]
     res = TeachResult(
         actions=[Action(type="note", line_id="L1", color="blue", text="What is the first step to isolate $x$?"),
                  Action(type="note", line_id="L1", color="green", text="Nice start!"),
@@ -182,3 +184,85 @@ def test_auto_mode_drops_notes_nobody_asked_for():
     assert "L1" not in out.state.flagged_line_ids
     # Help was tapped: hints and green confirmations go through
     assert len(merge(state(), lines, res, "help").actions) == len(res.actions)
+
+
+def start(i="L1", plain="f(x) = x^3 - 3*x"):
+    return line(i).model_copy(update={"plain": plain, "relation": "start"})
+
+
+def test_auto_mode_never_leaves_a_question_or_hint_on_a_confidently_read_line():
+    q = "What are you looking to find for $f(x) = x^3 - 3x$, like critical points or roots?"
+    for acts in ([Action(type="ask", line_id="L1", color="blue", text=q, options=["roots", "critical points"])],
+                 [Action(type="ask", line_id="L1", color="blue", text=q), Action(type="note", line_id="L1", color="blue", text=q)],
+                 [Action(type="note", line_id="L1", color="blue", side="below", text=q)],
+                 [Action(type="note", line_id="L1", color="green", text=q)],
+                 [Action(type="note", line_id="L1", text=q)],                      # no colour
+                 [Action(type="ask", text=q)],                                     # no line at all
+                 [Action(type="speak", line_id="L1", text=q)]):
+        out = merge(state(), [start()], TeachResult(actions=acts, hint_updates=[HintUpdate(problem_id="P1", hint_level=1)]))
+        assert out.actions == [] and out.state.flagged_line_ids == [] and out.state.problems == [], acts
+    # the same question is fine when the reader was unsure of the line, and when Help was tapped
+    unsure = start().model_copy(update={"confidence": "low"})
+    ask = TeachResult(actions=[Action(type="ask", line_id="L1", color="blue", text="Did you mean $x^3$?", options=["x^3", "x^2"])])
+    assert len(merge(state(), [unsure], ask).actions) == 1
+    assert len(merge(state(), [start()], ask, "help").actions) == 1
+
+
+def wrong(i="L2"):
+    return line(i).model_copy(update={"plain": "f'(x) = 3*x^2 - 3*x", "relation": "derivative"})
+
+
+def mistake(i="L2"):
+    return TeachResult(actions=[Action(type="circle", line_id=i, color="red"),
+                                Action(type="note", line_id=i, color="red", text="What is the derivative of $3x$?")],
+                       verdicts={i: "incorrect"})
+
+
+def test_mistake_is_marked_even_when_another_line_of_the_problem_has_feedback():
+    lines = [start(), wrong()]
+    # L1 already carries feedback (a note, a hint, a question) and has not changed; L2 is new and wrong
+    st = state(lines=[start()], flagged_line_ids=["L1"], problems=[ProblemState(problem_id="P1", hint_level=2)])
+    for marked in (None, {}, {"L1": start().plain}):
+        out = merge(st, lines, mistake(), "auto", marked=marked)
+        assert [(a.type, a.line_id, a.color) for a in out.actions] == [("circle", "L2", "red"), ("note", "L2", "red")]
+        assert out.state.flagged_line_ids == ["L1", "L2"]
+    # a printed problem statement and an open line in the same problem change nothing for L2 either
+    printed = line("L0").model_copy(update={"source": "printed", "plain": "Find the critical points of f"})
+    more = [printed] + lines + [open_line("L3")]
+    out = merge(state(lines=more[:2], flagged_line_ids=["L0", "L1"]), more, mistake(), "auto")
+    assert [(a.type, a.line_id) for a in out.actions] == [("circle", "L2"), ("note", "L2")]
+
+
+def test_a_line_flagged_for_something_else_still_gets_its_mistake_marked_once():
+    lines = [start(), wrong()]
+    # L2 itself is flagged (Help put a hint beside it, or it had a "did you mean" question) and is unchanged
+    st = state(lines=lines, flagged_line_ids=["L2"])
+    out = merge(st, lines, mistake(), "auto", marked={})          # the server knows of no mistake mark on L2
+    assert [(a.type, a.color) for a in out.actions] == [("circle", "red"), ("note", "red")]
+    # once the mark is on the page it is not sent again while the line reads the same
+    assert merge(st, lines, mistake(), "auto", marked={"L2": wrong().plain}).actions == []
+    # it is sent again when the student changes the line and it is still wrong
+    edited = [start(), wrong().model_copy(update={"plain": "f'(x) = 3*x^2 - 2"})]
+    assert len(merge(st, edited, mistake(), "auto", marked={"L2": wrong().plain}).actions) == 2
+    # only a checked mistake gets through: an unverified red note on a settled line does not, nor does a hint
+    unsure = TeachResult(actions=[Action(type="note", line_id="L2", color="red", text="Check this?"),
+                                  Action(type="note", line_id="L2", color="blue", text="Try the power rule.")])
+    assert merge(st, lines, unsure, "auto", marked={}).actions == []
+
+
+def test_memory_feeds_the_guard_and_keeps_hint_texts():
+    import memory
+    memory.reset()
+    lines = [start(), wrong()]
+    out = merge(state(), lines, mistake(), "auto", marked=memory.marked("pg"))
+    memory.remember("pg", "auto", lines, out.actions, out.clear_line_ids)
+    assert memory.marked("pg") == {"L2": wrong().plain}
+    hint = [Action(type="note", line_id="L2", color="blue", text="A derivative measures steepness.")]
+    memory.remember("pg", "help", lines, hint + [Action(type="note", line_id="L2", color="blue", text="Bring the power down.")], [])
+    probs = [ProblemState(problem_id="P1", hint_level=2)]
+    assert memory.previous_hints("pg", probs) == {"P1": ["A derivative measures steepness.", "Bring the power down."]}
+    assert memory.previous_hints("other", probs) == {}
+    memory.remember("pg", "auto", lines, [], ["L2"])              # the mistake was fixed and cleared
+    assert memory.marked("pg") == {}
+    assert memory.previous_hints("pg", [ProblemState(problem_id="P1", hint_level=0)]) == {}   # the ladder started over
+    assert memory.previous_hints("pg", probs) == {}

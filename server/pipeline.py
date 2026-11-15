@@ -1,12 +1,67 @@
 """run_check: read the page, teach, then guard and merge."""
+import contextvars
 import logging
 import os
 import time
+from collections import deque
+from datetime import datetime, timezone
 
 from images import decode_png
 from models import CheckRequest, CheckResponse, Debug
 
 log = logging.getLogger("tutor.pipeline")
+
+# ---- GET /api/debug/recent: what the server saw and did for the last few requests. Never the image. ----
+
+RECENT: deque = deque(maxlen=30)
+_entry: contextvars.ContextVar = contextvars.ContextVar("tutor_recent_entry", default=None)
+
+
+def begin(req: CheckRequest) -> dict:
+    """Start the summary of one request. Whoever handles the request fills it in as it goes."""
+    entry = {
+        "time": datetime.now(timezone.utc).isoformat(timespec="seconds"),
+        "mode": req.mode,
+        "page_id": req.state.page_id,
+        "help_box": list(req.help_box) if req.help_box else None,
+        "question": req.question,
+        "state_in": {"lines": len(req.state.lines), "flagged_line_ids": list(req.state.flagged_line_ids),
+                     "problems": [p.model_dump() for p in req.state.problems]},
+    }
+    RECENT.append(entry)
+    _entry.set(entry)
+    return entry
+
+
+def finish(entry: dict, t0: float, error: BaseException | None = None) -> None:
+    entry["total_ms"] = _ms(t0)
+    if error is not None:
+        entry["error"] = f"{type(error).__name__}: {error}"[:300]
+    _entry.set(None)
+
+
+def recent() -> list[dict]:
+    """Newest first."""
+    return list(reversed(RECENT))
+
+
+def _action_summary(a) -> dict:
+    out = {k: v for k, v in (("type", a.type), ("color", a.color), ("side", a.side), ("text", a.text),
+                             ("line_id", a.line_id)) if v is not None}
+    if a.options:
+        out["options"] = list(a.options)
+    if a.figure is not None:
+        out["figure"] = a.figure.model_dump(exclude_none=True)
+    if a.lesson is not None:
+        out["lesson"] = {"title": a.lesson.title, "steps": [
+            {"say": s.say, "write": s.write, "caption": s.caption,
+             "visual": s.visual.model_dump(exclude_none=True) if s.visual else None} for s in a.lesson.steps]}
+    return out
+
+
+def _line_summary(l) -> dict:
+    return {"id": l.line_id, "problem": l.problem_id, "plain": l.plain, "relation": l.relation,
+            "source": l.source or "handwriting", "confidence": l.confidence, "box": list(l.box)}
 
 
 class ConfigError(RuntimeError):
@@ -44,6 +99,20 @@ def _trace(req, image_png, lines, result, resp) -> None:
 
 
 def run_check(req: CheckRequest) -> CheckResponse:
+    entry = _entry.get()
+    if entry is not None:  # main.py started the summary and will finish it
+        return _run_check(req, entry)
+    entry, t0 = begin(req), time.perf_counter()
+    try:
+        resp = _run_check(req, entry)
+    except BaseException as e:
+        finish(entry, t0, e)
+        raise
+    finish(entry, t0)
+    return resp
+
+
+def _run_check(req: CheckRequest, entry: dict) -> CheckResponse:
     image_png = decode_png(req.image_base64)  # raises images.ImageError on bad input
 
     api_key = os.environ.get("GEMINI_API_KEY")
@@ -55,19 +124,21 @@ def run_check(req: CheckRequest) -> CheckResponse:
 
     # Lazy imports so this module imports before read.py / teach.py exist.
     from google import genai
+    import memory
     import read
     import teach
     from guard import merge
 
     from google.genai import types
     # 15 s cap per Gemini call (retried twice) so a stuck request fails as a 502 instead of hanging the page.
-    # A lesson is a much longer answer than a few marks, so Teach me gets twice that.
+    # A lesson is a much longer answer than a few marks (six to nine narrated steps), so Teach me gets three times that.
     explaining = req.mode == "explain"
-    client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=30000 if explaining else 15000))
+    client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=45000 if explaining else 15000))
 
     t0 = time.perf_counter()
     lines = read.read_page(client, model, image_png, req.state.lines)
     read_ms = _ms(t0)
+    entry.update(model=model, read_ms=read_ms, lines=[_line_summary(l) for l in lines])
 
     t1 = time.perf_counter()
     if explaining:  # Teach me: one lesson instead of marks
@@ -77,8 +148,18 @@ def run_check(req: CheckRequest) -> CheckResponse:
         result = teach.teach(client, model, lines, req)
     teach_ms = _ms(t1)  # in explain mode this is the time the explain step took
 
-    resp = merge(req.state, lines, result, req.mode, req.question)
+    entry.update(teach_ms=teach_ms, finished=result.finished, tool_calls=list(result.tool_calls),
+                 actions_from_model=[_action_summary(a) for a in result.actions],
+                 clear_from_model=list(result.clear_line_ids),
+                 hint_updates_from_model=[h.model_dump() for h in result.hint_updates])
+
+    page_id = req.state.page_id
+    resp = merge(req.state, lines, result, req.mode, req.question, memory.marked(page_id))
+    memory.remember(page_id, req.mode, lines, resp.actions, resp.clear_line_ids)
     resp.debug = Debug(model=model, read_ms=read_ms, teach_ms=teach_ms, tool_calls=list(result.tool_calls))
+    entry.update(actions_sent=[_action_summary(a) for a in resp.actions], clear_line_ids=list(resp.clear_line_ids),
+                 flagged_line_ids=list(resp.state.flagged_line_ids),
+                 problems=[p.model_dump() for p in resp.state.problems])
     _trace(req, image_png, lines, result, resp)
     log.info("read_ms=%d %s=%d lines=%d actions=%d finished=%s",
              read_ms, "explain_ms" if explaining else "teach_ms", teach_ms, len(lines), len(resp.actions),
