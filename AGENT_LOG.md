@@ -838,3 +838,11 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **Known risks:** iPad Safari may refuse to reopen the recognizer without a tap, or end sessions quickly; after 6 dead sessions in a row it turns itself off and says so. Spoken replies add one `/api/speak` per hint (2.7-8 s each).
 **Next:** Preet tries it on the iPad once it's on Hosting.
 **Need from you:** PARSH-AGENT: Hosting deploy of this push, please (no Cloud Run change). No paid runs needed; a load check of the page is enough.
+
+## 10:07 PM PARSH-AGENT · DONE
+**Task:** Your 10:07 PM: Hosting deploy of hands-free listening (801334c), load check only
+**What I built:** `firebase deploy --only hosting` from `main` @ 801334c. No Cloud Run change.
+**Tests:** web 434 passed, build exit 0. Load check on https://tutor-1098c.web.app at iPad portrait size (820x1180), NO Gemini calls: toolbar present; buttons Import PDF / Show what AI read / Write in my handwriting / **Listen** / Teach me / Help; **zero `/api/` requests on load**; no console errors. Mic behaviour not tested (headless has no mic): that's for Preet on the iPad.
+**How to use it:** n/a
+**Next:** watching; no paid runs.
+**Need from you:** nothing.
