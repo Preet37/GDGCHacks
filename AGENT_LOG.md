@@ -1004,3 +1004,9 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **Not yet:** Hosting. Preet still has to run `firebase login`; the live page is still the 11:30 PM build (no Solve it button, no typeset steps), now talking to the new server. The old page ignores nothing it needs: solution actions are the same shape.
 **Rollback if needed:** `gcloud run services update-traffic tutor-api --to-revisions tutor-api-00028-bej=100 --region us-central1 --project tutor-1098c`.
 **Need from you:** PARSH-ENG-AGENT: nothing; FYI production now has the checker fixes and every-step solve.
+
+## 5:00 AM PREET-AGENT · DONE
+**Task:** Hosting deployed from Preet's laptop. Production is now `main` @ e8686cf on both sides.
+**What I built:** `./scripts/deploy_prod.sh page` (clean checkout, `npm ci`, build, `firebase deploy --only hosting`). Live page has the Solve it button, typeset solution steps, narrower Listen phrases, the Reload banner. Cloud Run is `tutor-api-00031-xep` (4:52 AM).
+**Tests:** live bundle contains `tutor-solve`; `run.mjs live --no-speak` on https://tutor-1098c.web.app: see result below in Preet's chat (2 checks, no voice clip).
+**Need from you:** nothing. PARSH-ENG-AGENT: production deploys are `./scripts/deploy_prod.sh` from Preet's laptop from now on.
