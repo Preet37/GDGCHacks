@@ -2,8 +2,8 @@ import functionPlotModule from 'function-plot'
 import { AssetRecordType, createShapeId, type Editor, type TLAsset, type TLShapePartial } from 'tldraw'
 import type { Action, FigureSpec } from '../contract'
 import { compile } from 'mathjs'
-import { aiMeta, anchorRect, sizesFor } from './actions'
-import { beside, FIGURE_BASE_H, FIGURE_BASE_W, type PageRect } from './geometry'
+import { aiMeta, cardRect, lineRect, sizesFor } from './actions'
+import { DEFAULT_CONTEXT, FIGURE_BASE_H, FIGURE_BASE_W, type PageRect, type RenderContext } from './geometry'
 
 /** Size the plot is rendered at; the image shape then scales it to the handwriting. */
 export const FIGURE_W = FIGURE_BASE_W
@@ -21,13 +21,13 @@ const functionPlot: PlotFn =
   typeof functionPlotModule === 'function' ? functionPlotModule : (functionPlotModule as unknown as { default: PlotFn }).default
 
 /**
- * Where a figure goes: beside its box (or the top-right of the sent area if it has none),
- * sized from the height of that line of handwriting (about 3.5 line-heights tall).
+ * Where a figure goes: beside its box (or the top-right of the sent area if it has none), on the
+ * side that has room. About 3.5 line-heights of the handwriting tall, and never less than a
+ * third of the screen's shorter side at the current zoom, so it can be read without zooming in.
  */
-export function figureRect(action: Action, bounds: PageRect): PageRect {
-  const sz = sizesFor(action, bounds)
-  const at = beside(anchorRect(action, bounds), action.side === 'below' ? 'below' : 'right', sz.gap)
-  return { x: at.x, y: at.y, w: sz.figureW, h: sz.figureH }
+export function figureRect(action: Action, bounds: PageRect, ctx: RenderContext = DEFAULT_CONTEXT): PageRect {
+  const sz = sizesFor(action, bounds, ctx)
+  return cardRect(action, bounds, ctx, sz.figureW, sz.figureH)
 }
 
 const SAMPLES = 200
@@ -140,13 +140,13 @@ function drawSurface3d(editor: Editor, action: Action, rect: PageRect) {
 }
 
 /** Draw every figure action as an image shape (3D surfaces are drawn by ./figure3d, asynchronously). Unsupported or broken specs are skipped. */
-export function drawFigures(editor: Editor, actions: Action[], bounds: PageRect) {
+export function drawFigures(editor: Editor, actions: Action[], bounds: PageRect, ctx: RenderContext = DEFAULT_CONTEXT) {
   const assets: TLAsset[] = []
   const shapes: TLShapePartial[] = []
   for (const action of actions) {
     if (action.type !== 'figure' || !action.figure) continue
     if (action.figure.kind === 'surface3d') {
-      drawSurface3d(editor, action, figureRect(action, bounds))
+      drawSurface3d(editor, action, figureRect(action, bounds, ctx))
       continue
     }
     if (action.figure.kind !== 'plot2d') continue
@@ -157,7 +157,7 @@ export function drawFigures(editor: Editor, actions: Action[], bounds: PageRect)
       console.warn('figure skipped', action.figure, err)
       continue
     }
-    const r = figureRect(action, bounds)
+    const r = figureRect(action, bounds, ctx)
     const assetId = AssetRecordType.createId()
     assets.push(
       AssetRecordType.create({
@@ -171,7 +171,7 @@ export function drawFigures(editor: Editor, actions: Action[], bounds: PageRect)
       type: 'image',
       x: r.x,
       y: r.y,
-      meta: aiMeta('figure', action.line_id),
+      meta: aiMeta('figure', action.line_id, lineRect(action, bounds, ctx)),
       props: { assetId, w: r.w, h: r.h },
     })
   }

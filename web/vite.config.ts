@@ -8,7 +8,8 @@ export default defineConfig({
     host: true,
     port: 5173,
     proxy: {
-      '/api': 'http://localhost:8000',
+      // API_TARGET=https://... points the dev page at a deployed server (default: the local one).
+      '/api': { target: process.env.API_TARGET ?? 'http://localhost:8000', changeOrigin: true },
     },
     fs: {
       // lets the app import ../contract (shared types + example replies)

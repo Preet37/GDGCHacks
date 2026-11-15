@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import type { Editor } from 'tldraw'
 import type { PageRect } from './render/geometry'
+import { primeSpeech } from './lesson/speech'
 import type { HintChain } from './sync/hintChain'
 import type { Tutor } from './sync/tutor'
 import { HoldGesture, startListening, type Listening } from './voice'
@@ -46,6 +47,79 @@ function NextHint({ chain }: { chain: HintChain }) {
         ×
       </span>
     </button>
+  )
+}
+
+/**
+ * "Teach me": asks for a short narrated, animated lesson about the selection (or what is on screen).
+ * Help's quieter sibling: same shape, paper-white. After the last hint it wears a small "Still stuck?"
+ * tag for a while, since that is when being taught beats another nudge.
+ */
+function TeachButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) {
+  const [preparing, setPreparing] = useState(false)
+  const [offered, setOffered] = useState(false)
+  const area = useRef<PageRect | undefined>(undefined)
+
+  useEffect(() => {
+    let hide: ReturnType<typeof setTimeout> | undefined
+    const off = tutor.on((e) => {
+      if (e.type !== 'offer-lesson') return
+      setOffered(true)
+      clearTimeout(hide)
+      hide = setTimeout(() => setOffered(false), 30_000)
+    })
+    return () => {
+      off()
+      clearTimeout(hide)
+    }
+  }, [tutor])
+
+  const down = () => {
+    // read the selection before the tap can clear it
+    const sel = editor.getSelectionPageBounds()
+    area.current = sel ? { x: sel.x, y: sel.y, w: sel.w, h: sel.h } : undefined
+  }
+  const teach = async () => {
+    if (preparing) return
+    // iOS only lets a page speak if speech began inside a tap. The lesson arrives seconds from now,
+    // so the voice is unlocked here, while this tap is still being handled.
+    primeSpeech()
+    setOffered(false)
+    setPreparing(true)
+    editor.selectNone()
+    try {
+      await tutor.explain(area.current)
+    } finally {
+      setPreparing(false)
+    }
+  }
+
+  return (
+    <div className="tutor-teach-wrap">
+      {offered && !preparing && <span className="tutor-teach-tag">Still stuck?</span>}
+      <button
+        className={'tutor-teach' + (preparing ? ' preparing' : '')}
+        onPointerDown={down}
+        onClick={() => void teach()}
+        aria-busy={preparing}
+        aria-label={preparing ? 'Preparing a lesson' : 'Teach me: play a short lesson about this'}
+      >
+        {preparing ? (
+          <>
+            <svg className="tutor-teach-spin" viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+            </svg>
+            <span>Preparing a lesson…</span>
+          </>
+        ) : (
+          <span>
+            Teach
+            <br />
+            me
+          </span>
+        )}
+      </button>
+    </div>
   )
 }
 
@@ -125,6 +199,7 @@ export function HelpButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) 
         Show what AI read
       </button>
       <NextHint chain={tutor.hints} />
+      <TeachButton editor={editor} tutor={tutor} />
       <button
         className={'tutor-help' + (listening ? ' listening' : '')}
         onPointerDown={down}

@@ -5,7 +5,6 @@ import finishLine from '../../../contract/examples/finish_line.json'
 import hintLevel1 from '../../../contract/examples/hint_level_1.json'
 import { shapesForAction } from './actions'
 import { lineIdsToReplace } from './apply'
-import { mathToPlain } from './text'
 
 const bounds = { x: 0, y: 0, w: 1000, h: 1000 }
 const wrong = wrongDerivative as unknown as CheckResponse
@@ -17,11 +16,12 @@ describe('shapesForAction with wrong_derivative.json', () => {
     const [s] = shapesForAction(circle, bounds)
     expect(s.type).toBe('geo')
     expect(s.props).toMatchObject({ geo: 'ellipse', color: 'red', fill: 'none' })
-    // box [200,300,260,400] -> x 300..400, y 200..260, padded by 8
-    expect(s.x).toBe(292)
-    expect(s.y).toBe(192)
-    expect(s.props).toMatchObject({ w: 116, h: 76 })
-    expect(s.meta).toEqual({ ai: true, line_id: 'L2', kind: 'circle' })
+    // box [200,300,260,400] -> x 300..400, y 200..260, padded by 7.5 (an eighth of the line height)
+    expect(s.x).toBe(292.5)
+    expect(s.y).toBe(192.5)
+    expect(s.props).toMatchObject({ w: 115, h: 75 })
+    // the meta also records the writing it is about, so it can be replaced by place
+    expect(s.meta).toEqual({ ai: true, line_id: 'L2', kind: 'circle', ax: 300, ay: 200, aw: 100, ah: 60 })
   })
 
   it('puts the note to the right of the box in handwriting font', () => {
@@ -57,8 +57,8 @@ describe('other action types', () => {
     )
     expect(s.props).toMatchObject({ color: 'blue' })
     const json = JSON.stringify(s.props)
-    expect(json).toContain('x^2')
-    expect(json).toContain('x_2')
+    expect(json).toContain('x²')
+    expect(json).toContain('x₂')
   })
 
   it('figure and speak draw nothing here', () => {
@@ -70,11 +70,12 @@ describe('other action types', () => {
 describe('feedback scales with the handwriting', () => {
   // the sent image covers 2500 page units, so the 60-unit boxes are 150 px tall
   const big = { x: 0, y: 0, w: 2500, h: 2500 }
+  const far = { zoom: 0.4, view: { x: 0, y: 0, w: 2560, h: 1920 } } // a 1024 x 768 screen zoomed out
   const [circle, note] = wrong.actions
   type TextProps = { scale: number; w: number; size: string; autoSize: boolean; color: string; font: string }
 
   it('note text is ~40% of the line height, with width and gap to match', () => {
-    const [s] = shapesForAction(note, big)
+    const [s] = shapesForAction(note, big, far)
     const p = s.props as TextProps
     expect(p.size).toBe('s')
     expect(p.scale * 18).toBeCloseTo(60) // 18 px base font -> 60 px for 150 px writing
@@ -83,23 +84,39 @@ describe('feedback scales with the handwriting', () => {
     expect(s.y).toBe(500)
   })
 
-  it('small writing still gets readable text', () => {
-    const [s] = shapesForAction(note, { x: 0, y: 0, w: 300, h: 300 })
-    expect((s.props as TextProps).scale).toBe(1)
+  it('small writing still gets readable text: 14 px on screen at any zoom', () => {
+    for (const zoom of [0.25, 1, 2]) {
+      const [s] = shapesForAction(note, { x: 0, y: 0, w: 100, h: 100 }, { zoom, view: { x: 0, y: 0, w: 1024 / zoom, h: 768 / zoom } })
+      expect((s.props as TextProps).scale * 18 * zoom).toBeCloseTo(14)
+    }
+  })
+
+  it('the same page seen at zoom 1 and zoom 0.3 looks the same on screen', () => {
+    const at = (zoom: number) => {
+      const ctx = { zoom, view: { x: 0, y: 0, w: 1024 / zoom, h: 768 / zoom } }
+      const b = { x: 0, y: 0, w: 1000 / zoom, h: 1000 / zoom } // same writing on screen = 1/zoom bigger on the page
+      const [n] = shapesForAction(note, b, ctx)
+      const [c] = shapesForAction(circle, b, ctx)
+      const [i] = shapesForAction((finishLine as unknown as CheckResponse).actions[0], b, ctx)
+      const p = n.props as TextProps
+      return [n.x, n.y, p.scale, p.w * p.scale, c.x, (c.props as { scale: number }).scale, i.x, i.y, (i.props as TextProps).scale].map((v) => v * zoom)
+    }
+    const near = at(1)
+    at(0.3).forEach((v, k) => expect(v).toBeCloseTo(near[k], 6))
   })
 
   it('circle and underline get a thicker stroke and more padding', () => {
-    const [c] = shapesForAction(circle, big)
+    const [c] = shapesForAction(circle, big, far)
     expect((c.props as { scale: number }).scale).toBe(3)
-    expect(c.x).toBe(750 - 18)
-    const [u] = shapesForAction({ type: 'underline', box: [200, 300, 260, 400] }, big)
+    expect(c.x).toBe(750 - 18.75)
+    const [u] = shapesForAction({ type: 'underline', box: [200, 300, 260, 400] }, big, far)
     expect((u.props as { scale: number }).scale).toBe(3)
-    expect(u.y).toBe(650 + 9)
+    expect(u.y).toBe(650 + 9.375)
   })
 
-  it('inline note continues the line: after its right edge, centred, near the writing size, black', () => {
+  it('inline note continues the line: after its right edge, on the lower-middle, near the writing size, black', () => {
     const [action] = (finishLine as unknown as CheckResponse).actions
-    const [s] = shapesForAction(action, big) // box [260,80,340,300] -> x 200..750, y 650..850
+    const [s] = shapesForAction(action, big, far) // box [260,80,340,300] -> x 200..750, y 650..850
     const p = s.props as TextProps
     expect(s.type).toBe('text')
     expect(p).toMatchObject({ font: 'draw', color: 'black', autoSize: true })
@@ -109,9 +126,11 @@ describe('feedback scales with the handwriting', () => {
     expect(font / 200).toBeGreaterThanOrEqual(0.7)
     expect(font / 200).toBeLessThanOrEqual(0.8)
     expect(s.x).toBeGreaterThan(750)
-    expect(s.x).toBeLessThan(750 + 40)
-    expect(s.y + (font * 1.35) / 2).toBeCloseTo(750) // centred on the line
-    expect(s.meta).toEqual({ ai: true, line_id: 'L2', kind: 'note' })
+    expect(s.x).toBeLessThan(750 + 70)
+    const centre = s.y + (font * 1.35) / 2
+    expect(centre).toBeGreaterThan(750) // below the middle of the box (650..850), where the text runs
+    expect(centre).toBeLessThan(800)
+    expect(s.meta).toMatchObject({ ai: true, line_id: 'L2', kind: 'note' })
   })
 
   it('inline note takes the given colour', () => {
@@ -120,22 +139,99 @@ describe('feedback scales with the handwriting', () => {
   })
 })
 
+describe('tall lines and narrowed boxes', () => {
+  const far = { zoom: 0.4, view: { x: 0, y: 0, w: 2560, h: 1920 } }
+  // "∫ 4x dx =" at x 100..900, y 400..800: the integral sign makes the box 400 tall, the text is ~120
+  const ink = [
+    { x: 100, y: 400, w: 60, h: 400 },
+    { x: 220, y: 540, w: 70, h: 120 },
+    { x: 320, y: 570, w: 60, h: 80 },
+    { x: 330, y: 570, w: 60, h: 80 },
+    { x: 430, y: 520, w: 80, h: 130 },
+    { x: 530, y: 570, w: 60, h: 80 },
+    { x: 540, y: 570, w: 60, h: 80 },
+    { x: 800, y: 600, w: 100, h: 6 },
+    { x: 800, y: 630, w: 100, h: 6 },
+  ]
+  const frame = { x: 0, y: 0, w: 1000, h: 1000 }
+  const lineBox: [number, number, number, number] = [400, 100, 800, 900]
+  type TextProps = { scale: number; autoSize: boolean }
+
+  it('an inline answer is sized from the text, not the integral sign, and sits level with the "="', () => {
+    const [s] = shapesForAction({ type: 'note', side: 'inline', color: 'black', box: lineBox, text: '$2x^2 + C$' }, frame, { ...far, ink })
+    const font = (s.props as TextProps).scale * 18
+    expect(font).toBeGreaterThan(90)
+    expect(font).toBeLessThan(160) // 75% of the 400 box would be 300
+    expect(s.x).toBeGreaterThan(900) // clear of the "="
+    expect(s.y + (font * 1.35) / 2).toBeCloseTo(618) // the "=" spans 600..636
+  })
+
+  it('an answer near the edge of the screen is written smaller so it stays on it', () => {
+    const view = { x: 0, y: 0, w: 1300, h: 1920 }
+    const [s] = shapesForAction({ type: 'note', side: 'inline', box: lineBox, text: '$2x^2 + C$' }, frame, { zoom: 0.4, view, ink })
+    const font = (s.props as TextProps).scale * 18
+    expect(font).toBeLessThan(90)
+    expect(font).toBeGreaterThanOrEqual(14 / 0.4)
+    expect(s.x + 7 * font * 0.6).toBeLessThanOrEqual(1300)
+    expect(s.y + (font * 1.35) / 2).toBeCloseTo(618) // still level with the "="
+  })
+
+  it('a black note beside a line is the tutor finishing it, whatever side it asked for', () => {
+    const [s] = shapesForAction({ type: 'note', side: 'right', color: 'black', box: lineBox, text: '$2x^2 + C$' }, frame, { ...far, ink })
+    expect((s.props as TextProps).autoSize).toBe(true)
+    expect(s.y).toBeGreaterThan(500) // not up at the top of the box
+  })
+
+  it('a box narrowed to one term is not what feedback is sized from', () => {
+    const lines = new Map([['L1', { x: 100, y: 400, w: 800, h: 150 }]])
+    const sliver = { type: 'note' as const, line_id: 'L1', box: [470, 600, 490, 640] as [number, number, number, number], text: 'Check this term' }
+    const [s] = shapesForAction(sliver, frame, { ...far, lines })
+    expect((s.props as TextProps).scale * 18).toBeCloseTo(60) // 40% of the 150 line, not of the 20 sliver
+    const [c] = shapesForAction({ ...sliver, type: 'circle' }, frame, { ...far, lines })
+    expect(c.meta).toMatchObject({ ax: 100, ay: 400, aw: 800, ah: 150 })
+  })
+})
+
+describe('notes find room', () => {
+  const view = { x: 0, y: 0, w: 1024, h: 768 }
+  const frame = { x: 0, y: 0, w: 1000, h: 1000 }
+  const note = { type: 'note' as const, box: [300, 300, 360, 500] as [number, number, number, number], text: 'What is the derivative of $2x$?' }
+
+  it('right by default, below when more writing follows on the line', () => {
+    const [free] = shapesForAction(note, frame, { zoom: 1, view })
+    expect(free.x).toBeGreaterThan(500)
+    expect(free.y).toBe(300)
+    const [moved] = shapesForAction(note, frame, { zoom: 1, view, ink: [{ x: 540, y: 305, w: 200, h: 50 }] })
+    expect(moved.x).toBe(300)
+    expect(moved.y).toBeGreaterThan(360)
+  })
+
+  it('an ask asked for below goes beside the line when the next line is there', () => {
+    const ask = { type: 'ask' as const, side: 'below' as const, box: note.box, text: 'Did you mean...?', options: ['x^2', 'x_2'] }
+    const [s] = shapesForAction(ask, frame, { zoom: 1, view, ink: [{ x: 300, y: 390, w: 180, h: 60 }] })
+    expect(s.x).toBeGreaterThan(500)
+    expect(s.y).toBe(300)
+  })
+
+  it('wraps narrower rather than run off the screen', () => {
+    const edge = { ...note, box: [300, 600, 360, 800] as [number, number, number, number] }
+    const ink = [{ x: 600, y: 390, w: 300, h: 60 }, { x: 600, y: 200, w: 300, h: 60 }] // lines above and below
+    const [s] = shapesForAction(edge, frame, { zoom: 1, view, ink })
+    const p = s.props as { w: number; scale: number }
+    expect(s.x + p.w * p.scale).toBeLessThanOrEqual(1024)
+  })
+
+  it('two notes in one reply do not land on each other', () => {
+    const ctx = { zoom: 1, view, taken: [] }
+    const [a] = shapesForAction(note, frame, ctx)
+    const [b] = shapesForAction({ ...note, text: 'Another thought about this' }, frame, ctx)
+    expect([a.x, a.y]).not.toEqual([b.x, b.y])
+  })
+})
+
 describe('lineIdsToReplace', () => {
   it('includes action line ids and clear_line_ids', () => {
     const ids = lineIdsToReplace({ actions: wrong.actions, clear_line_ids: ['L7'] })
     expect([...ids].sort()).toEqual(['L2', 'L7'])
-  })
-})
-
-describe('mathToPlain', () => {
-  it('strips dollars and common LaTeX', () => {
-    expect(mathToPlain('Which rule handles $x \\sin x$?')).toBe('Which rule handles x sin x?')
-    expect(mathToPlain('$\\frac{1}{2}x^{2}$')).toBe('(1)/(2)x^2')
-  })
-
-  it('turns simple LaTeX into readable text', () => {
-    expect(mathToPlain('\\text{graph this}')).toBe('graph this')
-    expect(mathToPlain('$\\sqrt{x} \\le 2\\pi$')).toBe('√(x) ≤ 2π')
-    expect(mathToPlain('$\\left(x \\cdot y\\right) \\to \\infty$')).toBe('(x · y) → ∞')
   })
 })

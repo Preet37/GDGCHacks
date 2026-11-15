@@ -1,5 +1,5 @@
 import type { Box, CheckResponse, PageState, ProblemState, ReadLine } from '../contract'
-import { boxToPage, pageToBox, type PageRect } from '../render/geometry'
+import { boxToPage, overlapRatio, pageToBox, type PageRect } from '../render/geometry'
 import { coverage, intersects } from '../page'
 
 /**
@@ -99,8 +99,24 @@ export function mergeReply(
   const sentFlags = new Set(sent.flagged_line_ids)
   const sentProblems = new Set([...sent.lines.map((l) => l.problem_id), ...sent.problems.map((p) => p.problem_id)])
 
-  const keptLines = saved.lines.filter((l) => !sentLines.has(l.line_id))
-  const keptFlags = saved.flagged_line_ids.filter((id) => !sentFlags.has(id))
+  let keptLines = saved.lines.filter((l) => !sentLines.has(l.line_id))
+  let keptFlags = saved.flagged_line_ids.filter((id) => !sentFlags.has(id))
+
+  // A saved line the window only partly covered was not sent, so the server read it as a new
+  // line. It is the same writing: the reading takes the saved line's id (so its feedback is
+  // replaced, not doubled) and the saved copy goes.
+  const adopted = new Map<string, string>()
+  const superseded = new Set<string>()
+  for (const l of [...reply.state.lines, ...reply.lines]) {
+    const r = boxToPage(l.box, win)
+    for (const k of keptLines) {
+      if (superseded.has(k.line_id) || overlapRatio(boxRect(k.box), r) < 0.5) continue
+      superseded.add(k.line_id)
+      if (!sentLines.has(l.line_id) && !adopted.has(l.line_id) && ![...adopted.values()].includes(k.line_id)) adopted.set(l.line_id, k.line_id)
+    }
+  }
+  keptLines = keptLines.filter((l) => !superseded.has(l.line_id))
+  keptFlags = keptFlags.filter((id) => !superseded.has(id))
   const keptProblems = saved.problems.filter((p) => !sentProblems.has(p.problem_id))
 
   const lineMap = renames(
@@ -112,8 +128,9 @@ export function mergeReply(
       ...reply.state.flagged_line_ids,
     ],
     sentLines,
-    new Set([...keptLines.map((l) => l.line_id), ...keptFlags]),
+    new Set([...keptLines.map((l) => l.line_id), ...keptFlags, ...adopted.values()]),
   )
+  for (const [from, to] of adopted) lineMap.set(from, to)
   const problemMap = renames(
     [
       ...reply.lines.map((l) => l.problem_id),
@@ -132,7 +149,7 @@ export function mergeReply(
     ...reply,
     lines: reply.lines.map(fixLine),
     actions: reply.actions.map((a) => (a.line_id ? { ...a, line_id: lid(a.line_id) } : a)),
-    clear_line_ids: reply.clear_line_ids.map(lid),
+    clear_line_ids: [...new Set([...reply.clear_line_ids.map(lid), ...superseded])],
     state: {
       page_id: saved.page_id,
       lines: reply.state.lines.map(fixLine),

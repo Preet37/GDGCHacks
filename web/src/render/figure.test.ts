@@ -3,27 +3,44 @@ import { FIGURE_H, FIGURE_W, figureRect, sampleYRange, toPlotExpr } from './figu
 
 describe('figureRect', () => {
   const bounds = { x: 0, y: 0, w: 1000, h: 1000 }
-  it('sits to the right of the box by default', () => {
-    expect(figureRect({ type: 'figure', box: [150, 80, 210, 380] }, bounds)).toEqual({
-      x: 395,
-      y: 150,
-      w: FIGURE_W,
-      h: FIGURE_H,
-    })
+  const screen = (zoom: number) => ({ zoom, view: { x: 0, y: 0, w: 1024 / zoom, h: 768 / zoom } })
+  const action = { type: 'figure' as const, box: [150, 80, 210, 380] as [number, number, number, number] }
+
+  it('sits to the right of the box by default, a third of the screen tall', () => {
+    const r = figureRect(action, bounds, screen(1))
+    expect(r.x).toBe(395)
+    expect(r.y).toBe(150)
+    expect(r.h).toBe(256)
+    expect(r.w / r.h).toBeCloseTo(FIGURE_W / FIGURE_H)
   })
 
   it('sits below when side=below', () => {
-    const r = figureRect({ type: 'figure', box: [150, 80, 210, 380], side: 'below' }, bounds)
+    const r = figureRect({ ...action, side: 'below' }, bounds, screen(1))
     expect(r.x).toBe(80)
     expect(r.y).toBe(225)
   })
 
   it('grows with the handwriting: about 3.5 line heights tall, same aspect', () => {
-    const r = figureRect({ type: 'figure', box: [150, 80, 210, 380] }, { x: 0, y: 0, w: 2500, h: 2500 })
-    expect(r.h).toBe(525)
+    const r = figureRect(action, { x: 0, y: 0, w: 2500, h: 2500 }, screen(0.4))
+    expect(r.h).toBe(640) // 3.5 x 150 = 525 is less than a third of this screen
+    expect(figureRect(action, { x: 0, y: 0, w: 4000, h: 4000 }, screen(0.4)).h).toBe(840) // 3.5 x 240
     expect(r.w / r.h).toBeCloseTo(FIGURE_W / FIGURE_H)
     expect(r.x).toBeCloseTo(950 + 37.5)
     expect(r.y).toBe(375)
+  })
+
+  it('is as big on screen zoomed out as zoomed in', () => {
+    const near = figureRect(action, bounds, screen(1))
+    const far = figureRect(action, { x: 0, y: 0, w: 1000 / 0.3, h: 1000 / 0.3 }, screen(0.3))
+    expect(far.h * 0.3).toBeCloseTo(near.h)
+    expect(far.h * 0.3).toBeGreaterThanOrEqual(768 / 3 - 1e-6)
+  })
+
+  it('moves out of the way of ink', () => {
+    const ink = [{ x: 500, y: 160, w: 200, h: 40 }]
+    const r = figureRect(action, bounds, { ...screen(1), ink })
+    expect(r.x).toBe(80)
+    expect(r.y).toBe(225)
   })
 })
 

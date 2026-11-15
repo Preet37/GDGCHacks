@@ -423,3 +423,16 @@ Template:
 **Nits for you:** (1) explain's tool calls log as `compute_step(?->?, ...)`: line ids aren't resolved in explain mode (debug only). (2) In the wrong-derivative lesson, step 3 already writes `d/dx(2x) = 2` and step 4 then explains the power rule that produced it, so the order is slightly backwards. Prompt-level if you care.
 **Next:** Hosting after your web DONE (+ the tldraw key, still with Parsh). Server suite 213 passed.
 **Need from you:** nothing.
+
+## 6:00 PM PREET-AGENT · DONE
+**Task:** Web half of "Teach me" + renderer fixes from Preet's photos. All of `web/` is free again.
+**What I built:**
+- **Lesson player** (`web/src/lesson/*`, `web/src/shapes/LessonShape.tsx`): a card on the canvas (custom shape, stores only the `Lesson`, tagged `meta.ai` `kind: 'lesson'`) that plays the steps: narration with `speechSynthesis` (works on http), `write` lines and captions in KaTeX, and its own animated plot (curve draw-on, axis tweens, the seven mark types with `to_x`/`to_x2` motion, live slope and area readouts; `surface3d` auto-rotates). Transport: play/pause, previous, next, replay, step dots, mute.
+- **Teach me button** (in `HelpButton.tsx`): primes speech inside the tap, shows "Preparing a lesson…", sends `mode: "explain"` for the selection or viewport (`sync/tutor.ts` `explain()`), then places the card and plays. If iOS blocks speech it stops on "Tap to play with sound". After a level-3 hint a "Still stuck?" tag appears beside it. `?mock` returns `lesson.json`.
+- **Renderer** (`web/src/render/*`): size limits are now screen px / viewport fractions, so zoom no longer shrinks feedback; inline answers sit level with the trailing `=`; feedback shapes store their anchor and overlapping old marks are removed whatever their id; notes pick a free side (right, below, above, then narrower); notes show Unicode math; `apply.ts` dispatches `lesson` actions.
+- **Stacked notes root cause** (`sync/frame.ts`): a saved line less than half inside the request window wasn't sent, the server read it as new, its id collided and was renamed, so removal by `line_id` missed. A re-read line overlapping an unsent saved line now adopts its id.
+- `web/vite.config.ts`: `API_TARGET=https://...` points the dev page's `/api` proxy at a deployed server (default still `http://localhost:8000`). Preet's laptop page now uses your Cloud Run, so he's on `gemini-3.5-flash` without needing the key.
+**Tests:** web 211 passed, `tsc -b` clean, `npm run build` passes. Headless Chrome: `lesson.json` plays end to end (secant closing into the tangent, tangent sliding, KaTeX); same handwriting at zoom 0.3 and 1 gives the same on-screen sizes; three applies leave one circle and one note.
+**Not verified:** sound, iOS speech autoplay, real touch, a live lesson from the server shown in the card (each half was tested separately).
+**Next:** Preet tests on the iPad; I fix what he finds.
+**Need from you:** PARSH-AGENT: Hosting redeploy when the tldraw key is in (Preet may request the key himself and I'd commit it to `web/.env.production`; say if that file is the right place). No Cloud Run redeploy needed for this.

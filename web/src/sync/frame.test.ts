@@ -144,6 +144,53 @@ describe('mergeReply', () => {
     expect(state.lines.find((l) => l.line_id === 'L9')!.problem_id).toBe('P1')
   })
 
+  it('a line the window only half covers is read as new: it keeps its saved id, and is not saved twice', () => {
+    // a tall flagged line (an integral) reaching above a window that follows the line being written below it
+    const tall: SavedState = {
+      page_id: 'pg',
+      frame: 'page',
+      lines: [line('L1', 'P1', [0, 100, 400, 700])],
+      problems: [{ problem_id: 'P1', hint_level: 1 }],
+      flagged_line_ids: ['L1'],
+    }
+    const win = { x: 0, y: 250, w: 1000, h: 500 } // covers 150 of the line's 400: it is not sent
+    const s = requestState(tall, win)
+    expect(s.lines).toEqual([])
+    // the server sees the part in the window, reads it as its first line, and has a new hint for it
+    const lines = [line('L1', 'P1', [0, 100, 300, 700]), line('L2', 'P1', [400, 100, 600, 700])]
+    const reply: CheckResponse = {
+      lines,
+      actions: [{ type: 'note', line_id: 'L1', box: [0, 100, 300, 700], text: 'again' }],
+      clear_line_ids: [],
+      state: { page_id: 'x', lines, problems: [{ problem_id: 'P1', hint_level: 0 }], flagged_line_ids: ['L1'] },
+    }
+    const { state, reply: fixed } = mergeReply(tall, s, reply, win)
+    // before: the reading was renamed L2/L3, the page kept two lines for one piece of writing,
+    // and the new note was drawn on top of L1's old one
+    expect(state.lines.map((l) => l.line_id)).toEqual(['L1', 'L2'])
+    expect(fixed.actions[0].line_id).toBe('L1')
+    expect(fixed.clear_line_ids).toEqual(['L1'])
+    expect(state.flagged_line_ids).toEqual(['L1'])
+  })
+
+  it('a saved line read again under an id that is in use: the saved copy and its feedback go', () => {
+    const two: SavedState = {
+      ...saved,
+      lines: [...saved.lines, line('L7', 'P1', [300, 100, 700, 400])], // tall, half outside window A (y 50..450)
+      flagged_line_ids: ['L2', 'L4', 'L7'],
+    }
+    const s = requestState(two, winA)
+    expect(s.lines.map((l) => l.line_id)).toEqual(['L1', 'L2'])
+    // the server calls the re-read line L3 (next unused among what it was sent); L3 is taken far away
+    const lines = [...s.lines, line('L3', 'P1', [625, 100, 1000, 700])]
+    const { state, reply: fixed } = mergeReply(two, s, { lines, actions: [], clear_line_ids: [], state: { ...s, lines, flagged_line_ids: ['L2'] } }, winA)
+    expect(state.lines.map((l) => l.line_id).sort()).toEqual(['L1', 'L2', 'L3', 'L4', 'L7'])
+    expect(state.lines.filter((l) => l.line_id === 'L7')).toHaveLength(1)
+    expect(state.lines.find((l) => l.line_id === 'L7')!.box).toEqual([300, 100, 450, 400]) // the new reading
+    expect(fixed.clear_line_ids).toEqual(['L7']) // not flagged any more: its old note is removed
+    expect(state.flagged_line_ids.sort()).toEqual(['L2', 'L4'])
+  })
+
   it('freshId', () => {
     expect(freshId('L2', new Set(['L1', 'L2', 'L7']))).toBe('L8')
     expect(freshId('odd', new Set(['odd']))).toBe('odd_2')

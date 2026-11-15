@@ -7,6 +7,9 @@ describe('dev server config', () => {
   })
 
   it('proxies /api to the local FastAPI server', () => {
-    expect(config.server?.proxy?.['/api']).toBe('http://localhost:8000')
+    // API_TARGET can point it at a deployed server instead; unset, it is the local one.
+    const api = config.server?.proxy?.['/api'] as { target: string; changeOrigin: boolean }
+    expect(api.target).toBe(process.env.API_TARGET ?? 'http://localhost:8000')
+    expect(api.changeOrigin).toBe(true)
   })
 })

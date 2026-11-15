@@ -1,7 +1,7 @@
 import type { Editor, TLRecord, TLShape, TLShapeId } from 'tldraw'
 import type { CheckRequest, CheckResponse, PageState } from '../contract'
 import { isAiShape } from '../render/actions'
-import { applyResponse } from '../render/apply'
+import { applyResponse, renderContext } from '../render/apply'
 import { readingShapes } from '../render/reading'
 import { pageToBox, type PageRect } from '../render/geometry'
 import { autoWindow, coverage, EXPORT_PADDING, helpWindow, intersects, rectOf, studentShapes, union } from '../page'
@@ -9,7 +9,7 @@ import { isWorksheetShape } from '../worksheet'
 import { postCheck } from './api'
 import { exportPng } from './exportImage'
 import { boxRect, mergeReply, PAGE_FRAME, requestState, sweepErased, toSaved, type SavedState } from './frame'
-import { HintChain, mistakeProblems, raisedProblem, stuckMsFromUrl, type HelpResult, type HelpTarget } from './hintChain'
+import { HintChain, MAX_HINT_LEVEL, mistakeProblems, raisedProblem, stuckMsFromUrl, type HelpResult, type HelpTarget } from './hintChain'
 import { emptyState, loadLastBounds, loadState, saveState } from './pageState'
 import { hashString, PauseScheduler } from './scheduler'
 
@@ -17,7 +17,15 @@ export const PAUSE_MS = 2000
 /** After a check, changes left in other parts of the page get their own check, at most this many in a row. */
 export const MAX_FOLLOW_UPS = 2
 
-export type TutorEvent = { type: 'busy'; busy: boolean } | { type: 'error'; message: string } | { type: 'reply'; reply: CheckResponse }
+export type TutorEvent =
+  | { type: 'busy'; busy: boolean }
+  | { type: 'error'; message: string }
+  | { type: 'reply'; reply: CheckResponse }
+  /** the last hint (the worked step) was just given: a good moment to offer a lesson instead */
+  | { type: 'offer-lesson' }
+
+/** What a tap on "Teach me" came to. 'none' = the tutor answered without a lesson (or there was nothing to look at). */
+export type ExplainResult = 'ok' | 'busy' | 'none' | 'failed'
 
 function isInkRecord(r: TLRecord): r is TLShape {
   return r.typeName === 'shape' && !isAiShape(r) && !isWorksheetShape(r)
@@ -30,6 +38,8 @@ function isStudentShapeRecord(r: TLRecord): boolean {
 /** What one request did (see hintChain.ts). */
 interface SendOutcome extends HelpResult {
   mistakes: string[]
+  /** the reply carried a lesson to play */
+  lesson: boolean
 }
 
 /** A change not yet sent: a live stroke (looked up by id when sending) or the place where one was erased. */
@@ -144,7 +154,35 @@ export class Tutor {
     const ok = await this.scheduler.exclusive(async () => {
       out = await this.send({ mode: 'help', ...target }).catch(() => null)
     })
+    if (ok && (out as SendOutcome | null)?.raised?.level === MAX_HINT_LEVEL) this.emit({ type: 'offer-lesson' })
     return ok ? out : 'busy'
+  }
+
+  /**
+   * "Teach me" was tapped: send now with mode "explain" (same window rules as Help: the selection,
+   * or what is on screen). The reply's `lesson` action is drawn like any other action, as a card
+   * that plays itself. Hints stop: the student asked to be taught, not nudged.
+   */
+  async explain(area?: PageRect): Promise<ExplainResult> {
+    this.hints.cancel()
+    let out: SendOutcome | null = null
+    let failed = false
+    const ok = await this.scheduler.exclusive(async () => {
+      try {
+        out = await this.send({ mode: 'explain', area })
+      } catch {
+        failed = true // send() has already shown why
+      }
+    })
+    if (!ok) {
+      this.emit({ type: 'error', message: 'Still thinking about the last one…' })
+      return 'busy'
+    }
+    if (failed) return 'failed'
+    const sent = out as SendOutcome | null
+    if (!sent) return 'none'
+    if (!sent.lesson) this.emit({ type: 'error', message: "Couldn't make a lesson for this. Try Help instead" })
+    return sent.lesson ? 'ok' : 'none'
   }
 
   /** Replace the page state (e.g. loaded from Firestore). The loaded page counts as already checked. */
@@ -167,7 +205,7 @@ export class Tutor {
   private drawReading() {
     const old = this.editor.getCurrentPageShapes().filter((s) => isAiShape(s) && s.meta.kind === 'reading')
     // saved boxes are already page coordinates
-    const fresh = this.showReading ? readingShapes(this.state.lines, PAGE_FRAME) : []
+    const fresh = this.showReading ? readingShapes(this.state.lines, PAGE_FRAME, renderContext(this.editor)) : []
     this.editor.run(
       () => {
         if (old.length) this.editor.deleteShapes(old)
@@ -238,7 +276,7 @@ export class Tutor {
     }
 
     const win =
-      opts.mode === 'help'
+      opts.mode !== 'auto'
         ? opts.window
           ? this.chainWindow(opts.window, opts.problemId)
           : helpWindow(opts.area, ink, sheets, view)
@@ -287,7 +325,7 @@ export class Tutor {
       this.drawReading()
       settle()
       this.emit({ type: 'reply', reply })
-      return { window: win, raised, mistakes: mistakeProblems(reply) }
+      return { window: win, raised, mistakes: mistakeProblems(reply), lesson: reply.actions.some((a) => a.type === 'lesson' && !!a.lesson) }
     } catch (err) {
       this.emit({ type: 'error', message: err instanceof Error ? err.message : 'Something went wrong' })
       throw err
