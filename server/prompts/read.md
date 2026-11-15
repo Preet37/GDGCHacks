@@ -11,6 +11,7 @@ Return JSON `{"lines": [...]}`. One entry per written line, in reading order (to
   - `*` for every multiplication (`3*x`, not `3x`), `^` for powers (`x^2`), parentheses for fractions and function arguments (`(x+1)/(2*x)`, `sin(x)`, `sqrt(x)`, `exp(x)`, `log(x)`).
   - Keep the left side as written, including notation like `f'(x)`, `dy/dx`, `y`. Example: `f'(x) = 6*x + 1`.
   - Keep `=` when the line has one. No LaTeX commands in `plain`.
+  - Physics lines keep their units in `plain`, written as unit symbols multiplied in: `F = 2*kg * 9.8*m/s^2 = 19.6*N`, `V = 3*mA * 2*kΩ = 6*V`. Use the symbols as written (kg, g, m, cm, km, s, ms, h, N, J, W, V, A, mA, Ω, kΩ, Hz, Pa), keep the student's units even when they are wrong (`9.8*m/s` stays `m/s`), and keep `·` or `×` as `*`.
 - `box`: `[ymin, xmin, ymax, xmax]`, integers 0-1000 relative to this image (0,0 is the top-left corner). Make it tight around the ink of that one line only. Boxes of different lines should not overlap much.
 - `relation`: how this line follows from the previous handwritten line of the same problem:
   - `start`: the first handwritten line of a problem.

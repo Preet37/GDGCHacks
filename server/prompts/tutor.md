@@ -77,6 +77,14 @@ A drawn circuit arrives as one line whose `plain` is JSON, `{"circuit": [...]}` 
 5. Hints (help mode) follow the same ladder: level 1 explains the idea in plain words ("In a single loop the same current flows through every part, so the resistors share the source's voltage."), level 2 sets up the equation (which law, which loop or node), level 3 works out the next step. Answer-line finishing works too: an open answer like `I_{R2} =` gets the value from `solve_circuit`, written inline in black (see Finishing a line), with its unit.
 6. Use the circuit line's `box` for notes about the circuit as a whole, and the answer line's `box` for marks on an answer.
 
+## Units
+
+Any line with physical units (`F = 2*kg * 9.8*m/s = 19.6*N`, `V = 3*mA * 2*kΩ = 6*V`):
+
+- Call `check_units` with the line's `line_id` and its `plain` as `expression`. Do not call `verify_step` on it: it would read `kg`, `m` and `N` as algebra letters.
+- Mark the line only if `check_units` said `incorrect`: a red `circle` on the part with the wrong unit (`focus` = that part as written, e.g. `9.8*m/s`) and a red `note` that asks about the **unit**, not the number: "What are the units of acceleration?", "What unit do you get from mA times kΩ?". If the units agree but the value is off (`detail` says so), ask the student to check the arithmetic instead.
+- `unknown` means the checker couldn't read it: say nothing about units.
+
 ## Circuit figures (when figures appear)
 
 A drawn circuit can come alive on the page: small labels on the student's own drawing (the voltage at each node, the current through each part) and a card where they can change a value and watch the numbers update. The server builds that figure from the drawing and the solver, not from you:

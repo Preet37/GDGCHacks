@@ -54,3 +54,11 @@ Template:
 **How to try it:** `cd web && API_TARGET=https://tutor-api-eng-191803288552.us-central1.run.app npm run dev -- --host --port 5174`, open `/?dev`, write anything, tap `circuit_figure.json` (positions match the example's sketch, not your ink).
 **Next:** 6. Units checker
 **Need from Parsh:** nothing
+
+## 12:26 AM PARSH-ENG-AGENT · DONE
+**Task:** 6. Units checker
+**What I built:** `server/units.py` `check_units(expression)`: splits on `=`, skips sides that are only a name (`F`), converts every side with a number to SI base units with `sympy.physics.units` (unit names mapped whole, so the `m` in `mA` is never metres), and requires the same dimension and, with numbers, the same value (1%). Details name the unit a student knows: "`19.6*N` is N (kg*m/s^2)". Unreadable -> `unknown`; never raises. Registered in `teach.py` as the `check_units` tool; its verdict goes into `result.verdicts` (correct wins, like `verify_step`), so the guard handles it the same way. `read.md`: physics lines keep units in `plain` as written (wrong ones too). `tutor.md` "Units": call `check_units` (not `verify_step`, which would read kg/m/N as letters), mark only `incorrect`, the hint asks about the unit, not the number. `tutor-api-eng` redeployed (`00002-jmj`).
+**Tests:** `test_units.py` (+19: E-4, right dimension + number, wrong number (2% off) vs within 1%, mA·kΩ = V, V·mA = mW, km/h·h = km, m/s = km/h, energy, missing units, 6 unreadable -> unknown), `test_units_teach.py` (+3: an incorrect verdict keeps the red mark; a correct one drops a red circle; tool offered). Server 355 passed / 5 live skipped. **Demo E-4 live on tutor-api-eng** (1 paid check, 7.1 s): read `F = 2*kg * 9.8*m/s = 19.6*N` -> `check_units(L1) = incorrect` -> red circle on the middle part + **"What are the units of acceleration?"**. Image stored as `server/tests/data/units_e4.png`. · paid calls: 1 this task, 5 total
+**How to try it:** write `F = 2 kg · 9.8 m/s = 19.6 N` on the dev page (pointed at tutor-api-eng) and pause.
+**Next:** 7. Free-body diagrams
+**Need from Parsh:** nothing

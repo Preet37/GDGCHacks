@@ -16,6 +16,7 @@ from pydantic import ValidationError
 
 import circuits
 import compute
+import units
 import memory
 import practice
 import solution
@@ -181,6 +182,23 @@ CIRCUIT_DECL = types.FunctionDeclaration(
     },
 )
 
+UNITS_DECL = types.FunctionDeclaration(
+    name="check_units",
+    description=(
+        "Check a physics line that has units (e.g. 'F = 2*kg * 9.8*m/s^2 = 19.6*N'): every side with a number and "
+        "units must have the same dimension and, when numbers are given, the same value (1%). Call it for every line "
+        "with units. Returns verdict correct / incorrect / unknown and a detail naming the units of each side."
+    ),
+    parameters_json_schema={
+        "type": "object",
+        "properties": {
+            "line_id": {"type": "string", "description": "the line being checked"},
+            "expression": {"type": "string", "description": "that line's plain text, units included"},
+        },
+        "required": ["line_id", "expression"],
+    },
+)
+
 SUBMIT_DECL = types.FunctionDeclaration(
     name="submit_feedback",
     description="Finish: send the feedback to draw on the page. Call exactly once, after verifying.",
@@ -214,7 +232,7 @@ SUBMIT_DECL = types.FunctionDeclaration(
 def _build_config(thinking=None) -> types.GenerateContentConfig:
     return types.GenerateContentConfig(
         system_instruction=PROMPT_PATH.read_text(),  # loaded per call so prompt edits apply live
-        tools=[types.Tool(function_declarations=[VERIFY_DECL, COMPUTE_DECL, CIRCUIT_DECL, SUBMIT_DECL])],
+        tools=[types.Tool(function_declarations=[VERIFY_DECL, COMPUTE_DECL, CIRCUIT_DECL, UNITS_DECL, SUBMIT_DECL])],
         tool_config=types.ToolConfig(
             function_calling_config=types.FunctionCallingConfig(mode="ANY")
         ),
@@ -366,6 +384,22 @@ def _netlist_from_line(line: ReadLine | None) -> list:
         return []
     els = data.get("circuit") if isinstance(data, dict) else data
     return els if isinstance(els, list) else []
+
+
+def _run_units(args: dict, lines: list[ReadLine], result: TeachResult) -> dict:
+    """check_units on a line; its verdict counts like verify_step's (the guard drops red marks on a correct line)."""
+    ids = {l.line_id for l in lines}
+    line_id = str(args.get("line_id", ""))
+    expression = str(args.get("expression") or next((l.plain for l in lines if l.line_id == line_id), ""))
+    try:
+        out = units.check_units(expression)
+    except Exception as e:  # check_units shouldn't raise; a bug there must not break the request
+        log.exception("check_units failed")
+        out = {"verdict": "unknown", "detail": f"units error: {e}"}
+    result.tool_calls.append(f"check_units({line_id}) = {out['verdict']}")
+    if line_id in ids and result.verdicts.get(line_id) != "correct":  # same rule as verify_step: correct wins
+        result.verdicts[line_id] = out["verdict"]
+    return out
 
 
 def _run_circuit(args: dict, lines: list[ReadLine], result: TeachResult) -> dict:
@@ -588,7 +622,7 @@ def teach(client, model: str, lines: list[ReadLine], req: CheckRequest) -> Teach
             if cand is not None:
                 contents.append(cand)
             contents.append(types.Content(role="user", parts=[types.Part.from_text(
-                text="Respond only by calling verify_step, compute_step, solve_circuit or submit_feedback.")]))
+                text="Respond only by calling verify_step, compute_step, solve_circuit, check_units or submit_feedback.")]))
             continue
 
         # Send the model's turn back unchanged (keeps Gemini 3 thought signatures).
@@ -605,6 +639,8 @@ def teach(client, model: str, lines: list[ReadLine], req: CheckRequest) -> Teach
                 out = _run_compute(args, lines, result, hands_off)
             elif call.name == "solve_circuit":
                 out = _run_circuit(args, lines, result)
+            elif call.name == "check_units":
+                out = _run_units(args, lines, result)
             elif call.name == "submit_feedback":
                 submit = args
                 out = {"ok": True}
