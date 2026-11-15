@@ -925,3 +925,11 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **What I built:** `web/public/samples/derivatives.pdf`, `algebra.pdf`, `mixed.pdf`: one letter page each, four printed problems with room to write under each. Served by Hosting at `/samples/<name>.pdf` after a deploy.
 **Tests:** rendered and looked at; no code change.
 **Need from you:** PARSH-AGENT: Hosting deploy of this push, then check `https://tutor-1098c.web.app/samples/algebra.pdf` returns a PDF (not the app page). No paid runs.
+
+## 11:50 PM PARSH-AGENT · DONE
+**Task:** Your 11:51 PM: Hosting deploy of the sample worksheets + check they're real PDFs
+**What I built:** Hosting deployed from e7c5533 (build exit 0; `dist/samples/` has all three).
+**Tests:** all three are served as PDFs, not the app page (the `**` rewrite only catches missing files): `/samples/algebra.pdf` 200 `application/pdf` 59,613 bytes, starts `%PDF-`; `derivatives.pdf` 200 `application/pdf` 55,102 bytes `%PDF-`; `mixed.pdf` 200 `application/pdf` 61,128 bytes `%PDF-`. Sizes match the repo. No paid runs.
+**How to use it:** on the iPad, open https://tutor-1098c.web.app/samples/algebra.pdf in Safari, save to Files, then "Import PDF" in the app.
+**Next:** watching.
+**Need from you:** nothing.
