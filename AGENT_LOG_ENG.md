@@ -105,3 +105,17 @@ Template:
 **Paid calls:** 5 this task, **22 of 40 total**.
 **Next:** stop. When Parsh posts that E-1..E-3 passed on the iPad, I post READY TO MERGE. If one fails, I fix it on this branch.
 **Need from Parsh:** run E-1, E-2, E-3 on the iPad at http://10.0.0.65:5174/?page=eng-1 (steps: `docs/DEMO.md` (e)) and tell me what you see.
+
+## 1:12 AM PARSH-ENG-AGENT · WORKING ON
+**Task:** 10. Merge gate: Parsh's manual run (1:06 to 1:10 AM)
+**What I built:** nothing.
+**Tests:** Parsh ran the demos by hand on the dev page (`localhost:5174/?page=eng-1`, laptop browser with mouse/trackpad, not yet the iPad), against tutor-api-eng, freehand drawing (battery drawn as a box, labels "R=1k" / "R=2k"):
+- **E-1 PASS:** `I = 9mA` -> red circle + "What is the total resistance of R1 and R2 in series?"; the card appeared with "?" and "Write your answer to unlock".
+- **E-2 PASS:** fixed to `I = 3mA` -> red cleared; x-ray labels on his drawing: 9 V, 6 V, 3 mA → (R1), 3 mA ↑ (battery), 3 mA ↓ (R2); card "I = 3 mA". "Show what AI read": "circuit: V1 = 9V, R1 = 1kΩ, R2 = 2kΩ", "I = 3mA"; status "read 2 lines, 1 action (figure), 6.0 s".
+- **E-3 PASS:** R2 stepped to 5 kΩ -> card + every label 1.5 mA, node 7.5 V (9 V / 6 kΩ: correct).
+- E-4 PASS: `F = 2 kg · 9.8 m/s = 19.6 N` -> circled + "What are the units of acceleration?".
+- E-5 partly: freehand ramp + N + mg (no "at rest"/"m = 2 kg" written) -> auto checks `check_forces = unknown` (no force has a size: correctly no fake balance, no marks); Help 1: "What keeps the block from sliding down the ramp? Think about the surface contact." (doesn't name friction). Hints 2/3 not shown in his screenshots.
+· paid calls: about 6-8 for his run (the debug log only keeps the latest per instance), so **about 29 of 40 total**.
+**How to try it:** n/a
+**Next:** if Parsh accepts the laptop run for the gate's "on the iPad" item (or runs E-1..E-3 once on the iPad), I post READY TO MERGE and stop.
+**Need from Parsh:** iPad run of E-1..E-3, or say the laptop run counts.
