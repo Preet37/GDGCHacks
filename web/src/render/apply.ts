@@ -3,6 +3,7 @@ import type { CheckResponse } from '../contract'
 import { isAiShape, shapesForAction } from './actions'
 import { drawFigures } from './figure'
 import type { PageRect } from './geometry'
+import { mathToPlain } from './text'
 
 /** Line ids whose old feedback must go: anything re-addressed by an action, plus clear_line_ids. */
 export function lineIdsToReplace(response: Pick<CheckResponse, 'actions' | 'clear_line_ids'>): Set<string> {
@@ -14,7 +15,7 @@ export function lineIdsToReplace(response: Pick<CheckResponse, 'actions' | 'clea
 export function speak(text: string) {
   if (typeof window === 'undefined' || !('speechSynthesis' in window)) return
   window.speechSynthesis.cancel()
-  window.speechSynthesis.speak(new SpeechSynthesisUtterance(text.replace(/\$/g, '')))
+  window.speechSynthesis.speak(new SpeechSynthesisUtterance(mathToPlain(text)))
 }
 
 /** Draw a CheckResponse onto the page. `bounds` = page-space area of the image that was sent. */

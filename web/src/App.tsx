@@ -39,6 +39,8 @@ export default function App() {
     <div style={{ position: 'fixed', inset: 0 }}>
       <Tldraw
         persistenceKey="tutor-notebook"
+        // required on https production hosts (tutor-1098c.web.app); dev and plain http work without it
+        licenseKey={import.meta.env.VITE_TLDRAW_LICENSE_KEY}
         onMount={(e) => {
           setEditor(e)
           if (DEV) Object.assign(window, { editor: e })
