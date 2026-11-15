@@ -87,3 +87,18 @@ describe('mathToSpeech', () => {
     expect(mathToSpeech('Try $x^2 - 1$ again')).toBe('Try x^2 - 1 again')
   })
 })
+
+describe('LaTeX in worked solution steps', () => {
+  it('fractions and roots with powers inside come out whole', () => {
+    expect(mathToPlain('\\sqrt{x^{2}+1}')).toBe('√(x²+1)')
+    expect(mathToPlain('x = \\frac{x^{2}}{3}')).toBe('x = (x²)/3')
+    expect(mathToPlain('\\frac{-b \\pm \\sqrt{b^{2} - 4ac}}{2a}')).toBe('(−b ± √(b² − 4ac))/(2a)')
+    expect(mathToPlain('\\sqrt{x^{n+1}}')).toBe('√(x^(n+1))')
+  })
+
+  it('drops layout commands', () => {
+    expect(mathToPlain('\\displaystyle x &= \\boxed{2}')).toBe('x = 2')
+    expect(mathToPlain('\\begin{aligned} x &= 1 \\end{aligned}')).toBe('x = 1')
+    expect(mathToPlain('x = \\pm 1')).toBe('x = ±1')
+  })
+})

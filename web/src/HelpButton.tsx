@@ -3,6 +3,7 @@ import type { Editor } from 'tldraw'
 import type { PageRect } from './render/geometry'
 import { primeSpeech } from './lesson/speech'
 import type { HintChain } from './sync/hintChain'
+import { HandwritingToggle } from './handwriting'
 import { statusLine } from './sync/status'
 import type { Tutor } from './sync/tutor'
 import { HoldGesture, startListening, type Listening } from './voice'
@@ -240,6 +241,7 @@ export function HelpButton({ editor, tutor }: { editor: Editor; tutor: Tutor }) 
       <button className={'tutor-chip' + (reading ? ' on' : '')} onClick={toggleReading}>
         Show what AI read
       </button>
+      <HandwritingToggle editor={editor} />
       {reading && (
         <div className="tutor-status" role="status">
           {status ? statusLine(status) : 'no check yet'}

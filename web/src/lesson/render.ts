@@ -64,7 +64,18 @@ export function cleanLesson(lesson: Partial<Lesson> | null | undefined): Lesson 
     return step.say || step.write || step.caption || step.visual ? [step] : []
   })
   if (!steps.length) return null
-  return { title: typeof lesson.title === 'string' ? lesson.title : '', steps }
+  const out: Lesson = { title: typeof lesson.title === 'string' ? lesson.title : '', steps }
+  // "Your turn": kept only when it has a problem to write on the page.
+  const p = lesson.practice as Partial<NonNullable<Lesson['practice']>> | undefined
+  if (p && typeof p === 'object' && typeof p.problem === 'string' && p.problem.trim()) {
+    out.practice = {
+      prompt: typeof p.prompt === 'string' && p.prompt.trim() ? p.prompt : 'Your turn.',
+      problem: p.problem,
+      plain: typeof p.plain === 'string' && p.plain.trim() ? p.plain : p.problem,
+      ...(typeof p.ask === 'string' && p.ask.trim() ? { ask: p.ask } : {}),
+    }
+  }
+  return out
 }
 
 /**

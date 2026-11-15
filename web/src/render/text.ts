@@ -47,8 +47,15 @@ function fractionsAndRoots(text: string): string {
       .replace(/\\sqrt\s*\[([^\][{}]*)\]\s*\{([^{}]*)\}/g, (_, n: string, body: string) => `${n === '3' ? '∛' : n === '4' ? '∜' : `${n}√`}(${body})`)
       .replace(/\\sqrt\s*\{([^{}]*)\}/g, '√($1)')
       .replace(/\\sqrt\s*(\w)/g, '√$1')
-    if (next === out) break
-    out = next
+    if (next !== out) {
+      out = next
+      continue
+    }
+    // a power or index inside is what holds it up (\sqrt{x^{2}+1}): take its braces away and try again
+    if (!/\\(?:[dtc]?frac|sqrt)/.test(out)) break
+    const freed = out.replace(/([\^_])\{([^{}]*)\}/g, (_, op: string, body: string) => (/^(?:[-+]?\d+|[\w.])$/.test(body) ? op + body : `${op}(${body})`))
+    if (freed === out) break
+    out = freed
   }
   return out
 }
@@ -58,7 +65,11 @@ function stripLatex(text: string, spoken = false): string {
   return fractionsAndRoots(
     text
       .replace(/\\(?:left|right|big|Big|bigg|Bigg)(?![a-zA-Z])\.?/g, '')
-      .replace(/\\(?:text|textbf|textit|mathrm|mathbf|mathit|mathsf|mathcal|mathbb|boldsymbol|operatorname|bar|overline|vec|hat|tilde|underline)\s*\{([^{}]*)\}/g, '$1')
+      // layout only: \displaystyle, \begin{aligned} ... \end{aligned}, the & that lines up equals signs
+      .replace(/\\(?:displaystyle|textstyle|scriptstyle|limits|nolimits|nonumber)(?![a-zA-Z])/g, '')
+      .replace(/\\(?:begin|end)\s*\{[^{}]*\}/g, ' ')
+      .replace(/(?<!\\)&/g, '')
+      .replace(/\\(?:text|textbf|textit|mathrm|mathbf|mathit|mathsf|mathcal|mathbb|boldsymbol|operatorname|bar|overline|vec|hat|tilde|underline|boxed|cancel)\s*\{([^{}]*)\}/g, '$1')
       .replace(/\^\s*\{?\s*\\circ\s*\}?/g, '°'),
   )
     // read aloud, a Greek letter is its name ("omega"), which is what is left when the backslash goes

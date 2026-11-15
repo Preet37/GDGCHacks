@@ -233,6 +233,8 @@ export function writeInHand(editor: Editor, text: string, at: HandPlacement, opt
 export interface LinesPlacement extends HandPlacement {
   /** distance from one baseline to the next, in x-heights (default: about the student's own line spacing) */
   lineGap?: number
+  /** left edge of each line, when they don't all start at `x` (equals signs lined up) */
+  xs?: number[]
 }
 
 /**
@@ -257,7 +259,7 @@ export function writeLinesInHand(editor: Editor, lines: string[], at: LinesPlace
   const animate = opts.animate !== false && typeof requestAnimationFrame === 'function'
   let chain: Promise<boolean> = Promise.resolve(true)
   texts.forEach((text, i) => {
-    const where = { ...at, baseline: at.baseline + step * i }
+    const where = { ...at, x: at.xs?.[i] ?? at.x, baseline: at.baseline + step * i }
     if (!animate) {
       const r = writeInHand(editor, text, where, opts)
       if (r) add(r)
@@ -274,6 +276,7 @@ export function writeLinesInHand(editor: Editor, lines: string[], at: LinesPlace
   // the rect is known before the writing is: it is what the lines will cover
   const m = metricsOf(bank)
   const widest = Math.max(...texts.map((l) => layoutText(l, bank, { ...opts, seed: 1 })!.width))
-  const planned: PageRect = { x: at.x, y: at.baseline - m.cap * at.xHeight, w: widest * at.xHeight, h: step * (texts.length - 1) + (m.cap + 0.4) * at.xHeight }
+  const x0 = Math.min(at.x, ...(at.xs ?? []))
+  const planned: PageRect = { x: x0, y: at.baseline - m.cap * at.xHeight, w: Math.max(at.x, ...(at.xs ?? [])) - x0 + widest * at.xHeight, h: step * (texts.length - 1) + (m.cap + 0.4) * at.xHeight }
   return { ids, rect: rect ?? planned, mode, done: chain }
 }

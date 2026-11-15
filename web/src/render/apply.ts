@@ -1,9 +1,11 @@
 import type { Editor, TLShape, TLShapeId } from 'tldraw'
 import type { Action, CheckResponse } from '../contract'
-import { anchorOf, cardRect, isAiShape, lineRect, shapesForAction, sizesFor } from './actions'
+import { handForAction, handwritingEnabled, studentPen } from '../handwriting'
+import { anchorOf, cardRect, isAiShape, isInlineNote, lineRect, shapesForAction, sizesFor } from './actions'
 import { drawFigures } from './figure'
 import { boxToPage, overlapRatio, type PageRect, type RenderContext } from './geometry'
 import { sheetInk } from './sheetInk'
+import { fontMeasure, panTo, revealSolution, solutionLayout, solutionShapes } from './solution'
 import { mathToSpeech } from './text'
 
 type LessonModule = { renderLesson: (editor: Editor, action: Action, rect: PageRect) => Promise<void> }
@@ -12,7 +14,34 @@ type LessonModule = { renderLesson: (editor: Editor, action: Action, rect: PageR
 const lessonModules = import.meta.glob<LessonModule>('../lesson/render.ts')
 
 /** Feedback written on or beside a line: these are replaced when new feedback arrives for the same writing. */
-const MARK_KINDS = new Set(['note', 'ask', 'circle', 'underline', 'leader'])
+const MARK_KINDS = new Set(['note', 'ask', 'circle', 'underline', 'leader', 'solution', 'hand'])
+
+/**
+ * Should this action be tried in the student's own handwriting? Only the two things the tutor
+ * writes as if it were the student (an answer finishing their line, the steps of a full solve),
+ * and only with "Write in my handwriting" on. Whether the hand is known well enough is found out
+ * by trying: handForAction draws nothing and returns null if not, and the action is drawn as text.
+ */
+export function wantsHand(action: Action, enabled: boolean): boolean {
+  if (!enabled) return false
+  if (action.type === 'solution') return !!action.steps?.length && !!action.box
+  return action.type === 'note' && !!action.text && isInlineNote(action)
+}
+
+/**
+ * Draw one action in the student's hand if it should be and can be; false = draw it the usual way.
+ * `write` is handForAction (a parameter so the decision can be tested without an editor); anything
+ * it throws counts as "can't".
+ */
+export function drawnByHand(action: Action, enabled: boolean, write: (action: Action) => unknown): boolean {
+  if (!wantsHand(action, enabled)) return false
+  try {
+    return !!write(action)
+  } catch (err) {
+    console.warn('handwriting skipped', err)
+    return false
+  }
+}
 /** Two boxes are the same writing if they share this much of the smaller one. */
 export const SAME_WRITING = 0.5
 
@@ -159,11 +188,37 @@ export function applyResponse(editor: Editor, response: CheckResponse, bounds: P
   })
 
   const takenBefore = ctx.taken.length // everything placed from here on is appended
-  const batches = response.actions.map((a) => shapesForAction(a, bounds, ctx))
+  // the old feedback goes first: handwriting is drawn straight onto the page, where the old answer was
+  if (stale.size) editor.run(() => editor.deleteShapes([...stale] as TLShapeId[]), { history: 'ignore', ignoreShapeLock: true })
   let drawn = 0
+  const hand = handwritingEnabled()
+  const solutions: PageRect[] = [] // revealed step by step, the camera following: not part of the one-off reveal below
+  const batches = response.actions.map((a) => {
+    if (drawnByHand(a, hand, (action) => handForAction(editor, action, bounds, ctx))) {
+      drawn++
+      if (a.type === 'solution') {
+        const rect = ctx.taken!.at(-1)!
+        solutions.push(rect)
+        panTo(editor, rect)
+      }
+      return []
+    }
+    if (a.type !== 'solution') return shapesForAction(a, bounds, ctx)
+    try {
+      const layout = solutionLayout(a, bounds, ctx, fontMeasure())
+      if (!layout) return []
+      solutions.push(layout.rect)
+      // black = the student's ink colour: the pen their line was written with
+      const color = !a.color || a.color === 'black' ? studentPen(editor, layout.anchor).color : a.color
+      void revealSolution(editor, solutionShapes(a, layout, color), layout)
+      drawn++
+    } catch (err) {
+      console.warn('solution not drawn', err)
+    }
+    return []
+  })
   editor.run(
     () => {
-      if (stale.size) editor.deleteShapes([...stale] as TLShapeId[])
       for (const shapes of batches) {
         if (!shapes.length) continue
         // one action at a time: a shape the editor refuses must not take the rest of the reply with it
@@ -180,7 +235,7 @@ export function applyResponse(editor: Editor, response: CheckResponse, bounds: P
 
   drawn += drawFigures(editor, response.actions, bounds, ctx)
   // notes and graphs; a lesson opens in its own panel and looks after the camera itself
-  const placed = ctx.taken.slice(takenBefore)
+  const placed = ctx.taken.slice(takenBefore).filter((r) => !solutions.includes(r))
 
   for (const action of response.actions) {
     if (action.type !== 'lesson' || !action.lesson) continue

@@ -1,9 +1,11 @@
 import type { Editor } from 'tldraw'
 import type { Action } from '../contract'
 import { isInlineNote, lineRect } from '../render/actions'
-import { boxToPage, DEFAULT_CONTEXT, type PageRect, type RenderContext } from '../render/geometry'
+import { boxToPage, DEFAULT_CONTEXT, TEXT_LINE_HEIGHT, type PageRect, type RenderContext } from '../render/geometry'
+import { solutionLayout } from '../render/solution'
 import { getBank, metricsOf } from './bank'
 import { handwritingEnabled } from './enabled'
+import { layoutText } from './layout'
 import { placeAfter, writeInHand, writeLinesInHand, type HandResult, type WriteOptions } from './write'
 
 /**
@@ -30,12 +32,29 @@ export function handForAction(editor: Editor, action: Action, bounds: PageRect, 
     const room = edge - after.x
     result = writeInHand(editor, action.text!, { ...after, line_id: action.line_id, anchor: line, maxWidth: room > 0 && Number.isFinite(room) ? room : undefined }, opts)
   } else {
-    const step = (metricsOf(opts.bank ?? getBank()).cap + 1.6) * after.xHeight
-    const room = edge - line.x
+    // same place the text version would go (under the line, equals signs lined up, clear of ink and
+    // print: see solutionLayout), measured with this hand's own character widths
+    const bank = opts.bank ?? getBank()
+    const u = after.xHeight
+    const width = (text: string) => (text.trim() ? (layoutText(text, bank, { ...opts, seed: 1 })?.width ?? text.trim().length * 0.8) * u : 0)
+    const lay = solutionLayout(action, bounds, { ...ctx, taken: [...(ctx.taken ?? [])] }, width)
+    if (!lay || lay.steps.length !== action.steps!.filter((t) => t.trim()).length) return null
+    const cap = metricsOf(bank).cap
+    const first = lay.steps[0]
+    const room = edge - lay.rect.x
     result = writeLinesInHand(
       editor,
       action.steps!,
-      { x: line.x, baseline: after.baseline + step, xHeight: after.xHeight, line_id: action.line_id, anchor: line, maxWidth: room > 0 && Number.isFinite(room) ? room : undefined },
+      {
+        x: first.x,
+        xs: lay.steps.map((st) => st.x),
+        baseline: first.y + (lay.font * TEXT_LINE_HEIGHT) / 2 + (cap * u) / 2,
+        lineGap: lay.pitch / u,
+        xHeight: u,
+        line_id: action.line_id,
+        anchor: line,
+        maxWidth: room > 0 && Number.isFinite(room) ? room : undefined,
+      },
       opts,
     )
   }

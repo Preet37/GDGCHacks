@@ -1,5 +1,6 @@
 import type { Editor, TLRecord, TLShape, TLShapeId } from 'tldraw'
 import type { CheckRequest, CheckResponse, PageState } from '../contract'
+import { handwritingEnabled, harvestGlyphs } from '../handwriting'
 import { isAiShape } from '../render/actions'
 import { applyResponse, renderContext } from '../render/apply'
 import { readingShapes } from '../render/reading'
@@ -416,6 +417,19 @@ export class Tutor {
     } else this.changes.clear()
   }
 
+  /**
+   * "Write in my handwriting" is on: learn the student's letter shapes from the ink this check
+   * looked at. In the background; whatever goes wrong there never reaches the tutor.
+   */
+  private learnHand() {
+    try {
+      if (!handwritingEnabled()) return
+      void harvestGlyphs(this.editor).catch(() => {})
+    } catch (err) {
+      console.warn('handwriting: not learned', err)
+    }
+  }
+
   /** Put a reply on the page and fold it into the saved state. */
   private apply(got: Fetched, held = false): SendOutcome {
     const { win } = got
@@ -438,6 +452,7 @@ export class Tutor {
       ms: held ? undefined : got.ms,
     })
     this.emit({ type: 'reply', reply })
+    this.learnHand()
     return { window: win, raised, mistakes: mistakeProblems(reply), lesson: reply.actions.some((a) => a.type === 'lesson' && !!a.lesson) }
   }
 
