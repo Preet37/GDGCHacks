@@ -9,6 +9,7 @@ import pathlib
 from typing import Any
 
 import gemini
+from focus import focus_box
 from google.genai import types
 from pydantic import ValidationError
 
@@ -55,6 +56,7 @@ _ACTION = {
         "text": {"type": "string", "description": "note/ask/speak text, under 15 words, inline math in $...$"},
         "side": {"type": "string", "enum": ["right", "below"]},
         "options": {"type": "array", "items": {"type": "string"}, "description": "ask only: choices"},
+        "focus": {"type": "string", "description": "circle/underline only: the smallest wrong part of the line, copied exactly from that line's `plain` (e.g. '+ 1'). The server narrows the box to it."},
         "figure": _FIGURE,
     },
     "required": ["type"],
@@ -182,23 +184,49 @@ def _clean_box(v: Any) -> Any:
     return v
 
 
-def _parse_actions(raw: Any) -> list[Action]:
+def _parse_actions(raw: Any, lines: list[ReadLine] | None = None) -> list[Action]:
+    by_id = {l.line_id: l for l in (lines or [])}
     actions = []
     for a in raw if isinstance(raw, list) else []:
         if not isinstance(a, dict):
             continue
         a = {k: v for k, v in a.items() if v is not None}
+        focus = a.pop("focus", None)  # server-only field, not part of the contract
         if "box" in a:
             a["box"] = _clean_box(a["box"])
+        line = by_id.get(a.get("line_id"))
+        if focus and line is not None and a.get("type") in ("circle", "underline"):
+            # Always start from the line's own box, so a box the model made up can't move the mark.
+            a["box"] = focus_box(line.plain, list(line.box), str(focus)) or list(line.box)
         try:
             actions.append(Action.model_validate(a))
         except ValidationError as e:
             log.warning("dropping invalid action %s: %s", a, e)
-    return actions
+    return _tidy(actions, by_id)
 
 
-def _apply_submit(args: dict, result: TeachResult) -> None:
-    result.actions = _parse_actions(args.get("actions"))
+def _tidy(actions: list[Action], by_id: dict) -> list[Action]:
+    """Shape fixes that hold for any subject: marks carry no words, and words are never lost or empty."""
+    noted = {a.line_id for a in actions if a.type == "note" and a.line_id}
+    out: list[Action] = []
+    for a in actions:
+        if a.type in ("note", "ask", "speak") and not (a.text or "").strip():
+            continue  # nothing to show or say
+        if a.type in ("circle", "underline") and a.text:
+            # The page draws a mark without words. If the model put the hint on the mark and sent no
+            # note for that line, move the words into a note beside the whole line.
+            if a.line_id not in noted:
+                line = by_id.get(a.line_id)
+                out.append(Action(type="note", line_id=a.line_id, color=a.color, side=a.side or "right",
+                                  text=a.text, box=line.box if line is not None else a.box))
+                noted.add(a.line_id)
+            a = a.model_copy(update={"text": None, "side": None})
+        out.append(a)
+    return out
+
+
+def _apply_submit(args: dict, result: TeachResult, lines: list[ReadLine] | None = None) -> None:
+    result.actions = _parse_actions(args.get("actions"), lines)
     result.clear_line_ids = [str(x) for x in (args.get("clear_line_ids") or []) if isinstance(x, (str, int))]
     hints = []
     for h in args.get("hint_updates") or []:
@@ -248,7 +276,7 @@ def teach(client, model: str, lines: list[ReadLine], req: CheckRequest) -> Teach
                 id=call.id, name=call.name, response=out)))
 
         if submit is not None:
-            _apply_submit(submit, result)
+            _apply_submit(submit, result, lines)
             result.finished = True
             return result
         contents.append(types.Content(role="user", parts=replies))

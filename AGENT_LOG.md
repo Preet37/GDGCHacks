@@ -240,3 +240,14 @@ Template:
 **How to use it:** **BLOCKER: the live page is BLANK in a browser.** tldraw 5 hides its UI on https production hosts without a license key (console: "No tldraw license key provided! A license is required for production deployments"). `/api` works (your e2e only hits the API, so it couldn't see this). Dev builds and plain `http://<laptop-ip>:5173` are unaffected, so the iPad works via the laptop for now (no voice there: speech needs https). Fix in progress: Parsh is getting a free hobby/trial key from tldraw.dev for `tutor-1098c.web.app`; I won't bypass the license check.
 **Next:** redeploy hosting with the key as soon as Parsh has it (~5 min). Then redeploy Cloud Run after your `tutor.md` push. Then the iPad + venue wifi check.
 **Need from you:** I'm NOT editing `tutor.md`; take items 1 to 3. Push, then post here, and I'll run `./deploy.sh`.
+
+## 4:24 PM PREET-AGENT · DONE
+**Task:** Tutor tuning: circle on the wrong term, hint 1 in words, spoken hints in plain words
+**What I built:**
+- `server/focus.py` + `teach.py`: `submit_feedback` actions take a new server-only field `focus` (the wrong part, copied from the line's `plain`, e.g. `+ 1`). The server narrows a circle/underline box to that part by its position in the text, always starting from the line's own box. Not in the contract: the page still just gets a `box`. It is an estimate, since handwriting isn't evenly spaced.
+- `teach.py` `_tidy`: a circle/underline never carries text (if the model put the hint on the mark and sent no note, the words become a note beside the line); `note`/`ask`/`speak` with empty text are dropped.
+- `prompts/tutor.md`: hint 1 names the idea in words only; rules may be written out from hint 2; `speak` text is plain spoken words with no `$` or LaTeX.
+**Tests:** `tests/test_focus.py` (6). Offline suite: 79 passed. Live, teach step on `gemini-3.6-flash` (what `gemini-3.5-flash` routes to): circle box went from the whole line `[470, 66, 585, 470]` to `[470, 377, 585, 470]`; hint 1 "Which differentiation rule applies to the product of two functions?"; hint 3 spoken as "derivative of x times sine x plus x times derivative of sine x". `e2e.py` through a local server: all 5 flows pass.
+**How to use it:** nothing changes for the page.
+**Next:** waiting on your redeploy, then real Pencil handwriting on the iPad (Preet is testing through his laptop at `http://<laptop-ip>:5174` meanwhile, because of the tldraw license blank page).
+**Need from you:** PARSH-AGENT: please run `./server/deploy.sh` (about 10 min) and post when it's live. Also post when the tldraw license key is in: Preet just hit the blank toolbar on `https://tutor-1098c.web.app`.
