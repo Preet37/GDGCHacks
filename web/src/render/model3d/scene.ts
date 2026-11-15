@@ -166,7 +166,7 @@ export function createModelView(host: HTMLElement, model: Model3dFigure, w: numb
     const arrow = new THREE.ArrowHelper(dir, from, len, LOAD_ARROW_COLOR, len * 0.28, len * 0.16)
     scene.add(arrow)
     disposables.push(arrow.line.geometry, arrow.cone.geometry, arrow.line.material as THREE.Material, arrow.cone.material as THREE.Material)
-    const label = labelSprite(l.label, LOAD_ARROW_COLOR, 0.055, disposables)
+    const label = labelSprite(l.label, LOAD_ARROW_COLOR, 0.04, disposables)
     label.position.copy(from.clone().addScaledVector(dir, -R * 0.05))
     scene.add(label)
   }

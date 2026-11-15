@@ -146,3 +146,11 @@ def test_builder_never_raises():
     assert model3d.build("", client=_Client([]), model="m")["ok"] is False
     out = model3d.build("a beam", client=_Client(["not json", "still not"]), model="gemini-3.5-flash")
     assert out == {"ok": False, "detail": "couldn't build a model of that"}
+
+
+def test_a_colourless_note_beside_a_model_is_blue():
+    acts = _parse_actions([{"type": "note", "line_id": "L1", "text": "Bridges carry load."},
+                           {"type": "note", "line_id": "L2", "text": "elsewhere"},
+                           {"type": "figure", "line_id": "L1", "figure": {"kind": "model3d", "model3d": json.dumps({"subject": "bridge"})}}])
+    notes = {a.line_id: a.color for a in acts if a.type == "note"}
+    assert notes == {"L1": "blue", "L2": None}

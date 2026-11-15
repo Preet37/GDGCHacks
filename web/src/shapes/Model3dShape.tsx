@@ -136,6 +136,15 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
   useEffect(() => {
     viewRef.current?.setLook(look)
   }, [look, ready])
+  // a model built after the card appeared: show it as it really looks once its parts arrive
+  const hadParts = useRef(model.parts.length > 0)
+  useEffect(() => {
+    if (!hadParts.current && model.parts.length) {
+      hadParts.current = true
+      setLook(hasLooks(model) ? 'real' : 'forces')
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [modelKey])
   useEffect(() => {
     viewRef.current?.setMarks(marksRef.current)
     // eslint-disable-next-line react-hooks/exhaustive-deps

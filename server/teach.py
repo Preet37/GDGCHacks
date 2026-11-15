@@ -509,6 +509,14 @@ def _clean_box(v: Any) -> Any:
     return v
 
 
+def _blue_beside_models(actions: list[Action]) -> list[Action]:
+    """The answer that comes with a 3D model is an explanation, not a mistake: a note there with no colour is blue
+    (the page draws a colourless note red)."""
+    modelled = {a.line_id for a in actions if a.type == "figure" and a.figure is not None and a.figure.kind == "model3d"}
+    return [a.model_copy(update={"color": "blue"}) if a.type == "note" and a.color is None and a.line_id in modelled
+            else a for a in actions]
+
+
 def _parse_actions(raw: Any, lines: list[ReadLine] | None = None) -> list[Action]:
     by_id = {l.line_id: l for l in (lines or [])}
     actions = []
@@ -544,7 +552,7 @@ def _parse_actions(raw: Any, lines: list[ReadLine] | None = None) -> list[Action
             actions.append(Action.model_validate(a))
         except ValidationError as e:
             log.warning("dropping invalid action %s: %s", a, e)
-    return _tidy(actions, by_id)
+    return _blue_beside_models(_tidy(actions, by_id))
 
 
 _GREEK = {"alpha": "α", "beta": "β", "gamma": "γ", "delta": "δ", "epsilon": "ε", "varepsilon": "ε", "zeta": "ζ",
