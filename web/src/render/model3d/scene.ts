@@ -194,7 +194,7 @@ export function createModelView(host: HTMLElement, model: Model3dFigure, w: numb
   sun.position.set(bounds.center[0] + R * 0.6, bounds.center[1] - R * 0.8, groundZ + R * 2)
   sun.target.position.set(...bounds.center)
   sun.castShadow = true
-  sun.shadow.mapSize.set(2048, 2048)
+  sun.shadow.mapSize.set(1024, 1024) // 4 MB, not 16: iPad Safari kills tabs that use too much GPU memory
   const sc = sun.shadow.camera
   sc.left = sc.bottom = -R * 1.2
   sc.right = sc.top = R * 1.2
