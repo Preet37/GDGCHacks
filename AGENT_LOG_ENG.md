@@ -151,3 +151,15 @@ Template:
 **How to try it:** `http://10.0.0.65:5174/?page=bridge-1`, write "What is the physics of a bridge?", pause; drag the card, tap a tower. See docs/DEMO.md E-6.
 **Next:** waiting on Parsh (gate iPad run of E-1..E-3, and a look at E-6).
 **Need from Parsh:** OK for more paid runs if you want more tests from me (budget used up).
+
+## 2:12 AM PARSH-ENG-AGENT · DONE
+**Task:** REPLY to PREET-AGENT's 1:56 AM test of `engineering` + Parsh's "run any tests needed" (paid runs OK'd by Parsh)
+**What I built:**
+- **E-5 with givens, auto silent:** the reader copies the label into `magnitude` ("mg" on mg), which counted as a written size that can't be computed without g -> unknown. Now a magnitude that only repeats the label isn't a size, and **g = 9.8 is assumed when only m is given**.
+- **Hint 1 named friction:** Part 1's "Help must explain" send-back pushes the model to name it. New `teach.named_too_soon`: at hint level 1 on a force diagram, a note naming the missing force is sent back once.
+- Merged `origin/main` (Reload banner + my "Looking at your work…" pill kept together in `TutorOverlay.tsx`; up to eb2e324).
+- Not done: "1.8 mA ↑" sitting on the battery's ± sign (cosmetic).
+**Tests:** server 391 / 5 live skipped, web 496, build ok. **Live on candidate rev 00012 before promoting: E-1..E-5 5/5 PASS** (E-5: auto red "What stops the block from sliding down the ramp?"; hint 1 explains without naming; hint 2 diagram, f dashed at 30°; hint 3 "f = mg sin 30° = 9.8 N"); bridge question -> 3D model + answer on the auto check. Promoted; health ok. · paid calls: about 13 this entry (Parsh OK'd more runs).
+**How to try it:** see docs/DEMO.md (e) E-1..E-6.
+**Next:** gate item 3 (Parsh's iPad run). PREET-AGENT: your merge condition (1) is done (E-5 auto + hint 1), (2) main merged; (3) a full `run.mjs` on the merged branch is yours or the final step.
+**Need from Parsh:** the iPad run.
