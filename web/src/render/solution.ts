@@ -17,6 +17,7 @@ import {
   type RenderContext,
   type SolutionHeading,
 } from './geometry'
+import { MATH_EM, MATH_TYPE, freshMath, needsTypeset, stepTex, texHtml, type MathMeasure } from './mathline'
 import { mathToPlain } from './text'
 
 /** Pause between one worked step appearing and the next. */
@@ -29,6 +30,8 @@ export const PITCH_LIMITS: [number, number] = [1.25, 2.6]
 /** The steps go under the student's own equals sign if that moves the block no further than this (over the font size). */
 export const EQUALS_INDENT_EM = 2.5
 export const EQUALS_OUTDENT_EM = 0.5
+/** Clear space between a typeset step and the next, over the font size. */
+export const STEP_GAP_EM = 0.4
 
 export interface SolutionStep {
   text: string
@@ -37,6 +40,10 @@ export interface SolutionStep {
   y: number
   /** estimated width, page units */
   w: number
+  /** height, page units: a text line, or the measured height of a typeset line (a stacked fraction is about two) */
+  h: number
+  /** set when the step is drawn typeset: what KaTeX is given (see stepTex) */
+  tex?: string
 }
 
 export interface SolutionLayout {
@@ -167,10 +174,21 @@ function pitchAbove(line: PageRect, ctx: RenderContext): number | null {
  * - on a worksheet with no room below (the next printed problem is in the way): the whole block
  *   goes on the blank canvas right of the page under a small "Solution to: ..." heading
  *   (besideSheets), one such block under another.
+ * With `math` (how big a typeset line is), a solution with a step plain text can't show (a
+ * fraction, a root: needsTypeset) has every step typeset; a step KaTeX can't read stays text.
+ * Typeset lines are as tall as they are: a tall one pushes the next step down, and the block's
+ * real height is what has to find room. Without `math` every step is a line of text.
  * The block is claimed in `ctx.taken`. Null if there is nothing to write or nowhere to anchor it.
  */
-export function solutionLayout(action: Action, bounds: PageRect, ctx: RenderContext = DEFAULT_CONTEXT, measure: Measure = guess): SolutionLayout | null {
-  const texts = (action.steps ?? []).map((s) => mathToPlain(s)).filter(Boolean)
+export function solutionLayout(action: Action, bounds: PageRect, ctx: RenderContext = DEFAULT_CONTEXT, measure: Measure = guess, math?: MathMeasure | null): SolutionLayout | null {
+  const raw = (action.steps ?? []).filter((s) => mathToPlain(s))
+  const texts = raw.map((s) => mathToPlain(s))
+  const typeset = !!math && raw.some(needsTypeset)
+  const texs = raw.map((s) => {
+    if (!typeset) return null
+    const tex = stepTex(s)
+    return texHtml(tex) === null ? null : tex
+  })
   ctx.headings?.delete(action)
   if (!texts.length || !action.box) return null
   const box = anchorRect(action, bounds)
@@ -188,10 +206,24 @@ export function solutionLayout(action: Action, bounds: PageRect, ctx: RenderCont
   const own = pitchAbove(line, ctx)
   const pitch = (font: number) => (own === null ? font * STEP_PITCH_EM : clamp(own, font * PITCH_LIMITS[0], font * PITCH_LIMITS[1]))
 
-  const build = (font: number, left: number, top: number, alignTo: number | null) => {
-    const eqAt = texts.map((t) => {
-      const i = t.indexOf('=')
-      return i < 0 ? null : measure(t.slice(0, i), font) + measure('=', font) / 2
+  const lineH = (font: number) => font * TEXT_LINE_HEIGHT
+  /** each step's size and where its equals sign is; `top` is where a step as tall as `h0` starts */
+  const build = (font: number, left: number, topFor: (h0: number) => number, alignTo: number | null) => {
+    const boxes = texts.map((t, i) => {
+      const tex = texs[i]
+      if (tex && math) return { ...math(tex, font), tex }
+      const at = t.indexOf('=')
+      return { w: measure(t, font), h: lineH(font), eq: at < 0 ? null : measure(t.slice(0, at), font) + measure('=', font) / 2, tex: undefined }
+    })
+    const eqAt = boxes.map((b) => b.eq)
+    const top = topFor(boxes[0].h)
+    // text lines are one line spacing apart; a taller (typeset) line takes the room it needs
+    const ys: number[] = []
+    boxes.forEach((b, i) => {
+      if (i === 0) return ys.push(top)
+      const prev = boxes[i - 1]
+      const step = typeset ? Math.max(pitch(font), (prev.h + b.h) / 2 + font * STEP_GAP_EM) : pitch(font)
+      return ys.push(ys[i - 1] + prev.h / 2 + step - b.h / 2)
     })
     const lead = Math.max(0, ...eqAt.map((e) => e ?? 0))
     const any = eqAt.some((e) => e !== null)
@@ -200,14 +232,18 @@ export function solutionLayout(action: Action, bounds: PageRect, ctx: RenderCont
     const indent = alignTo === null ? 0 : alignTo - lead - left
     if (any && alignTo !== null && indent >= -font * EQUALS_OUTDENT_EM && indent <= font * EQUALS_INDENT_EM) equalsX = alignTo
     // a step with no equals sign starts where the block does
-    const steps = texts.map((text, i) => ({ text, x: equalsX === null ? left : equalsX - (eqAt[i] ?? lead), y: top + i * pitch(font), w: measure(text, font) }))
+    const steps: SolutionStep[] = texts.map((text, i) => {
+      const step: SolutionStep = { text, x: equalsX === null ? left : equalsX - (eqAt[i] ?? lead), y: ys[i], w: boxes[i].w, h: boxes[i].h }
+      if (boxes[i].tex) step.tex = boxes[i].tex
+      return step
+    })
     const x = Math.min(...steps.map((s) => s.x))
-    const rect = { x, y: top, w: Math.max(...steps.map((s) => s.x + s.w)) - x, h: (texts.length - 1) * pitch(font) + font * TEXT_LINE_HEIGHT }
+    const rect = { x, y: top, w: Math.max(...steps.map((s) => s.x + s.w)) - x, h: Math.max(...steps.map((s) => s.y + s.h)) - top }
     return { steps, rect, equalsX }
   }
   // the first step is one line spacing below the middle of the student's writing
   const middle = strokes.length ? inked.y + inked.h / 2 : line.y + line.h * 0.58
-  const topFor = (font: number) => Math.max(middle + pitch(font) - (font * TEXT_LINE_HEIGHT) / 2, inked.y + inked.h + font * 0.1)
+  const topFor = (font: number) => (h0: number) => Math.max(middle + pitch(font) - h0 / 2, inked.y + inked.h + font * 0.1)
   let made = build(font, left, topFor(font), equalsSignX(line, ctx.ink))
   // steps too long for the screen are written smaller (never below readable)
   const room = ctx.view ? ctx.view.x + ctx.view.w - sz.inlineGap - made.rect.x : Infinity
@@ -228,7 +264,7 @@ export function solutionLayout(action: Action, bounds: PageRect, ctx: RenderCont
     const headW = guess(text, hf)
     const obstacles = [...(ctx.ink ?? []), ...(ctx.taken ?? []), ...(ctx.printed ?? [])]
     const spot = besideSheets(Math.max(made.rect.w, headW), made.rect.h + headH, line, ctx.sheets ?? [], obstacles, sz.gap * 2)
-    made = build(font, spot.x, spot.y + headH, null)
+    made = build(font, spot.x, () => spot.y + headH, null)
     const dx = spot.x - made.rect.x
     if (dx) {
       for (const s of made.steps) s.x += dx
@@ -245,7 +281,7 @@ export function solutionLayout(action: Action, bounds: PageRect, ctx: RenderCont
     const beside =
       slideRight(level, made.rect.w, made.rect.h, sz.gap * 2, ctx) ??
       placeBeside(withFeedback(inked, ctx, sz.gap), [{ w: made.rect.w, h: made.rect.h }], 'right', sz.gap, ctx)
-    made = build(font, beside.x, beside.y, null)
+    made = build(font, beside.x, () => beside.y, null)
     const dx = beside.x - made.rect.x // equals alignment may have pulled a step left of the spot
     if (dx) {
       for (const s of made.steps) s.x += dx
@@ -260,16 +296,23 @@ export function solutionLayout(action: Action, bounds: PageRect, ctx: RenderCont
 
 type Shape = TLShapePartial & { x: number; y: number; id: TLShapeId }
 
-/** One text shape per step, in the handwriting font, tagged `kind: 'solution'` so the next solution for the line replaces them. */
+/**
+ * One shape per step, tagged `kind: 'solution'` so the next solution for the line replaces them:
+ * a typeset line (MathShape) for a step laid out as one, text in the handwriting font otherwise.
+ */
 export function solutionShapes(action: Action, layout: SolutionLayout, color: TLDefaultColorStyle = 'black'): Shape[] {
-  return layout.steps.map((s, i) => ({
-    id: createShapeId(),
-    type: 'text',
-    x: s.x,
-    y: s.y,
-    meta: { ...aiMeta('solution', action.line_id, layout.anchor), step: i },
-    props: { richText: toRichText(s.text), font: 'draw', size: 's', scale: layout.font / BASE_FONT, color, textAlign: 'start', autoSize: true },
-  }))
+  return layout.steps.map((s, i) => {
+    const meta = { ...aiMeta('solution', action.line_id, layout.anchor), step: i }
+    if (s.tex) return { id: createShapeId(), type: MATH_TYPE, x: s.x, y: s.y, meta, props: { w: s.w, h: s.h, tex: s.tex, color, size: layout.font * MATH_EM } }
+    return {
+      id: createShapeId(),
+      type: 'text',
+      x: s.x,
+      y: s.y,
+      meta,
+      props: { richText: toRichText(s.text), font: 'draw', size: 's', scale: layout.font / BASE_FONT, color, textAlign: 'start', autoSize: true },
+    }
+  })
 }
 
 /** The heading of a solution written beside the worksheet: small gray text, replaced along with the steps. */
@@ -318,6 +361,8 @@ export function panTo(editor: Editor, rect: PageRect) {
 /** Milliseconds per character while a step is being written on. */
 const MS_PER_CHAR = 28
 const WRITE_MAX_MS = 480
+/** How long a typeset step takes to appear (the shape's own wipe). */
+const MATH_WRITE_MS = 450
 
 /**
  * Put the steps on the page one at a time: each is written on (its characters appear left to
@@ -339,6 +384,17 @@ export function revealSolution(editor: Editor, shapes: Shape[], layout: Solution
 
   const writeOn = (shape: Shape, chars: string[]) =>
     new Promise<boolean>((resolve) => {
+      if (shape.type !== 'text') {
+        // a typeset line goes on whole; the shape wipes itself on the first time it is drawn
+        freshMath.add(shape.id)
+        run(() => editor.createShape(shape as TLShapePartial))
+        made.push(shape.id)
+        setTimeout(() => {
+          freshMath.delete(shape.id)
+          resolve(true)
+        }, MATH_WRITE_MS)
+        return
+      }
       const total = Math.min(WRITE_MAX_MS, chars.length * MS_PER_CHAR)
       let t0: number | null = null
       let shown = 0
@@ -367,7 +423,7 @@ export function revealSolution(editor: Editor, shapes: Shape[], layout: Solution
       }
       const shape = shapes[i]
       if (opts.follow !== false) {
-        const step = { x: shape.x, y: shape.y, w: layout.steps[i]?.w ?? 0, h: layout.font * TEXT_LINE_HEIGHT }
+        const step = { x: shape.x, y: shape.y, w: layout.steps[i]?.w ?? 0, h: layout.steps[i]?.h ?? layout.font * TEXT_LINE_HEIGHT }
         const head = i === 0 ? layout.heading : undefined // the heading comes into view with the first step
         panTo(editor, head ? union(step, { x: head.x, y: head.y, w: head.w, h: head.font * TEXT_LINE_HEIGHT }) : step)
       }

@@ -16,6 +16,13 @@ const SYMBOLS: Record<string, string> = {
   forall: '∀', exists: '∃', neg: '¬', land: '∧', lor: '∨', therefore: '∴', because: '∵',
   dots: '…', ldots: '…', cdots: '…', vdots: '⋮', ell: 'ℓ', hbar: 'ħ', Re: 'Re', Im: 'Im',
   langle: '⟨', rangle: '⟩', lfloor: '⌊', rfloor: '⌋', lceil: '⌈', rceil: '⌉', mid: '|', vert: '|',
+  lvert: '|', rvert: '|', Vert: '‖', lVert: '‖', rVert: '‖', lbrace: '\uE000', rbrace: '\uE001', backslash: '∖', setminus: '∖',
+  leqslant: '≤', geqslant: '≥', nleq: '≰', ngeq: '≱', nless: '≮', ngtr: '≯', lt: '<', gt: '>', doteq: '≐',
+  Longrightarrow: '⇒', Longleftarrow: '⇐', longleftarrow: '←', longleftrightarrow: '↔', Longleftrightarrow: '⇔',
+  uparrow: '↑', downarrow: '↓', nearrow: '↗', searrow: '↘', gets: '←',
+  triangle: '△', square: '□', Box: '□', blacksquare: '■', checkmark: '✓', varnothing: '∅', aleph: 'ℵ', ddots: '⋱',
+  wedge: '∧', vee: '∨', oplus: '⊕', otimes: '⊗', odot: '⊙', supset: '⊃', supseteq: '⊇', ni: '∋',
+  iiint: '∭', surd: '√', deg: '°', top: '⊤', bot: '⊥', smallsetminus: '∖', dagger: '†', pounds: '£',
   // Greek
   alpha: 'α', beta: 'β', gamma: 'γ', delta: 'δ', epsilon: 'ε', varepsilon: 'ε', zeta: 'ζ', eta: 'η',
   theta: 'θ', vartheta: 'θ', iota: 'ι', kappa: 'κ', lambda: 'λ', mu: 'μ', nu: 'ν', xi: 'ξ', pi: 'π',
@@ -32,7 +39,7 @@ const SUB: Record<string, string> = { '0': '₀', '1': '₁', '2': '₂', '3': '
 const map = (s: string, table: Record<string, string>) => [...s].map((c) => table[c]).join('')
 
 /** A fraction part needs brackets unless it is a single number or name (`5s` is a product: 1/(5s)). */
-const fracPart = (s: string) => (/^[\w.]+$/.test(s.trim()) && !/\d[a-zA-Z]/.test(s) ? s.trim() : `(${s.trim()})`)
+const fracPart = (s: string) => ((/^[\w.]+$/.test(s.trim()) && !/\d[a-zA-Z]/.test(s)) || /^\\[a-zA-Z]+$/.test(s.trim()) ? s.trim() : `(${s.trim()})`)
 
 /** `\\frac{a}{b}` -> `a/b` and `\\sqrt{x}` -> `√(x)`, innermost first so nested ones come out whole. */
 function fractionsAndRoots(text: string): string {
@@ -44,6 +51,7 @@ function fractionsAndRoots(text: string): string {
         return after ? `(${frac})${after}` : frac // (1/2)x, not 1/2x
       })
       .replace(/\\[dtc]?frac\s*(\d)\s*(\d)/g, '$1/$2') // \frac12
+      .replace(/\\[dtc]?frac\s+([a-zA-Z0-9])\s*([a-zA-Z0-9])(?![a-zA-Z0-9])/g, '$1/$2') // \frac ab
       .replace(/\\sqrt\s*\[([^\][{}]*)\]\s*\{([^{}]*)\}/g, (_, n: string, body: string) => `${n === '3' ? '∛' : n === '4' ? '∜' : `${n}√`}(${body})`)
       .replace(/\\sqrt\s*\{([^{}]*)\}/g, '√($1)')
       .replace(/\\sqrt\s*(\w)/g, '√$1')
@@ -64,21 +72,49 @@ function fractionsAndRoots(text: string): string {
 function stripLatex(text: string, spoken = false): string {
   return fractionsAndRoots(
     text
-      .replace(/\\(?:left|right|big|Big|bigg|Bigg)(?![a-zA-Z])\.?/g, '')
+      // degrees: 30^\circ, 30^{\circ}, 30\circ (and a doubled backslash, which a model sometimes sends)
+      .replace(/\^\s*\{\s*\\+(?:circ|degree)\s*\}|\^\s*\\+(?:circ|degree)(?![a-zA-Z])|(?<=\d)\s*\\+circ(?![a-zA-Z])/g, '°')
+      // written braces are kept (as private-use characters until the markup braces are gone: see keepBraces)
+      .replace(/\\\{/g, '\uE000')
+      .replace(/\\\}/g, '\uE001')
+      .replace(/\\\\(?:\s*\[[^\][]*\])?/g, ' ') // a line break, \\ or \\[4pt]
+      .replace(/\\(?:left|right|bigl|bigr|Bigl|Bigr|biggl|biggr|Biggl|Biggr|big|Big|bigg|Bigg|middle)(?![a-zA-Z])\.?/g, '')
+      .replace(/\\not\s*=/g, '≠')
+      .replace(/\\\|/g, '‖')
+      .replace(/\\(?:hline|newline|centering|noindent)(?![a-zA-Z])/g, ' ')
+      // words with an argument that isn't shown, and ones with two of which one is
+      .replace(/\\(?:color|phantom|hphantom|vphantom|hspace|vspace|label|tag)\*?\s*\{[^{}]*\}/g, ' ')
+      .replace(/\\textcolor\s*\{[^{}]*\}\s*\{([^{}]*)\}/g, '$1')
+      .replace(/\\(?:stackrel|overset|underset)\s*\{[^{}]*\}\s*\{([^{}]*)\}/g, '$1')
+      .replace(/\\[dt]?binom\s*\{([^{}]*)\}\s*\{([^{}]*)\}/g, 'C($1, $2)')
+      // \frac{a}b, \frac a{b}: both parts in braces; \sin\frac...: the fraction is a new word
+      .replace(/(\\[dtc]?frac)\s*\{([^{}]*)\}\s*([a-zA-Z0-9])/g, '$1{$2}{$3}')
+      .replace(/(\\[dtc]?frac)\s*([a-zA-Z0-9])\s*\{([^{}]*)\}/g, '$1{$2}{$3}')
+      .replace(/(\\(?:arc)?(?:sin|cos|tan|cot|sec|csc|sinh|cosh|tanh|ln|log|exp))(\\(?:[dtc]?frac|sqrt))/g, '$1 $2')
       // layout only: \displaystyle, \begin{aligned} ... \end{aligned}, the & that lines up equals signs
       .replace(/\\(?:displaystyle|textstyle|scriptstyle|limits|nolimits|nonumber)(?![a-zA-Z])/g, '')
       .replace(/\\(?:begin|end)\s*\{[^{}]*\}/g, ' ')
       .replace(/(?<!\\)&/g, '')
-      .replace(/\\(?:text|textbf|textit|mathrm|mathbf|mathit|mathsf|mathcal|mathbb|boldsymbol|operatorname|bar|overline|vec|hat|tilde|underline|boxed|cancel)\s*\{([^{}]*)\}/g, '$1')
-      .replace(/\^\s*\{?\s*\\circ\s*\}?/g, '°'),
+      .replace(
+        /\\(?:text|textbf|textit|textrm|textsf|texttt|textnormal|mbox|hbox|mathrm|mathbf|mathit|mathsf|mathtt|mathcal|mathbb|mathfrak|boldsymbol|bm|operatorname\*?|bar|overline|vec|hat|tilde|widehat|widetilde|overrightarrow|overleftarrow|dot|ddot|underbrace|overbrace|underline|boxed|cancel)\s*\{([^{}]*)\}/g,
+        '$1',
+      )
+      .replace(/\\(?:bar|overline|vec|hat|tilde|widehat|widetilde|dot|ddot|underline)(?![a-zA-Z])\s*/g, '') // \bar x
+      .replace(/\^\s*\{\s*((?:\\prime\s*)+)\}/g, (_, a: string) => '′'.repeat((a.match(/prime/g) ?? []).length))
+      .replace(/\^\s*(?=\\prime(?![a-zA-Z]))/g, ''), // x^\prime: the symbol table writes the prime
   )
     // read aloud, a Greek letter is its name ("omega"), which is what is left when the backslash goes
     .replace(SYMBOL_RE, (all: string, name: string) => (spoken && /^[α-ωΑ-Ω]$/.test(SYMBOLS[name]) ? all : SYMBOLS[name]))
-    .replace(/\\(?:,|;|!|:| |quad|qquad)/g, ' ')
-    .replace(/\\\\/g, ' ')
-    .replace(/\\([%$#&_{}])/g, '$1')
+    .replace(/\\(?:[,;!:> ]|(?:quad|qquad|enspace|thinspace)(?![a-zA-Z]))/g, ' ')
+    .replace(/\\([%$#&_])/g, '$1')
     .replace(/\\([a-zA-Z]+)/g, '$1')
+    .replace(/\\/g, '') // whatever is left: never a backslash on the page
 }
+
+/** Put back the braces that were written with a backslash, now that the markup ones are gone. */
+const keepBraces = (s: string) => s.replace(/\uE000/g, '{').replace(/\uE001/g, '}').replace(/\uE002/g, '$')
+/** A caret with nothing to raise (the end of a cut-off `30^\circ`) is not shown. */
+const noLooseCarets = (s: string) => s.replace(/\s*\^+(?=\s*(?:$|[.,;:!?)=]))/g, '')
 
 /** Powers and indices that Unicode has characters for: x^2, x^{10}, x^-1, x^n, x_1, x_{12}. Others stay as typed. */
 function scripts(text: string): string {
@@ -108,15 +144,14 @@ function looksLikeProse(text: string): boolean {
 
 /** LaTeX / inline `$math$` -> plain words, for reading aloud: no Unicode tricks. */
 export function mathToSpeech(text: string): string {
-  return stripLatex(text.replace(/\\[([]|\\[)\]]|\$/g, ''), true)
-    .replace(/[{}]/g, '')
+  return keepBraces(stripLatex(text.replace(/\\\$/g, '\uE002').replace(/(?<!\\)\\[([]|(?<!\\)\\[)\]]|\$/g, ''), true).replace(/[{}]/g, ''))
     .replace(/ {2,}/g, ' ')
     .trim()
 }
 
 /** LaTeX / calculator notation / inline `$math$` -> text that reads naturally in the handwriting font. */
 export function mathToPlain(text: string): string {
-  text = text.replace(/\\[([]|\\[)\]]/g, '$') // \( ... \) and \[ ... \] mark math just as $ ... $ does
+  text = text.replace(/\\\$/g, '\uE002').replace(/(?<!\\)\\[([]|(?<!\\)\\[)\]]/g, '$') // \( ... \) and \[ ... \] mark math just as $ ... $ does
   let out: string
   if (text.includes('$')) {
     // math is marked: tidy inside the dollars, only make safe changes to the words around it
@@ -128,7 +163,7 @@ export function mathToPlain(text: string): string {
     const plain = stripLatex(text)
     out = looksLikeProse(plain) ? scripts(plain).replace(/[{}]/g, '') : tidyMath(plain)
   }
-  return out.replace(/ {2,}/g, ' ').trim()
+  return noLooseCarets(keepBraces(out)).replace(/ {2,}/g, ' ').trim()
 }
 
 /**
