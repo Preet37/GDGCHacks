@@ -680,7 +680,13 @@ def teach(client, model: str, lines: list[ReadLine], req: CheckRequest) -> Teach
         return result
 
     for _ in range(MAX_ROUNDS):
-        response = gemini.generate(client, model, contents, _build_config)
+        try:
+            response = gemini.generate(client, model, contents, _build_config)
+        except gemini.OutOfTime:
+            if pending is not None or result.tool_calls:
+                result.tool_calls.append("out of time")
+                break  # keep whatever was already checked (below)
+            raise
         calls = response.function_calls or []
         cand = response.candidates[0].content if response.candidates else None
 

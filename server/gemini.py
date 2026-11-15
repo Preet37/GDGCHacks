@@ -11,6 +11,23 @@ log = logging.getLogger("tutor.gemini")
 
 _working: dict[str, int] = {}  # model -> index into its thinking options that the API accepted
 
+# One time budget for a whole check (read + every tutor round + retries), set by the pipeline. Without it a slow
+# Gemini could be retried round after round: one Help press once took 233 s and the page had long given up.
+_deadline: contextvars.ContextVar[float | None] = contextvars.ContextVar("gemini_deadline", default=None)
+
+
+class OutOfTime(TimeoutError):
+    """The check's time budget is used up (the message says "timed out", so main.py reports it as a timeout)."""
+
+
+def set_deadline(seconds_from_now: float | None) -> None:
+    _deadline.set(None if seconds_from_now is None else time.monotonic() + seconds_from_now)
+
+
+def remaining() -> float | None:
+    d = _deadline.get()
+    return None if d is None else d - time.monotonic()
+
 
 # --- token counts -------------------------------------------------------------------------------------
 # Every call's usage is added to TOTALS (per model, since the server started) and, when a request is
@@ -95,8 +112,14 @@ def generate(client, model: str, contents, make_config, busy_retries: int = 2):
     i = _working.get(model, 0)
     busy = 0
     while True:
+        left = remaining()
+        if left is not None and left < 1.0:
+            raise OutOfTime("check timed out: time budget used up")
+        config = make_config(options[i])
+        if left is not None and isinstance(config, types.GenerateContentConfig):  # only what is left of the budget
+            config.http_options = types.HttpOptions(timeout=int(left * 1000))
         try:
-            resp = client.models.generate_content(model=model, contents=contents, config=make_config(options[i]))
+            resp = client.models.generate_content(model=model, contents=contents, config=config)
             _working[model] = i
             try:
                 record(resp, model)
@@ -109,7 +132,8 @@ def generate(client, model: str, contents, make_config, busy_retries: int = 2):
                 log.warning("%s rejected thinking option %d, trying the next", model, i)
                 i += 1
                 continue
-            if any(k in msg for k in ("503", "unavailable", "overloaded", "504", "deadline", "timed out", "timeout")) and busy < busy_retries:
+            if any(k in msg for k in ("503", "unavailable", "overloaded", "504", "deadline", "timed out", "timeout")) and busy < busy_retries \
+                    and (remaining() is None or remaining() > 3.0):
                 busy += 1
                 log.warning("%s busy, retry %d", model, busy)
                 time.sleep(0.6 * busy)

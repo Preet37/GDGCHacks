@@ -10,6 +10,7 @@ from images import decode_png
 from models import CheckRequest, CheckResponse, Debug
 
 log = logging.getLogger("tutor.pipeline")
+CHECK_BUDGET_S = {"explain": 60.0, "other": 20.0}  # seconds for read + tutor + retries, per check
 
 # ---- GET /api/debug/recent: what the server saw and did for the last few requests. Never the image. ----
 
@@ -148,6 +149,10 @@ def _run_check(req: CheckRequest, entry: dict) -> CheckResponse:
     # A lesson is a much longer answer than a few marks (six to nine narrated steps), so Teach me gets three times that.
     explaining = req.mode == "explain"
     client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=45000 if explaining else 15000))
+
+    import gemini
+    # The whole check gets one budget; a reply later than this is no use to the student anyway.
+    gemini.set_deadline(CHECK_BUDGET_S["explain" if explaining else "other"])
 
     t0 = time.perf_counter()
     page_id = req.state.page_id

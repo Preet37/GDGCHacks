@@ -29,7 +29,12 @@ export function TutorOverlay({ tutor }: { tutor: Tutor }) {
 
   return (
     <>
-      {busy && <div className="tutor-dot" aria-label="Tutor is thinking" />}
+      {busy && (
+        <div className="tutor-dot" aria-label="Tutor is thinking">
+          <span className="tutor-dot-pulse" />
+          Looking at your work…
+        </div>
+      )}
       {down && (
         <div className="tutor-down" role="alert">
           {down}

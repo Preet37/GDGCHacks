@@ -21,4 +21,8 @@ gcloud run deploy tutor-api-eng \
   --source . \
   --region us-central1 \
   --allow-unauthenticated \
+  --min-instances 1 \
+  --cpu-boost \
   --set-env-vars "$ENV_VARS"
+# --min-instances 1: one copy is always warm, so the first check after a quiet spell isn't a cold start (several
+# seconds slower). Costs a little while idle; set it back to 0 after the hackathon.
