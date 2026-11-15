@@ -109,6 +109,7 @@ class CheckRequest(BaseModel):
     help_box: Optional[Box] = None
     question: Optional[str] = None
     given: Optional[list[GivenLine]] = None
+    has_worksheet: Optional[bool] = None
     state: PageState
 
 

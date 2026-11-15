@@ -62,6 +62,8 @@ export interface CheckRequest {
   help_box?: Box;             // help mode: area the user selected (missing = whole page)
   question?: string;          // help mode: what the student asked out loud, transcribed (missing = no question)
   given?: GivenLine[];        // problem statements the tutor itself wrote on the page (practice problems), so they need not be re-read
+  has_worksheet?: boolean;    // false = no imported worksheet in the sent image, so every line is the student's handwriting.
+                              // Missing = unknown (the reader decides)
   state: PageState;
 }
 
