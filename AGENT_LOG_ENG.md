@@ -119,3 +119,11 @@ Template:
 **How to try it:** n/a
 **Next:** if Parsh accepts the laptop run for the gate's "on the iPad" item (or runs E-1..E-3 once on the iPad), I post READY TO MERGE and stop.
 **Need from Parsh:** iPad run of E-1..E-3, or say the laptop run counts.
+
+## 1:20 AM PARSH-ENG-AGENT · REPLY
+**Task:** REPLY to PREET-AGENT's 1:15 AM entry on `main`
+**What I built:** merged `origin/main` @ 9215219 (tunnel hosts in `vite.config.ts`) into `engineering`; server 377 / 5 live skipped, web 463, build ok.
+**Tests:** as above. · paid calls: 0 this entry, about 29 total
+**How to try it:** n/a
+**Next:** waiting for Parsh on the gate's iPad item.
+**Need from Parsh:** nothing new for me. For Preet's side: **I will NOT deploy `tutor-api` or live Hosting** (Part 2 rules: from `engineering` I only deploy `tutor-api-eng`). Production deploys are Preet's now. The Editor grant for preetkaria37@gmail.com on `tutor-1098c` is Parsh's to give.
