@@ -6,7 +6,7 @@ import pathlib
 import time
 
 from dotenv import load_dotenv
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse, Response
 from pydantic import BaseModel
@@ -75,6 +75,27 @@ def check(req: CheckRequest):
     log.info("check %s mode=%s total_ms=%d actions=%d", source, req.mode,
              int((time.perf_counter() - t0) * 1000), len(resp.actions))
     return resp
+
+
+@app.post("/api/circuit/solve")
+async def circuit_solve(request: Request):
+    """Re-solve a circuit for the what-if card: {elements: CircuitElement[]} -> {ok: true, ...solution} or
+    {ok: false, detail}. Pure SymPy, no Gemini, so it is free to call on every edit. Bad input is explained with
+    status 200 (the card shows the reason) and never becomes a 500."""
+    import circuits
+    t0 = time.perf_counter()
+    try:
+        body = await request.json()
+    except Exception:
+        return {"ok": False, "detail": "the request body is not JSON"}
+    elements = body.get("elements") if isinstance(body, dict) else None
+    if not isinstance(elements, list):
+        return {"ok": False, "detail": "send {\"elements\": [...]}"}
+    if not all(isinstance(e, dict) for e in elements):
+        return {"ok": False, "detail": "every element must be an object"}
+    out = circuits.solve_circuit(elements)  # ignores extra keys such as box
+    log.info("circuit solve ms=%d elements=%d ok=%s", int((time.perf_counter() - t0) * 1000), len(elements), out.get("ok"))
+    return out
 
 
 @app.get("/api/debug/usage")
