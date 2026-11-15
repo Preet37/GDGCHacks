@@ -7,6 +7,8 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
+    // an https tunnel to this dev page (cloudflared or ngrok), for the iPad's microphone when Hosting is behind
+    allowedHosts: ['.trycloudflare.com', '.ngrok-free.app', '.ngrok-free.dev', '.ngrok.app', '.ngrok.io'],
     proxy: {
       // API_TARGET=https://... points the dev page at a deployed server (default: the local one).
       '/api': { target: process.env.API_TARGET ?? 'http://localhost:8000', changeOrigin: true },
