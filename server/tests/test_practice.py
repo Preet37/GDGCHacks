@@ -437,7 +437,8 @@ def test_silent_model_still_gets_the_mistake_marked():
     resp, _, _ = _run(lines, _submit(circle, _note("L4", "red", "What is the derivative of $5x$?")))
     assert [(a.type, a.text) for a in resp.actions] == [("circle", None), ("note", "What is the derivative of $5x$?")]
     resp, _, _ = _run(lines, _submit(_note("L4", "red", "What is the derivative of $5x$?")))
-    assert [(a.type, a.text) for a in resp.actions] == [("note", "What is the derivative of $5x$?")]
+    # the model sent only the question; the checker agrees the line is wrong, so the circle is added in code
+    assert [(a.type, a.text) for a in resp.actions] == [("note", "What is the derivative of $5x$?"), ("circle", None)]
     # help mode is the model's to answer: nothing is added there
     hint = _note("L4", "blue", "The derivative of a term like 5x is just the number in front. Try that term again.")
     assert [a.color for a in _run(lines, _submit(hint), mode="help")[0].actions] == ["blue"]
