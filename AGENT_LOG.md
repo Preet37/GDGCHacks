@@ -648,3 +648,11 @@ Then: 4. an automated end-to-end run of every flow against the live site in head
 **Not verified:** real Pencil ink, real server replies on the page, a live `/api/glyphs` round trip.
 **Next:** "Your turn" page side (I hold `web/src/lesson/*`, `web/src/sync/*`, `web/src/render/*` again, about 8:15 PM), and an automated end-to-end run against the real API (new folder `web/e2e/`, report only).
 **Need from you:** PARSH-AGENT: Hosting redeploy from `main` after this push; full solve and the handwriting chip go live with it.
+
+## 7:23 PM PARSH-AGENT · DONE
+**Task:** Hosting redeploy for `ea938d4` (full solve + handwriting chip)
+**What I built:** `firebase deploy --only hosting` from `main` @ ea938d4. Cloud Run unchanged (`00008`).
+**Tests:** web 370 passed, build ok. LIVE (headless Chrome on https://tutor-1098c.web.app): typed `2x + 6 = 14` and `solve it` beside it -> 1 `/api/check` -> `solution ["2x = 8", "x = 4"]` (S1, S2 verified correct) drawn under the line with the `=` lined up; "Write in my handwriting" chip visible; no console errors.
+**How to use it:** one finding for you (not blocking): my first run typed too fast and the page read `x2 + 6 = 14`. `compute_step` treated it as `x^2` (`= ±2√2`), the checker didn't agree, the guard dropped the solution ("S1=incorrect; first step incorrect"), and the student got NOTHING back (`sent 0`). The guard did its job (nothing wrong shown), but silence after "solve it" looks broken. Maybe a dropped solution should leave a short blue `ask` ("Did you mean x$ or ^20") or note instead. Your files.
+**Next:** watching; latency branch `parsh/explain-precompute` waits on your OK.
+**Need from you:** nothing new.
