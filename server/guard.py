@@ -11,8 +11,31 @@ def _open(line: ReadLine | None) -> bool:
     return line is not None and line.plain.strip().endswith("=")
 
 
-def _keep(action: Action, verdicts: dict, by_id: dict, state: PageState, mode: str) -> bool:
+def _answer(action: Action) -> bool:
+    """A note that writes the rest of the student's line for them."""
+    return action.type == "note" and (action.color == "black" or action.side == "inline")
+
+
+def _unrequested(action: Action, line: ReadLine | None, result: TeachResult) -> bool:
+    """On an automatic check the tutor only points out mistakes. True for a note that does anything else:
+    a hint, a nudge or praise nobody asked for. Notes that stay: red ones (a mistake), an answer on an open
+    line, anything on an open line (the student asked for it to be finished), and a note that goes with a
+    figure or a question (ask) on the same line."""
+    if action.type != "note" or action.color == "red" or _answer(action) or _open(line):
+        return False
+    if action.line_id and any(a.type in ("figure", "ask") and a.line_id == action.line_id for a in result.actions):
+        return False
+    if action.color is None:  # the model forgot the colour: it is a mistake note if the line is marked as one
+        return not (result.verdicts.get(action.line_id) == "incorrect" or any(
+            a.type in MARK_TYPES and a.color == "red" and a.line_id == action.line_id for a in result.actions))
+    return True
+
+
+def _keep(action: Action, verdicts: dict, by_id: dict, state: PageState, mode: str, question: str | None = None) -> bool:
     """Safety net, the same for any subject:
+    - a lesson is only sent when the student tapped Teach me;
+    - a line is only finished for the student (a black or inline note) if they left it open, ending in '=',
+      or asked out loud in help mode;
     - printed worksheet text is never marked; the one thing allowed on it is a blue hint note in help mode
       (the student asked how to start a printed problem);
     - a line verify_step called correct is never marked red;
@@ -21,6 +44,10 @@ def _keep(action: Action, verdicts: dict, by_id: dict, state: PageState, mode: s
       (in help mode the student asked, so it goes through).
     """
     line = by_id.get(action.line_id)
+    if action.type == "lesson":
+        return False  # explain mode never reaches here
+    if _answer(action) and not _open(line) and not (mode == "help" and (question or "").strip()):
+        return False
     if line is not None and line.source == "printed" and action.type in PRINTED_BLOCKED_TYPES:
         return action.type == "note" and mode == "help" and action.color in ("blue", None) and action.side != "inline"
     if action.color == "red" and action.type in MARK_TYPES | {"note"} and _open(line):
@@ -42,12 +69,20 @@ def _ordered_unique(items):
     return out
 
 
-def merge(state: PageState, lines: list[ReadLine], result: TeachResult, mode: str = "auto") -> CheckResponse:
-    """`mode` is the request's mode ("auto" or "help")."""
-    if result.finished:
+def merge(state: PageState, lines: list[ReadLine], result: TeachResult, mode: str = "auto",
+          question: str | None = None) -> CheckResponse:
+    """`mode` is the request's mode ("auto", "help" or "explain"); `question` is what the student asked out loud."""
+    if mode == "explain":
+        # Teach me: the lesson goes through as it is. It is not feedback on a line, so it changes nothing
+        # the checks rely on: no hint levels, nothing cleared, and its line is not added to flagged_line_ids
+        # (a flagged, unchanged line gets no new feedback on automatic checks, which would hide a mistake).
+        actions = [a for a in result.actions if a.type == "lesson" and a.lesson is not None] if result.finished else []
+        clear, hint_updates = [], []
+    elif result.finished:
         by_line = {l.line_id: l for l in lines}
-        actions = [a for a in result.actions if _keep(a, result.verdicts, by_line, state, mode)]
+        actions = [a for a in result.actions if _keep(a, result.verdicts, by_line, state, mode, question)]
         if mode == "auto":
+            actions = [a for a in actions if not _unrequested(a, by_line.get(a.line_id), result)]
             # No repeats: a line that already has feedback on the page and reads exactly as it did last
             # time gets nothing new from an automatic check. (Help may add to it: that's the hint ladder.)
             before = {l.line_id: l.plain for l in state.lines}
@@ -73,7 +108,7 @@ def merge(state: PageState, lines: list[ReadLine], result: TeachResult, mode: st
 
     # Flagged / clear bookkeeping
     present = {l.line_id for l in lines}
-    action_ids = [a.line_id for a in actions if a.line_id]
+    action_ids = [a.line_id for a in actions if a.line_id and a.type != "lesson"]
     flagged = [i for i in state.flagged_line_ids if i not in set(clear)] + action_ids
     flagged = _ordered_unique(flagged)
     gone = [i for i in flagged if i not in present]

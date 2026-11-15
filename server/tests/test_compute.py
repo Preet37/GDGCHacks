@@ -64,3 +64,31 @@ def test_gives_up_when_sympy_takes_too_long(monkeypatch):
     monkeypatch.setattr(compute, "TIMEOUT_S", 0.05)
     monkeypatch.setattr(compute, "_compute", lambda b, r: threading.Event().wait(1) or {})
     assert compute_step("x", "simplify")["result"] == ""
+
+
+@pytest.mark.parametrize("line, relation, expected", [
+    ("int(4*x, x) =", "simplify", "2*x^2 + C"),        # the trace: a one-line problem, relation start, no line before
+    ("int(4*x, x) =", "start", "2*x^2 + C"),
+    ("integral(3*x^2) =", "equals", "x^3 + C"),
+    ("∫ 2x dx", "integral", "x^2 + C"),
+    ("integral of 2*x dx =", "start", "x^2 + C"),
+    ("F(x) = int(2*x, x) =", "integral", "x^2 + C"),
+    ("int(2*x, x, 0, 3) =", "simplify", "9"),
+    ("d/dx(x^3) =", "derivative", "3*x^2"),           # not differentiated twice
+    ("d/dx x^3 =", "simplify", "3*x^2"),
+    ("diff(x*sin(x), x) =", "other", "sin(x) + x*cos(x)"),
+    ("derivative of x^2 =", "start", "2*x"),
+    ("3*4 + 2 =", "start", "14"),                     # plain arithmetic left of the '='
+    ("(x + 1)^2 - x^2 =", "other", "2*x + 1"),
+])
+def test_open_line_that_is_the_problem(line, relation, expected):
+    out = compute_step(line, relation)
+    assert same(out["result"], expected), out
+    assert out["latex"]
+
+
+def test_operation_is_read_from_the_line():
+    assert compute.operation("int(4*x, x) =") == {"kind": "integral", "expr": "4*x", "var": "x", "limits": None}
+    assert compute.operation("d/dt(t^2)")["var"] == "t"
+    assert compute.operation("int(x) + int(2*x)") is None
+    assert compute.operation("f(x) = 3*x^2") is None and compute.operation("interest = 5") is None

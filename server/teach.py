@@ -94,12 +94,14 @@ COMPUTE_DECL = types.FunctionDeclaration(
     description=(
         "Work out with real math what follows from line `before` by `relation`. Only for finishing a line "
         "the student asked you to finish (a line left open after '=', or a spoken request). Returns "
-        "`result` (plain) and `latex`: what to write after the open line's '='. Empty result = couldn't."
+        "`result` (plain) and `latex`: what to write after the open line's '='. Empty result = couldn't. "
+        "When the open line is the whole problem ('int(4*x, x) =', 'd/dx(x^3) =', '3*4 + 2 ='), pass that "
+        "line itself as `before`, with its id as both before_line_id and after_line_id."
     ),
     parameters_json_schema={
         "type": "object",
         "properties": {
-            "before": {"type": "string", "description": "the line to work from (usually the line before the open one), plain syntax"},
+            "before": {"type": "string", "description": "the line to work from, plain syntax: usually the line before the open one, or the open line itself when it carries the math"},
             "relation": {"type": "string", "enum": list(compute.RELATIONS)},
             "before_line_id": {"type": "string"},
             "after_line_id": {"type": "string", "description": "the open line being finished"},
@@ -236,6 +238,10 @@ def _run_verify(args: dict, lines: list[ReadLine], result: TeachResult) -> dict:
         result.tool_calls.append(f"verify_step({before_id}->{after_id}, {relation}) = skipped (open line)")
         return {"verdict": "unknown", "detail": "this line is unfinished (nothing after '='). That is not a "
                                                 "mistake: do not mark it. Use compute_step to finish it."}
+    # A line that names its own operation ('int(2*x, x)', 'd/dx(x^3)') is checked as that operation on what is inside it.
+    op = compute.operation(before) if "=" not in before.strip().rstrip("= ") else None
+    if op is not None and not op["limits"]:
+        before, relation = op["expr"], op["kind"]
     try:
         out = verify.verify_step(before, after, relation)
         verdict = out.get("verdict")
@@ -262,6 +268,12 @@ def _run_compute(args: dict, lines: list[ReadLine], result: TeachResult) -> dict
         before = next((l.plain for l in lines if l.line_id == before_id), "")
     try:
         out = compute.compute_step(before, relation)
+        if not out.get("result"):
+            # The open line may be the whole problem ('int(4*x, x) ='): work from the line being finished.
+            own = next((l.plain for l in lines if l.line_id == after_id), "")
+            if is_open(own) and own.strip() != before.strip():
+                again = compute.compute_step(own, relation)
+                out = again if again.get("result") else out
         out = {k: str(out.get(k, "")) for k in ("result", "latex", "detail")}
     except Exception as e:  # compute_step should never raise; a bug there must not break the request
         log.exception("compute_step failed")
@@ -344,6 +356,8 @@ def _tidy(actions: list[Action], by_id: dict) -> list[Action]:
     for a in actions:
         if a.type in ("note", "ask", "speak") and not (a.text or "").strip():
             continue  # nothing to show or say
+        if a.type == "note" and a.color == "black" and is_open(getattr(by_id.get(a.line_id), "plain", "")):
+            a = a.model_copy(update={"side": "inline"})  # an answer to an open line is always written on that line
         if a.side == "inline":
             line = by_id.get(a.line_id)
             if a.type != "note" or line is None:

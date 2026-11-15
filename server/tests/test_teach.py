@@ -163,7 +163,7 @@ def test_spoken_question_flow():
     assert '"question": "can you finish this?"' in client.calls[0][0].parts[0].text
     assert r.tool_calls[0] == "compute_step(L1->L2, derivative) = 12*x"
     assert r.hint_updates == []
-    out = merge(req.state, lines, r, "help")      # asked for out loud: sent even though L2 already had feedback
+    out = merge(req.state, lines, r, "help", req.question)      # asked for out loud: sent even though L2 already had feedback
     assert [(x.side, x.color, x.text) for x in out.actions] == [("inline", "black", "$12 x$")]
 
 
@@ -217,6 +217,50 @@ def test_inline_shape_fixes():
     a, b, c = teach_mod._parse_actions(raw, _open_lines())
     assert (a.color, a.box, a.side) == ("black", (260, 80, 340, 300), "inline")
     assert b.side == "right" and c.side == "right"
+
+
+def _one_line_problem():
+    return [ReadLine(line_id="L1", problem_id="P1", latex="\\int 4x\\,dx =", plain="int(4*x, x) =",
+                     box=(150, 80, 230, 420), relation="start", confidence="high")]
+
+
+def test_one_line_problem_is_finished_from_itself():
+    """From an iPad trace: the open line is the whole problem, so the model points compute_step at it."""
+    answer = dict(INLINE, line_id="L1", side="right", text="$2 x^{2} + C$")   # the model asked for the margin
+    for args in ({"before": "int(4*x, x) =", "relation": "simplify", "before_line_id": "L1", "after_line_id": "L1"},
+                 {"before": "", "relation": "simplify", "before_line_id": "L1", "after_line_id": "L1"},
+                 {"before": "f(x) =", "relation": "integral", "before_line_id": "L0", "after_line_id": "L1"}):
+        client = FakeClient([_resp(("compute_step", args)), _submit(answer)])
+        r = teach_mod.teach(client, "fake", _one_line_problem(), _req())
+        assert r.tool_calls[0].endswith("= 2*x^2 + C"), r.tool_calls
+        (a,) = r.actions
+        assert (a.side, a.color, a.box) == ("inline", "black", (150, 80, 230, 420))   # written on the line, not the margin
+
+
+def test_black_note_goes_inline_only_on_an_open_line():
+    lines = _lines()
+    (a,) = teach_mod._parse_actions([dict(INLINE, side="right")], lines)   # L2 is a finished line
+    assert a.side == "right"
+
+
+def test_students_own_answer_under_an_integral_is_checked_not_finished():
+    """From an iPad trace: `∫ 2x dx`, then their own wrong `= 2x^2 + C`. The answer must not be handed over."""
+    lines = [ReadLine(line_id="L1", problem_id="P1", latex="\\int 2x\\,dx", plain="int(2*x, x)",
+                      box=(100, 80, 160, 400), relation="start", confidence="high"),
+             ReadLine(line_id="L2", problem_id="P1", latex="= 2x^2 + C", plain="= 2*x^2 + C",
+                      box=(180, 80, 240, 400), relation="integral", confidence="high")]
+    check = {"before": "int(2*x, x)", "after": "= 2*x^2 + C", "relation": "equals",
+             "before_line_id": "L1", "after_line_id": "L2"}
+    gave_away = dict(INLINE, line_id="L1", box=[100, 80, 160, 400], text="$x^{2} + C$")
+    client = FakeClient([_resp(("verify_step", check)), _submit(gave_away, dict(CIRCLE), dict(NOTE))])
+    r = teach_mod.teach(client, "fake", lines, _req())
+    assert r.verdicts == {"L2": "incorrect"}                    # int(...) is checked as an integral
+    out = merge(PageState(page_id="t"), lines, r)
+    assert [(a.type, a.line_id, a.color) for a in out.actions] == [("circle", "L2", "red"), ("note", "L2", "red")]
+    # the right answer checks out
+    lines[1] = lines[1].model_copy(update={"plain": "= x^2 + C"})
+    r = teach_mod.teach(FakeClient([_resp(("verify_step", dict(check, after="= x^2 + C"))), _submit()]), "fake", lines, _req())
+    assert r.verdicts == {"L2": "correct"}
 
 
 def test_figure_window_is_fixed_on_submit():

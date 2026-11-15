@@ -61,19 +61,26 @@ def run_check(req: CheckRequest) -> CheckResponse:
 
     from google.genai import types
     # 15 s cap per Gemini call (retried twice) so a stuck request fails as a 502 instead of hanging the page.
-    client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=15000))
+    # A lesson is a much longer answer than a few marks, so Teach me gets twice that.
+    explaining = req.mode == "explain"
+    client = genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=30000 if explaining else 15000))
 
     t0 = time.perf_counter()
     lines = read.read_page(client, model, image_png, req.state.lines)
     read_ms = _ms(t0)
 
     t1 = time.perf_counter()
-    result = teach.teach(client, model, lines, req)
-    teach_ms = _ms(t1)
+    if explaining:  # Teach me: one lesson instead of marks
+        import explain
+        result = explain.explain(client, model, lines, req)
+    else:
+        result = teach.teach(client, model, lines, req)
+    teach_ms = _ms(t1)  # in explain mode this is the time the explain step took
 
-    resp = merge(req.state, lines, result, req.mode)
+    resp = merge(req.state, lines, result, req.mode, req.question)
     resp.debug = Debug(model=model, read_ms=read_ms, teach_ms=teach_ms, tool_calls=list(result.tool_calls))
     _trace(req, image_png, lines, result, resp)
-    log.info("read_ms=%d teach_ms=%d lines=%d actions=%d finished=%s",
-             read_ms, teach_ms, len(lines), len(resp.actions), result.finished)
+    log.info("read_ms=%d %s=%d lines=%d actions=%d finished=%s",
+             read_ms, "explain_ms" if explaining else "teach_ms", teach_ms, len(lines), len(resp.actions),
+             result.finished)
     return resp
