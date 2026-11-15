@@ -73,6 +73,23 @@ def test_an_arrow_labelled_mg_counts_as_m_times_g():
     assert out["verdict"] == "correct" and out["solved"]["N"] == pytest.approx(19.6)
 
 
-def test_nothing_with_a_size_is_unknown_not_a_fake_balance():
-    out = check_forces([{"label": "W", "angle_deg": 270}, {"label": "N", "angle_deg": 90}], {})
+def test_nothing_with_a_size_and_no_weight_is_unknown_not_a_fake_balance():
+    out = check_forces([{"label": "A", "angle_deg": 0}, {"label": "B", "angle_deg": 90}], {})
     assert out["verdict"] == "unknown" and "nothing to balance" in out["detail"]
+
+
+def test_no_givens_ramp_is_still_checked_relative_to_the_weight():
+    # what a student draws without writing m: gravity and normal on a 30 degree ramp
+    out = check_forces([{"label": "mg", "angle_deg": 270}, {"label": "N", "angle_deg": 120}], {},
+                       expected=[{"label": "mg", "angle_deg": 270}, {"label": "N", "angle_deg": 120}, {"label": "f", "angle_deg": 30}])
+    assert out["verdict"] == "incorrect" and out["relative_to"] == "mg"
+    assert out["missing_angle_deg"] == pytest.approx(30.0)
+    assert out["expected"]["balanced"] is True
+    assert out["expected"]["solved"]["f"] == pytest.approx(0.5, rel=1e-3)      # f = mg sin 30
+    assert out["expected"]["solved"]["N"] == pytest.approx(0.8660, rel=1e-3)   # N = mg cos 30
+    assert "x mg" in out["detail"]
+
+
+def test_no_givens_flat_floor_balances():
+    out = check_forces([{"label": "W", "angle_deg": 270}, {"label": "N", "angle_deg": 90}], {})
+    assert out["verdict"] == "correct" and out["solved"]["N"] == pytest.approx(1.0)

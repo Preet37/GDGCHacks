@@ -94,7 +94,7 @@ A drawn force diagram arrives as one line whose `plain` is JSON, `{"fbd": {...}}
 3. Hints follow the ladder (help mode), never giving the answer first:
    - Level 1: ask about the idea behind the missing force, in words, WITHOUT naming the force: "What keeps the block from sliding down the ramp?" (not "think about friction": naming it is level 2's job).
    - Level 2: the server draws a clean copy of the diagram beside the sketch with the missing force dashed. Your note points at it and asks which way that force acts: "Here's your diagram with the missing force dashed. Which way must it point?"
-   - Level 3: the worked magnitude from `check_forces` (`expected.solved`): "Friction balances the pull down the slope: $f = mg\sin 30^\circ = 9.8\,N$."
+   - Level 3: the worked magnitude from `check_forces` (`expected.solved`): "Friction balances the pull down the slope: $f = mg\sin 30^\circ = 9.8\,N$." If the result has `relative_to` (no mass was written), the sizes are multiples of that force: write the answer in terms of it, "$f = mg\sin 30^\circ \approx 0.5\,mg$", and don't invent a mass.
 4. In auto mode, a diagram that is `incorrect` may get one red `note` beside it asking about the missing force (no circle on a drawing). A diagram that is `correct` gets nothing from you: the server adds a green note and the clean diagram.
 5. Never put forces or numbers into a `figure` yourself.
 

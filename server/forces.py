@@ -79,6 +79,26 @@ def _label_magnitude(label: str, givens: dict):
         return None
 
 
+GRAVITY_LABELS = {"mg", "w", "weight", "fg", "g", "gravity", "f_g", "fw"}
+
+
+def reference_force(forces: list[dict]) -> dict | None:
+    """The weight: an arrow labelled like one, else the one pointing straight down. Used as size 1 when no force has a
+    written size at all (a size that was written but can't be read stays unreadable)."""
+    if any(f.get("magnitude") not in (None, "") for f in forces):
+        return None
+    for f in forces:
+        if str(f.get("label", "")).strip().lower().replace(" ", "") in GRAVITY_LABELS:
+            return f
+    for f in forces:
+        try:
+            if abs(((float(f.get("angle_deg")) - 270 + 540) % 360) - 180) <= 10:
+                return f
+        except (TypeError, ValueError):
+            pass
+    return None
+
+
 def any_known(forces: list[dict], givens: dict) -> bool:
     for f in forces:
         try:
@@ -113,6 +133,12 @@ def _balance(forces: list[dict], givens: dict, ax, ay, mass) -> dict:
     """Solve sum(F) = m*a for the forces without a magnitude."""
     if not forces:
         raise _Unreadable("no forces")
+    if not any_known(forces, givens) and (ax, ay) == (0, 0):
+        ref = reference_force(forces)
+        if ref is None:
+            raise _Unreadable("no force has a size (write one, or give m and g), so there is nothing to balance")
+        # No sizes written: measure everything relative to gravity (balance and directions don't depend on scale)
+        forces = [dict(f, magnitude="1") if f is ref else f for f in forces]
     known_x = known_y = sp.Integer(0)
     unknown = []  # (label, symbol, cos, sin)
     biggest = 0.0
@@ -130,8 +156,6 @@ def _balance(forces: list[dict], givens: dict, ax, ay, mass) -> dict:
             known_x += mag * c
             known_y += mag * s
             biggest = max(biggest, abs(float(mag)))
-    if not any_known(forces, givens) and (ax, ay) == (0, 0):
-        raise _Unreadable("no force has a size (write one, or give m and g), so there is nothing to balance")
     need_x = mass * ax - known_x
     need_y = mass * ay - known_y
     syms = [u[1] for u in unknown]
@@ -174,18 +198,26 @@ def check_forces(forces: list[dict], givens: dict | None = None, accel=None, exp
         g = _givens(givens)
         mass = g.get(sp.Symbol("m"), sp.Integer(1))
         ax, ay = _accel(accel, g)
+        relative = not any_known(list(forces or []), g) and (ax, ay) == (0, 0) and reference_force(list(forces or [])) is not None
         drawn = _balance(list(forces or []), g, ax, ay, mass)
         out = {"balanced": drawn["balanced"], "leftover": drawn["leftover"], "solved": drawn["solved"]}
+        if relative:
+            out["relative_to"] = str(reference_force(list(forces))["label"])  # sizes are multiples of the weight
         lx, ly = drawn["leftover"]["x"], drawn["leftover"]["y"]
         if drawn["balanced"]:
             out.update(verdict="correct", detail="the drawn forces balance" + (" (= m*a)" if (ax, ay) != (0, 0) else ""))
         else:
             missing = (math.degrees(math.atan2(-ly, -lx)) + 360) % 360
+            unit = f" x {out['relative_to']}" if relative else " N"
             out.update(verdict="incorrect", missing_angle_deg=round(missing, 1),
-                       detail=f"the drawn forces can't balance: {math.hypot(lx, ly):.3g} N is left over at "
+                       detail=f"the drawn forces can't balance: {math.hypot(lx, ly):.3g}{unit} is left over at "
                               f"{(missing + 180) % 360:.0f} degrees, so a force of that size at {missing:.0f} degrees is missing")
         if expected:
-            exp = _balance(list(expected), g, ax, ay, mass)
+            exp_forces = list(expected)
+            if relative and not any_known(exp_forces, g):
+                ref = reference_force(exp_forces)
+                exp_forces = [dict(f, magnitude="1") if f is ref else f for f in exp_forces]
+            exp = _balance(exp_forces, g, ax, ay, mass)
             out["expected"] = {"balanced": exp["balanced"], "solved": exp["solved"], "leftover": exp["leftover"]}
         return out
     except _Unreadable as e:
