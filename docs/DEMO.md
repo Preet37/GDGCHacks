@@ -146,6 +146,16 @@ Plain http: everything works except speaking a question (that needs https). Writ
    the dashed arrow is missing, the diagram may not have been read as one drawing: draw the arrows from the block's
    centre with clear arrowheads.
 
+### E-6. "What is the physics of a bridge?" (3D model)
+1. Write `What is the physics of a bridge?` at the top of a fresh page. Pause (or tap **Help**).
+2. A short blue answer appears, and below it a **3D card** of a suspension bridge: towers red (compression), cables
+   and hangers blue (tension), the deck purple (bending), green arrows for the traffic and the ground pushing up.
+3. **Drag** inside the card to turn it; **+ / −** to zoom.
+4. **Tap a part** (a tower, a cable): it lights up, everything else fades, and the panel says what it does and why it
+   carries that force. **‹ ›** steps through every part; **Show all** goes back.
+5. Works for other structures too: "how does a truss bridge carry a load?", "what forces act on a crane?". Takes about
+   8 to 10 s (the model is a big answer).
+
 ## (b) 90-second table pitch
 
 Set up before the judge arrives, in portrait: problem 1 written and already circled on a fresh page. Problem 6 written on a second page id in another tab, without its second line.

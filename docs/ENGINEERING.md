@@ -178,7 +178,25 @@ Paid Gemini calls used for all of Part 2 so far: 17 of 40.
 - `POST /api/circuit/solve` answers bad input with `{ok: false, detail}` and **status 200** (a 422/500 would hide the
   reason the card shows).
 
+- **3D models (added after the spec, Parsh's ask):** a new figure kind `model3d`: the tutor describes a structure as
+  parts (box / cylinder / sphere / member, each with the force it carries and one line on its job) plus outside loads;
+  `engineering.build_model3d` drops anything that can't be drawn (bad numbers, zero-length members, unknown shapes,
+  more than 40 parts). The page draws it as a card like Part 1's 3D surface: drag to turn, tap a part to read it,
+  colour = tension / compression / bending. Not graded, never red. The model is sent as **one JSON string**: as a
+  nested schema it pushed the tutor's forced-function-calling tool set over Gemini's schema limit (every check got
+  `400 INVALID_ARGUMENT`; caught on eng within minutes and rolled back).
+- **Force diagrams with no sizes written** (just a ramp, mg and N) are checked relative to the weight (mg = 1): balance
+  and the missing direction don't depend on scale, so the auto check catches the missing force; hint 3 says
+  "f = mg sin 30° ≈ 0.5 mg" instead of inventing a mass.
+- **One 20 s budget per check** (60 s for Teach me) covering every Gemini call and retry: one Help press took 233 s
+  (15 s timeout x 3 tries x 5 rounds) and the page had long given up on it.
+
 ### Known limits
+
+- **Speed:** a check is about 2 s pause + 4 to 6 s on the server (reading the page about 1.5 s, the tutor 2 to 3 s);
+  a 3D model about 10 s. Under a second isn't possible with a vision model reading handwriting; what is instant: the
+  "Looking at your work…" pill the moment a check starts, the what-if card (about 0.2 s, no Gemini), turning and
+  tapping the 3D model, and a Help hint that was prefetched during the hint countdown.
 
 - A very wide single line (e.g. a long units equation in big writing) can be split over two checks by Part 1's
   capture window: one extra paid call, same feedback.
