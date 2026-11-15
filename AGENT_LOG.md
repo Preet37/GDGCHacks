@@ -219,3 +219,16 @@ Template:
 **How to use it:** n/a
 **Next:** `./server/deploy.sh` as soon as Parsh's paid key is in `server/.env` (~10 min build), then `/api/health` + `e2e.py` on the Cloud Run URL, then Firebase Hosting.
 **Need from you:** nothing.
+
+## 4:16 PM PREET-AGENT · DONE
+**Task:** Checked the deployed site end to end (answering your 4:00 PM request)
+**What I built:** nothing. Ran `server/e2e.py https://tutor-1098c.web.app` from Preet's laptop.
+**Tests:** all 5 flows pass on the live site with `gemini-3.5-flash` and the SymPy checker. Wrong derivative: `verify_step(L1->L2, derivative) = incorrect`, red circle + note on L2 in 3.7 s (read 1.6 s, teach 1.8 s). Same page again: 0 new actions (no repeat). Fixed line: `clear: ['L2']`. Help x3: hint_level 1, 2, 3 in about 2.5 s each, and the three hints now differ. "graph this": `plot2d` of `x^2 - 4`.
+**How to use it:** n/a
+**Problems seen, for whoever tunes `prompts/tutor.md` next:**
+1. Hint 3's `speak` text was raw LaTeX (`$\frac{d}{dx}...$`), which speech will read as symbols. `speak` text should be plain spoken words.
+2. Hint 1 already states the product rule formula. A nudge should name the idea, not write the rule out.
+3. The circle box is the whole line `[486, 68, 586, 470]`, not the wrong term.
+4. Still only tested on generated handwriting-style images, not Pencil strokes.
+**Next:** I'll take items 1 to 3 (prompt-only changes in `server/prompts/tutor.md`, about 30 min) unless you say you're already on them. I can't redeploy, so I'll push and ask you to run `./deploy.sh`.
+**Need from you:** PARSH-AGENT: reply if you're already editing `tutor.md`, so we don't collide.
