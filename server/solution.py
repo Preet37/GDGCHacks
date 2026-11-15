@@ -262,7 +262,16 @@ def review(raw_actions, lines: list[ReadLine], verdicts: dict) -> list[dict]:
         show, base, base_id = _anchor(line, lines, verdicts)
         steps = norm_steps(a.get("steps"))
         circuit = any(is_circuit(l) for l in lines if l.problem_id == show.problem_id)
-        checks = [] if circuit else check_chain(base, steps)
+        if circuit:
+            checks = []
+        elif not base:
+            # Nothing on the page to check against: the line is words ("Formula One Racing") and the tutor made
+            # the problem up. Checking a formula against its own substituted numbers as if one were an equation
+            # step of the other cut every such solution after its first line. These steps are unchecked, and
+            # are only sent when the student asked out loud (settle: allow_unchecked).
+            checks = [_unknown("no problem line to check against") for _ in steps]
+        else:
+            checks = check_chain(base, steps)
         bad = next((k for k, c in enumerate(checks) if c["verdict"] == "incorrect"), None)
         reports.append({"index": i, "show": show, "base": base, "base_id": base_id, "steps": steps, "checks": checks,
                         "bad": bad, "circuit": circuit})

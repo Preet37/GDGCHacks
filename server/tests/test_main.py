@@ -107,3 +107,29 @@ def test_usage_is_counted_per_call_and_per_request():
 def test_debug_usage_route(client):
     r = client.get("/api/debug/usage")
     assert r.status_code == 200 and "since_start" in r.json() and "recent" in r.json()
+
+
+def test_recent_turns_are_kept_per_page_and_capped():
+    import memory
+    from models import Action
+    memory.reset()
+    note = Action(type="note", text="An F1 car goes from 0 to 27.8 m/s in 2.5 s.", line_id="L1", box=(0, 0, 10, 10), color="blue")
+    memory.remember_turn("p", "help", "make a problem for Formula One racing", [note])
+    memory.remember_turn("p", "auto", None, [note])                      # an automatic check is not an exchange
+    memory.remember_turn("p", "explain", None, [])                       # Teach me with nothing back is not one either
+    memory.remember_turn("p", "help", "a 3D model for this", [])
+    turns = memory.recent_turns("p")
+    assert [t["student_asked"] for t in turns] == ["make a problem for Formula One racing", "a 3D model for this"]
+    assert "27.8" in turns[0]["tutor_answered"] and turns[1]["tutor_answered"] == "(nothing)"
+    for i in range(6):
+        memory.remember_turn("p", "help", f"q{i}", [note])
+    assert len(memory.recent_turns("p")) == memory.MAX_TURNS and memory.recent_turns("other") == []
+
+
+def test_names_subject_tells_a_topic_from_pointing():
+    import explain
+    assert explain.names_subject("create me a course on Formula One racing")
+    assert explain.names_subject("teach me the chain rule")
+    assert not explain.names_subject("teach me this")
+    assert not explain.names_subject("can you walk me through it step by step")
+    assert not explain.names_subject(None)

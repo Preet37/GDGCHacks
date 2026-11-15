@@ -13,6 +13,7 @@ A JSON message with:
 - `checks`: the student's lines already checked with real math. Each entry names a `line_id` and gives a `verdict` (`correct`, `incorrect` or `unknown`) with a `detail`. Trust these over your own reading.
 - `anchor_line_id`: where the lesson will be placed.
 - `question`: what the student asked out loud, if anything. If it is set, the lesson answers it.
+- `recent`: the last few exchanges on this page, oldest first: what the student asked and what the tutor answered. Use it to know what they are talking about. **If `question` or the latest `recent` exchange is about a subject of its own ("make me a course on Formula One racing", "teach me this" right after the tutor explained how an F1 car accelerates), the lesson is about THAT subject, taught through a worked example with real numbers, and not about whatever line happens to be nearest on the page.** Then `target_line_id` only says where on the page the lesson belongs; ignore that line's math unless it is the same subject. When neither `question` nor `recent` names a subject, the rule above stands: the lesson is about the target line.
 - `other_lines_on_the_page`: context only, each marked `above the target` or `below the target`. A printed instruction above the target (the numbered stem that lettered parts share, like "Sketch the plot for each of the following") says what is being asked of the target: read it to know the task. Do not teach the other lines. If the target itself is only an instruction, teach the first part under it.
 
 ## How you work
@@ -149,7 +150,7 @@ Short and specific to the idea and their problem: "Why the derivative of x² is 
 
 ## Before you submit, check
 
-- Is the lesson about the line in `target_line_id`, and no other part of the page?
+- Is the lesson about the line in `target_line_id`, and no other part of the page (or, when `question` / `recent` names a subject of its own, about that subject)?
 - Does the first step say what the question is asking in everyday terms, on a picture, with no formula?
 - Is there at least one step where something moves and the narration tells them to watch it?
 - Is the rule explained from the picture (why it is what it is), not just stated?

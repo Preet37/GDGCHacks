@@ -273,13 +273,15 @@ SUBMIT_DECL = types.FunctionDeclaration(
 )
 
 
-def _build_config(thinking=None) -> types.GenerateContentConfig:
+def _build_config(thinking=None, only_submit: bool = False) -> types.GenerateContentConfig:
+    """`only_submit`: the last round. The model may only call submit_feedback, so a run of checker calls can't
+    use up every round and leave the student with nothing (seen: five tool calls, no reply, 10 s of silence)."""
+    calling = (types.FunctionCallingConfig(mode="ANY", allowed_function_names=["submit_feedback"]) if only_submit
+               else types.FunctionCallingConfig(mode="ANY"))
     return types.GenerateContentConfig(
         system_instruction=PROMPT_PATH.read_text(),  # loaded per call so prompt edits apply live
         tools=[types.Tool(function_declarations=[VERIFY_DECL, COMPUTE_DECL, CIRCUIT_DECL, UNITS_DECL, FORCES_DECL, SUBMIT_DECL])],
-        tool_config=types.ToolConfig(
-            function_calling_config=types.FunctionCallingConfig(mode="ANY")
-        ),
+        tool_config=types.ToolConfig(function_calling_config=calling),
         automatic_function_calling=types.AutomaticFunctionCallingConfig(disable=True),
         thinking_config=thinking,
         temperature=0.2,
@@ -321,6 +323,9 @@ def _page_json(lines: list[ReadLine], req: CheckRequest, practice_checks: list[d
         target = pick_line(lines, req.help_box)
         extra["target"] = {"line_id": target.line_id, "problem_id": target.problem_id} if target else None
         extra["previous_hints"] = memory.previous_hints(req.state.page_id, req.state.problems)
+    recent = memory.recent_turns(req.state.page_id)
+    if recent:
+        extra["recent"] = recent
     return json.dumps(
         {
             "mode": req.mode,
@@ -736,9 +741,11 @@ def teach(client, model: str, lines: list[ReadLine], req: CheckRequest) -> Teach
         result.finished = True
         return result
 
-    for _ in range(MAX_ROUNDS):
+    for round_no in range(MAX_ROUNDS):
+        last_round = round_no == MAX_ROUNDS - 1
         try:
-            response = gemini.generate(client, model, contents, _build_config)
+            response = gemini.generate(client, model, contents,
+                                       (lambda thinking: _build_config(thinking, only_submit=True)) if last_round else _build_config)
         except gemini.OutOfTime:
             if pending is not None or result.tool_calls:
                 result.tool_calls.append("out of time")

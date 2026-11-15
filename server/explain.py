@@ -24,6 +24,7 @@ import teach
 import verify
 from figures import _function, fix_figure
 from internal import TeachResult
+import memory
 from target import pick_line
 from models import Action, CheckRequest, Lesson, LessonStep, LessonVisual, Practice, ReadLine
 from verify import LABEL, ParseError, equation, is_equation, is_zero, split_line, value
@@ -254,6 +255,7 @@ def _page_json(lines: list[ReadLine], req: CheckRequest, problem: list[ReadLine]
         } if math_done else None,
         "anchor_line_id": anchor.line_id,
         "question": req.question,
+        "recent": memory.recent_turns(req.state.page_id) or None,
         "other_lines_on_the_page": [dict(brief(l), where="above the target" if i < at else "below the target")
                                     for i, l in enumerate(lines) if l.line_id not in ids],
     }, indent=1)
@@ -595,6 +597,18 @@ def _action(lesson: Lesson, line_id: Any, problem: list[ReadLine], anchor: ReadL
     return Action(type="lesson", line_id=line.line_id, box=line.box, side="right", lesson=lesson)
 
 
+_POINTING = frozenset("""teach me this that it these those explain how do does i we walk through please can could you
+    would a an the lesson course class make create give build start show on about for of to with and in step by
+    understand get dont don't not help what is are why my problem question one again more now just so""".split())
+
+
+def names_subject(question: str | None) -> bool:
+    """True when what was said names a subject of its own ("a course on Formula One racing"), not just
+    "teach me this". Two words that are not pointing-or-asking words are enough."""
+    words = re.findall(r"[a-z0-9']+", (question or "").lower())
+    return len([w for w in words if w not in _POINTING]) >= 2
+
+
 def explain(client, model: str, lines: list[ReadLine], req: CheckRequest) -> TeachResult:
     result = TeachResult()
     problem, anchor, target = pick_target(lines, req.help_box)
@@ -604,7 +618,9 @@ def explain(client, model: str, lines: list[ReadLine], req: CheckRequest) -> Tea
         return result
     checks = _check_problem(problem, lines, result)
     result.tool_calls.append(f"target({target.line_id}, problem {target.problem_id})")
-    math_done = _precompute(problem, target, result)
+    # a lesson asked for by name ("a course on Formula One racing") is about that subject: the nearest line's
+    # math would only pull the lesson back to the wrong thing
+    math_done = [] if names_subject(req.question) else _precompute(problem, target, result)
     contents: list = [types.Content(role="user", parts=[types.Part.from_text(
         text=_page_json(lines, req, problem, anchor, checks, target, math_done))])]
     fallback: tuple | None = None  # a short or picture-less lesson, used if nothing better comes

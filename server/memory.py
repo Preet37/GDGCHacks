@@ -23,11 +23,42 @@ def reset() -> None:
 def _page(page_id: str) -> dict:
     page = _pages.get(page_id)
     if page is None:
-        page = _pages[page_id] = {"hints": {}, "marked": {}, "solved": {}, "practice": {}}
+        page = _pages[page_id] = {"hints": {}, "marked": {}, "solved": {}, "practice": {}, "turns": []}
         while len(_pages) > MAX_PAGES:
             _pages.popitem(last=False)
     _pages.move_to_end(page_id)
     return page
+
+
+MAX_TURNS = 4
+
+
+def remember_turn(page_id: str, mode: str, question: str | None, actions) -> None:
+    """One exchange on this page: what the student asked (out loud or by a button) and what came back, in a line
+    or two. Kept so that "a 3D model for this" or "make me a lesson" is read as being about the same subject."""
+    said = []
+    for a in actions or []:
+        if a.type in ("note", "ask") and a.text:
+            said.append(a.text.strip()[:240])
+        elif a.type == "solution":
+            said.append("[wrote a worked solution]")
+        elif a.type == "figure" and a.figure is not None:
+            said.append(f"[drew a {a.figure.kind} figure: {a.figure.title or ', '.join(a.figure.expressions or [])}]"[:120])
+        elif a.type == "lesson" and a.lesson is not None:
+            said.append(f"[played a lesson: {a.lesson.title}]"[:120])
+    q = (question or "").strip()
+    if not q and not (mode in ("help", "explain") and said):
+        return
+    with _lock:
+        turns = _page(page_id).setdefault("turns", [])
+        turns.append({"student_asked": q[:300] or ("(tapped Teach me)" if mode == "explain" else "(tapped Help)"),
+                      "tutor_answered": " ".join(dict.fromkeys(said))[:600] or "(nothing)"})
+        del turns[:-MAX_TURNS]
+
+
+def recent_turns(page_id: str) -> list[dict]:
+    with _lock:
+        return [dict(t) for t in _pages.get(page_id, {}).get("turns", [])]
 
 
 def previous_hints(page_id: str, problems) -> dict[str, list[str]]:
