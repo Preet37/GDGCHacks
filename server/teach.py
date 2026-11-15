@@ -451,6 +451,13 @@ def _run_forces(args: dict, lines: list[ReadLine], result: TeachResult) -> dict:
     expected = engineering.expected_forces(args.get("expected"), drawn)
     try:
         out = forces.check_forces(drawn["forces"], givens, args.get("accel") or None, expected or None)
+        # The one force the student left out: its direction comes from the physics (where the leftover must be
+        # cancelled), not from the model, so the dashed arrow can't point the wrong way.
+        fixed = engineering.fix_missing_direction(drawn, expected, out)
+        if fixed is not None:
+            expected, note = fixed
+            out = forces.check_forces(drawn["forces"], givens, args.get("accel") or None, expected)
+            out["direction_note"] = note
     except Exception as e:  # check_forces shouldn't raise; a bug there must not break the request
         log.exception("check_forces failed")
         out = {"verdict": "unknown", "detail": f"forces error: {e}"}

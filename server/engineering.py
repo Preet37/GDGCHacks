@@ -253,3 +253,24 @@ def fbd_figures(lines: list[ReadLine], actions: list, fbd_info: dict, verdicts: 
         if fig is not None:
             out.append(fig)
     return out
+
+
+def missing_from(drawn: dict, expected: list[dict]) -> list[dict]:
+    """Expected forces the student didn't draw (by label, or by direction within 20 degrees), like the page's."""
+    near = lambda a, b: abs(((a - b + 540) % 360) - 180) <= 20
+    return [e for e in expected if not any(d["label"].strip().lower() == e["label"].strip().lower()
+                                           or near(d["angle_deg"], e["angle_deg"]) for d in drawn["forces"])]
+
+
+def fix_missing_direction(drawn: dict, expected: list[dict], check: dict) -> tuple[list[dict], str] | None:
+    """If exactly one expected force is missing and the drawn forces can't balance, point that force where the
+    leftover says it must (check_forces' missing_angle_deg). Returns (expected, a note) or None if nothing changed."""
+    gone = missing_from(drawn, expected or [])
+    angle = check.get("missing_angle_deg")
+    if len(gone) != 1 or angle is None or check.get("verdict") != "incorrect":
+        return None
+    f = gone[0]
+    if abs(((f["angle_deg"] - angle + 540) % 360) - 180) <= 5:
+        return None
+    fixed = [dict(e, angle_deg=round(float(angle), 1)) if e is f else e for e in expected]
+    return fixed, f"{f['label']} must point at {round(float(angle))} degrees to balance (not {round(f['angle_deg'])}); use that"

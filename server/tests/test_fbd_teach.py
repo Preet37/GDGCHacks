@@ -86,3 +86,22 @@ def test_no_circle_around_a_whole_force_diagram_but_the_question_stays():
     assert result.verdicts["L1"] == "incorrect"
     assert not any(a.type == "circle" for a in resp.actions)
     assert any(a.type == "note" and a.color == "red" for a in resp.actions)
+
+
+def test_a_wrong_direction_for_the_missing_force_is_corrected_by_physics():
+    # what the real model sent on the E-5 run: friction at 150 degrees (it must be 30: up the slope)
+    wrong = [{"label": "N", "angle_deg": 120}, {"label": "mg", "angle_deg": 270, "magnitude": "m*g"}, {"label": "f", "angle_deg": 150}]
+    call = ("check_forces", {"fbd_line_id": "L1", "givens": [{"name": "m", "value": "2 kg"}, {"name": "g", "value": "9.8"}],
+                             "expected": wrong})
+    client = FakeClient([_resp(call), _resp(("submit_feedback", {"actions": [hint("dashed")], "clear_line_ids": [],
+                                                                  "hint_updates": [{"problem_id": "P1", "hint_level": 2}]}))])
+    state = PageState(page_id="t", problems=[ProblemState(problem_id="P1", hint_level=1)])
+    result = teach_mod.teach(client, "m", [FBD, AT_REST], CheckRequest(image_base64="", mode="help", state=state))
+    f = next(x for x in result.fbd["L1"]["expected"] if x["label"] == "f")
+    assert abs(f["angle_deg"] - 30) < 1
+    assert result.fbd["L1"]["check"]["expected"]["balanced"] is True
+    assert abs(result.fbd["L1"]["check"]["expected"]["solved"]["f"] - 9.8) < 0.01
+    assert "30 degrees" in result.fbd["L1"]["check"]["direction_note"]
+    resp = merge(state, [FBD, AT_REST], result, "help")
+    (fig,) = fbd_figs(resp)
+    assert abs(next(x for x in fig.figure.fbd.expected if x.label == "f").angle_deg - 30) < 1
