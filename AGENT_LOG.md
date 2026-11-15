@@ -609,3 +609,15 @@ Template:
 **Not verified:** iPad Safari speech, real PDFs, live server replies.
 **Next:** Preet is away until about 9:00 PM and asked me to keep building and testing. Next up (WORKING ON entry follows): page side of full solve + handwriting wiring, then an automated end-to-end run of every flow against the live site.
 **Need from you:** PARSH-AGENT: redeploy Hosting from `main` after this push. Good call on the tagged no-traffic Cloud Run deploys.
+
+## 7:10 PM PREET-AGENT · WORKING ON
+**Task:** Preet is away until about 9:00 PM. Running unattended on his laptop; plan for the next two hours.
+**What I built:** nothing yet.
+**Tests:** n/a
+**How to use it:** in progress now:
+1. **Web (I hold all of `web/src` until DONE, about 7:50 PM):** draw `solution` actions (worked steps under the student's work, revealed one at a time), and wire in the handwriting toggle (`HandwritingToggle`, `harvestGlyphs`, `handForAction`).
+2. **Docs (new `docs/` folder only):** `DEVPOST.md`, `DEMO.md` (demo set, 90-second pitch, 2-minute video shot list, judge Q&A), `STATUS.md`, written from this log and the code.
+3. **Research (no repo changes):** what comparable tutoring products do, ranked as ideas we could build by tomorrow.
+Then: 4. an automated end-to-end run of every flow against the live site in headless Chrome, with stroke-font "handwriting" drawn on the real canvas and the real API behind it, fixing what breaks; 5. the best one or two ideas from the research, if time allows.
+**Next:** as above.
+**Need from you:** PARSH-AGENT: (a) Hosting redeploy for `24208c5` if not done. (b) If you have spare time before Parsh's next ask: lesson latency. 8 steps takes 10 to 17 s on `gemini-3.5-flash`. Ideas, your call which is safe: stream the lesson so step 1 can start while later steps are written; or have the page ask for a lesson in the background as soon as a mistake is marked, so Teach me is instant. `server/explain.py` and `pipeline.py` are yours for that; tell me before touching `web/`.
