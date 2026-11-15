@@ -24,45 +24,68 @@ const browserClipEnv: ClipEnv = {
 }
 
 /**
- * The recorded narration of one lesson: one clip per step, all asked for at once when the lesson
- * arrives and kept for as long as the lesson is. A clip that can't be had is 'failed', never thrown.
+ * The recorded narration of one lesson: one clip per step, kept for as long as the lesson is. A clip
+ * that can't be had is 'failed', never thrown.
+ *
+ * `ahead` = how many steps past the one being played are asked for in advance. The voice model allows
+ * only so many clips a day, so a lesson asks for the next couple, not all of them: a lesson that is
+ * closed half-way never pays for its second half. Left out, every step is asked for at once.
  */
 export class ClipSet {
   private states: ClipState[]
-  private settled: Promise<Clip | null>[]
+  private settled: (Promise<Clip | null> | undefined)[]
+  private texts: string[]
+  private load: (text: string) => Promise<Blob>
+  private ahead: number
   private env: ClipEnv
   private disposed = false
 
-  constructor(texts: string[], load: (text: string) => Promise<Blob>, env: ClipEnv = browserClipEnv) {
+  constructor(texts: string[], load: (text: string) => Promise<Blob>, env: ClipEnv = browserClipEnv, ahead = Infinity) {
     this.env = env
+    this.texts = texts
+    this.load = load
+    this.ahead = ahead
     this.states = texts.map(() => ({ state: 'loading' }))
-    this.settled = texts.map(async (text, i) => {
+    this.settled = texts.map(() => undefined)
+    this.reach(0)
+  }
+
+  /** Ask for `step`'s clip and the few after it, if they haven't been asked for yet. */
+  private reach(step: number) {
+    for (let i = Math.max(0, step); i <= step + this.ahead && i < this.texts.length; i++) {
+      if (!this.settled[i]) this.settled[i] = this.fetchOne(i)
+    }
+  }
+
+  private async fetchOne(i: number): Promise<Clip | null> {
+    try {
+      const text = this.texts[i]
+      if (!text.trim()) throw new Error('nothing to say')
+      const blob = await this.load(text)
+      let durationMs: number | undefined
       try {
-        if (!text.trim()) throw new Error('nothing to say')
-        const blob = await load(text)
-        let durationMs: number | undefined
-        try {
-          durationMs = wavDurationMs(await blob.arrayBuffer())
-        } catch {
-          // not a WAV we can measure: the player asks the audio element instead
-        }
-        if (this.disposed) return null
-        const clip: Clip = { url: env.makeUrl(blob), durationMs }
-        this.states[i] = { state: 'ready', ...clip }
-        return clip
+        durationMs = wavDurationMs(await blob.arrayBuffer())
       } catch {
-        this.states[i] = { state: 'failed' }
-        return null
+        // not a WAV we can measure: the player asks the audio element instead
       }
-    })
+      if (this.disposed) return null
+      const clip: Clip = { url: this.env.makeUrl(blob), durationMs }
+      this.states[i] = { state: 'ready', ...clip }
+      return clip
+    } catch {
+      this.states[i] = { state: 'failed' }
+      return null
+    }
   }
 
   get(step: number): ClipState {
+    if (!this.disposed) this.reach(step)
     return this.states[step] ?? { state: 'failed' }
   }
 
   /** The step's clip once its request is over: the clip, or null if there is none. */
   wait(step: number): Promise<Clip | null> {
+    if (!this.disposed) this.reach(step)
     return this.settled[step] ?? Promise.resolve(null)
   }
 

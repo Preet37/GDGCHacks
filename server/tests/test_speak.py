@@ -205,3 +205,45 @@ def test_at_most_three_voice_calls_at_once(monkeypatch):
     for t in threads:
         t.join()
     assert peak[0] == speak.MAX_CONCURRENT
+
+
+DAILY = ("429 RESOURCE_EXHAUSTED. You exceeded your current quota, please check your plan and billing details. "
+         "Quota exceeded for metric: generativelanguage.googleapis.com/generate_requests_per_model_per_day, limit: 100, "
+         "model: gemini-3.8-flash-lite-tts. Please retry in 36m1.8s.")
+
+
+def test_daily_quota_moves_to_the_next_voice_model(monkeypatch):
+    monkeypatch.delenv("GEMINI_TTS_MODEL", raising=False)
+    monkeypatch.delenv("GEMINI_TTS_FALLBACKS", raising=False)
+    monkeypatch.setattr(speak, "_cache", type(speak._cache)())
+    monkeypatch.setattr(speak, "_spent", {})
+    waits = []
+    monkeypatch.setattr(speak, "_sleep", waits.append)
+    seen = []
+
+    def fake(client, model, voice, text):
+        seen.append(model)
+        if model == speak.DEFAULT_MODEL:
+            raise RuntimeError(DAILY)
+        return _resp(_wav(), "audio/wav")
+
+    monkeypatch.setattr(speak, "_generate", fake)
+    audio, mime = speak.synthesize("hello", client=object())
+    assert mime == "audio/wav" and audio[:4] == b"RIFF"
+    assert seen == [speak.DEFAULT_MODEL, speak.FALLBACK_MODELS[0]] and waits == []   # no pointless retry of a daily limit
+    assert 2100 < speak._spent[speak.DEFAULT_MODEL] - __import__("time").time() < 2200
+    speak.synthesize("another line", client=object())
+    assert seen[2:] == [speak.FALLBACK_MODELS[0]]                                    # the spent model is skipped
+
+
+def test_every_voice_model_out_is_an_error_and_not_out_of_credit(monkeypatch):
+    import main
+    monkeypatch.setattr(speak, "_cache", type(speak._cache)())
+    monkeypatch.setattr(speak, "_spent", {})
+    monkeypatch.setattr(speak, "_generate", lambda *a: (_ for _ in ()).throw(RuntimeError(DAILY)))
+    try:
+        speak.synthesize("hello", client=object())
+        assert False, "should have raised"
+    except speak.SpeakError as e:
+        assert main.failure_reason(e) == "busy"
+    assert speak._retry_after(RuntimeError("retry in 1h2m3s")) == 3723 and speak._retry_after(RuntimeError("nope")) == 1800

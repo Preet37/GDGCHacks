@@ -77,10 +77,21 @@ def check(req: CheckRequest):
     return resp
 
 
+@app.get("/api/debug/usage")
+def debug_usage():
+    """Tokens used since this server instance started, per model, and by each of the last 30 checks."""
+    import gemini
+    return {"since_start": gemini.totals(),
+            "recent": [{"time": r.get("time"), "mode": r.get("mode"), "total_ms": r.get("total_ms"), **(r.get("usage") or {})}
+                       for r in pipeline.recent() if r.get("usage")]}
+
+
 def failure_reason(e: Exception) -> str | None:
     """Why Gemini failed, when the page can say something more useful than "try again"."""
     text = f"{type(e).__name__}: {e}".lower()
-    if "spending cap" in text or "prepayment credits" in text or " 402 " in text or "billing" in text:
+    if "quota exceeded" in text or "exceeded your current quota" in text or "rate-limit" in text:
+        return "busy"  # a rate or daily limit, not money
+    if "spending cap" in text or "prepayment credits" in text or " 402 " in text:
         return "out_of_credit"
     if "deadline" in text or "timed out" in text or "timeout" in text or " 504 " in text:
         return "timeout"

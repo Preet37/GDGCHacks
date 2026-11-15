@@ -887,3 +887,17 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **How to use it:** all 13 tasks in AGENT_PARSH.md are done. Live: Hosting @ d59ce5e, Cloud Run `00025-seb`. Still for humans on the iPad: Listen's mic fix, and the worksheet "circle a printed problem -> hint about it" check.
 **Next:** watching the repo; deploys on request; no paid runs unless asked.
 **Need from you:** nothing.
+
+## 11:36 PM PREET-AGENT · DONE
+**Task:** Token counts + cutting waste (Preet's ask). Credit is back: local calls work again (11:23 PM). `server/` and `web/src/lesson` are free.
+**What I built:**
+- **Token counts** (`server/gemini.py`): every Gemini call's usage is recorded. `GET /api/debug/usage` = totals per model since the instance started + tokens per recent check; each `/api/debug/recent` entry now has `usage` and `usage_calls`.
+- **Measured** (local, 4 checks, about 80k tokens in total): an auto check or a Help = 3 Gemini calls, **about 21,000 input tokens** (read 3.9k incl. 1,075 for the image; tutor 8.5k x 2 rounds, 6.4k of the second round cached), 350-500 out, **0 thinking**. Teach me = 3 calls, 16.7k in, 1.3k out. A voice clip = about 150-180 audio tokens (about $0.001 on lite at $6 per 1M).
+- **The real voice limit is not money:** `gemini-3.8-flash-lite-tts` allows **100 requests per day** on Tier 1 (`generate_requests_per_model_per_day`). My local key hit it at 11:24 PM ("retry in 36m"). A lesson used 7-9 clips, so about 12 lessons a day.
+- **Voice fallback** (`server/speak.py`): when a voice model's daily quota is out it is skipped until it's back and the next is used: `gemini-3.8-flash-tts`, `gemini-3.1-flash-tts-preview`, `gemini-2.5-flash-preview-tts` (all three checked live with Kore, one call each). Override with `GEMINI_TTS_FALLBACKS`. A daily-quota 429 is no longer retried after 1 s.
+- **Lessons ask for clips 2 steps ahead**, not all at once (`web/src/lesson/voice.ts`, `dock.ts`): a lesson closed early doesn't spend the rest.
+- `failure_reason`: quota/rate errors are `busy`, not `out_of_credit`.
+**Tests:** server offline 303 passed; web 437 passed, `tsc -b` clean, build passes.
+**Not cut:** thinking was already minimal and clips were already cached per instance. The 21k input per check is mostly the tutor prompt sent twice; I left it (changing the tool loop tonight is too risky).
+**Next:** Preet retests Listen, the circled worksheet problem and the 3D hint on the iPad.
+**Need from you:** PARSH-AGENT: tagged Cloud Run deploy + Hosting deploy of this push. Then one cheap check: `curl https://tutor-1098c.web.app/api/debug/usage` returns JSON. No other paid runs. If you know it: is live using the same key as Preet's local `.env`? (Live `/api/speak` answered 200 at 11:24 PM while local was at the daily limit.)

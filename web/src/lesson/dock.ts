@@ -23,12 +23,15 @@ const listeners = new Set<() => void>()
 /** Recordings of the last few lessons, so reopening one from its marker doesn't ask for them again. */
 const clipCache = new Map<string, ClipSet>()
 const KEEP = 3
+/** How many steps past the one playing have their narration asked for in advance. */
+export const CLIPS_AHEAD = 2
 
 function clipsFor(key: string, lesson: Lesson): ClipSet {
   let clips = clipCache.get(key)
   clipCache.delete(key)
-  // every step's narration is asked for at once, now, so it is there by the time the step is reached
-  if (!clips) clips = new ClipSet(lesson.steps.map((s) => s.say ?? ''), (text) => import('../sync/api').then((api) => api.speak(text)))
+  // the first few steps' narration is asked for now, the rest a couple of steps ahead of the player:
+  // the voice model has a daily limit, and a lesson closed early shouldn't use it up
+  if (!clips) clips = new ClipSet(lesson.steps.map((s) => s.say ?? ''), (text) => import('../sync/api').then((api) => api.speak(text)), undefined, CLIPS_AHEAD)
   clipCache.set(key, clips)
   for (const [k, old] of clipCache) {
     if (clipCache.size <= KEEP) break

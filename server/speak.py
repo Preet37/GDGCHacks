@@ -20,6 +20,9 @@ from explain import speech_safe
 log = logging.getLogger("tutor.speak")
 
 DEFAULT_MODEL = "gemini-3.8-flash-lite-tts"
+# Each voice model has its own requests-per-day quota (100 a day on Tier 1). When one runs out, the next
+# is used until the first is available again. All of them have the same voices.
+FALLBACK_MODELS = ("gemini-3.8-flash-tts", "gemini-3.1-flash-tts-preview", "gemini-2.5-flash-preview-tts")
 DEFAULT_VOICE = "Kore"
 MAX_CHARS = 600
 CACHE_SIZE = 256
@@ -39,6 +42,7 @@ _lock = threading.Lock()
 _cache: "OrderedDict[tuple[str, str, str], tuple[bytes, str]]" = OrderedDict()
 _no_style: set[str] = set()     # models that rejected the style field
 _clients: dict[str, object] = {}
+_spent: dict[str, float] = {}   # model -> time (epoch s) its daily quota is back
 
 
 class SpeakError(RuntimeError):
@@ -159,13 +163,54 @@ def _rate_limited(e: Exception) -> bool:
     return "429" in msg or "resource_exhausted" in msg or "too many requests" in msg
 
 
+def _daily_quota(e: Exception) -> bool:
+    """The model's requests-per-day quota is used up: retrying in a second won't help, another model will."""
+    msg = str(e).lower()
+    return _rate_limited(e) and ("per_day" in msg or "per day" in msg)
+
+
+def _retry_after(e: Exception) -> float:
+    """Seconds until the quota is back, from "Please retry in 36m1.8s" (half an hour if it doesn't say)."""
+    m = re.search(r"retry in (?:(\d+)h)?(?:(\d+)m)?([\d.]+)s", str(e).lower())
+    if not m:
+        return 1800.0
+    secs = int(m.group(1) or 0) * 3600 + int(m.group(2) or 0) * 60 + float(m.group(3))
+    return min(max(secs, 60.0), 6 * 3600.0)
+
+
+def tts_models() -> list[str]:
+    """The voice model to use, then the ones to fall back to (GEMINI_TTS_FALLBACKS: comma list, empty = none)."""
+    first = os.environ.get("GEMINI_TTS_MODEL") or DEFAULT_MODEL
+    extra = os.environ.get("GEMINI_TTS_FALLBACKS")
+    rest = [m.strip() for m in extra.split(",")] if extra is not None else list(FALLBACK_MODELS)
+    return [first] + [m for m in rest if m and m != first]
+
+
+def _speak_with_fallback(client, voice: str, text: str):
+    """The reply of the first voice model that still has quota today."""
+    models = tts_models()
+    now = time.time()
+    usable = [m for m in models if _spent.get(m, 0) <= now] or models[:1]
+    last: Exception | None = None
+    for m in usable:
+        try:
+            return _generate_limited(client, m, voice, text)
+        except Exception as e:
+            if not _daily_quota(e):
+                raise
+            _spent[m] = time.time() + _retry_after(e)
+            log.warning("%s is out of requests for today, trying the next voice model", m)
+            last = e
+    raise last  # every model is out
+
+
 def _generate_limited(client, model: str, voice: str, text: str):
     """_generate, at most MAX_CONCURRENT at once, retried once after a 429 (quota) error."""
     with _slots:
         try:
             return _generate(client, model, voice, text)
         except Exception as e:
-            if not _rate_limited(e):
+            if not _rate_limited(e) or _daily_quota(e):
                 raise
             log.warning("%s rate limited, retrying once in %.1f s", model, RETRY_AFTER_429_S)
             _sleep(RETRY_AFTER_429_S)
@@ -187,7 +232,7 @@ def synthesize(text, voice=None, client=None) -> tuple[bytes, str]:
             _cache.move_to_end(key)
             return _cache[key]
     try:
-        resp = _generate_limited(client or _client(), model, voice, clean)
+        resp = _speak_with_fallback(client or _client(), voice, clean)
         parts = _audio_parts(resp)
         if not parts:
             raise SpeakError("the voice model returned no audio")

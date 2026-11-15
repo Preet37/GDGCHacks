@@ -79,3 +79,31 @@ def test_failure_reason_tells_credit_from_timeout():
     assert main.failure_reason(slow) == "timeout"
     assert main.failure_reason(busy) == "busy"
     assert main.failure_reason(ValueError("bad json")) is None
+
+
+def test_usage_is_counted_per_call_and_per_request():
+    import types as pytypes
+
+    import gemini
+
+    class Detail:
+        def __init__(self, modality, n):
+            self.modality, self.token_count = modality, n
+
+    usage = pytypes.SimpleNamespace(prompt_token_count=1000, cached_content_token_count=600, candidates_token_count=40,
+                                    thoughts_token_count=25, prompt_tokens_details=[Detail("IMAGE", 258), Detail("TEXT", 742)],
+                                    candidates_tokens_details=[Detail("AUDIO", 30)])
+    resp = pytypes.SimpleNamespace(usage_metadata=usage)
+    before = gemini.totals().get("m-test", {}).get("calls", 0)
+    calls = gemini.collect()
+    gemini.record(resp, "m-test")
+    gemini.record(pytypes.SimpleNamespace(usage_metadata=None), "m-test")  # a reply without counts
+    assert calls[0] == {"model": "m-test", "in": 1000, "cached": 600, "image_in": 258, "out": 40, "think": 25, "audio_out": 30}
+    assert gemini.summary(calls) == {"calls": 2, "in": 1000, "cached": 600, "image_in": 258, "out": 40, "think": 25, "audio_out": 30}
+    assert gemini.totals()["m-test"]["calls"] == before + 2
+    gemini._sink.set(None)
+
+
+def test_debug_usage_route(client):
+    r = client.get("/api/debug/usage")
+    assert r.status_code == 200 and "since_start" in r.json() and "recent" in r.json()

@@ -131,6 +131,14 @@ describe('the recorded voice', () => {
     expect(clips.get(1)).toEqual({ state: 'failed' })
     expect(await clips.wait(1)).toBeNull()
     expect(clips.get(0)).toEqual({ state: 'loading' })
+    // a lesson may ask only a couple of steps ahead: closing it early leaves the rest unasked
+    const some: string[] = []
+    const lazy = new ClipSet(['a', 'b', 'c', 'd', 'e'], (t) => (some.push(t), new Promise<Blob>(() => {})), { makeUrl: () => '', revokeUrl: vi.fn() }, 1)
+    expect(some).toEqual(['a', 'b'])
+    lazy.get(1)
+    expect(some).toEqual(['a', 'b', 'c'])
+    void lazy.wait(3)
+    expect(some).toEqual(['a', 'b', 'c', 'd', 'e'])
     // a step with nothing to say is never asked for
     expect(fakeClips(['', 'hi']).fetches.map((f) => f.text)).toEqual(['hi'])
   })

@@ -32,11 +32,18 @@ def begin(req: CheckRequest) -> dict:
     }
     RECENT.append(entry)
     _entry.set(entry)
+    import gemini
+    entry["_calls"] = gemini.collect()
     return entry
 
 
 def finish(entry: dict, t0: float, error: BaseException | None = None) -> None:
     entry["total_ms"] = _ms(t0)
+    calls = entry.pop("_calls", None)
+    if calls is not None:
+        import gemini
+        entry["usage"] = gemini.summary(calls)  # tokens this request cost, all its Gemini calls added up
+        entry["usage_calls"] = calls
     if error is not None:
         entry["error"] = f"{type(error).__name__}: {error}"[:300]
     _entry.set(None)
