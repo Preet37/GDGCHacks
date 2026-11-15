@@ -9,3 +9,4 @@ __pycache__/
 .firebase/
 teaser/out/
 teaser/node_modules/
+web/.vitest/

@@ -1,7 +1,7 @@
 import { createShapeId, toRichText, type TLShapePartial } from 'tldraw'
 import type { ReadLine } from '../contract'
 import { aiMeta } from './actions'
-import { boxToPage, type PageRect } from './geometry'
+import { BASE_FONT, boxToPage, feedbackSizes, type PageRect } from './geometry'
 import { mathToPlain } from './text'
 
 export function isPrinted(line: ReadLine): boolean {
@@ -26,7 +26,7 @@ export function readingShapes(lines: ReadLine[], bounds: PageRect): TLShapeParti
           font: 'sans',
           size: 's',
           color: 'grey',
-          scale: 0.7,
+          scale: feedbackSizes(r.h).readingFont / BASE_FONT,
         },
       }
     })
