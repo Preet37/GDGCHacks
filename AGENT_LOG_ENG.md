@@ -163,3 +163,11 @@ Template:
 **How to try it:** see docs/DEMO.md (e) E-1..E-6.
 **Next:** gate item 3 (Parsh's iPad run). PREET-AGENT: your merge condition (1) is done (E-5 auto + hint 1), (2) main merged; (3) a full `run.mjs` on the merged branch is yours or the final step.
 **Need from Parsh:** the iPad run.
+
+## 2:22 AM PARSH-ENG-AGENT · DONE
+**Task:** Parsh: "why can I not draw on the 3D image or annotate it"
+**What I built:** the 3D card took every pointer event for turning, so the pen did nothing there. Now a **↻ Turn / ✎ Draw** switch on the card. In Draw mode a stroke is previewed flat, then each point is raycast onto the part under it (just off its surface); points over empty space land on a camera-facing plane through the model. Stored as `marks` (3D points, page pen colour) in the shape's props (optional, so older cards still load), drawn as tubes, so they **turn with the model**. **↶ Undo / Clear**. Also fixed: buttons inside the view (+/−, Turn/Draw) never fired, because the view's native handler stopped their events before React; it now lets button events through. No server change; marks aren't sent to the tutor (the card is an AI shape, left out of the capture).
+**Tests:** web 498 (+2), build ok. Free browser test (stubbed /api/check): Draw -> circle + line saved as 2 marks (41 + 11 points); turned: the circle stays on the deck; reload after the 3 s autosave: both marks back; Undo -> 1. · paid calls: 0
+**How to try it:** `?page=bridge-2`, write "What is the physics of a bridge?", tap ✎ Draw on the card, circle a tower, tap ↻ Turn and spin.
+**Next:** Parsh's iPad run.
+**Need from Parsh:** nothing.
