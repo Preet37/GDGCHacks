@@ -4,7 +4,8 @@ import solutionJson from '../../../contract/examples/solution.json'
 import { INLINE_LETTER_EM } from './actions'
 import { drawnByHand, staleShapeIds, wantsHand, type OldShape } from './apply'
 import { CHAR_EM, TEXT_LINE_HEIGHT, type PageRect, type RenderContext } from './geometry'
-import { STEP_PITCH_EM, besideSheets, equalsSignX, headingShape, headingText, solutionLayout, solutionShapes } from './solution'
+import { estimateMath, type MathMeasure } from './mathline'
+import { STEP_GAP_EM, STEP_PITCH_EM, besideSheets, equalsSignX, headingShape, headingText, solutionLayout, solutionShapes } from './solution'
 
 const frame = { x: 0, y: 0, w: 1000, h: 1000 }
 const reply = solutionJson as unknown as CheckResponse
@@ -266,5 +267,81 @@ describe('a solution with no room on the worksheet', () => {
     expect(long.endsWith('…')).toBe(true)
     expect(long.length).toBeLessThanOrEqual('Solution to: '.length + 41)
     expect(headingText(undefined)).toMatch(/^Solution \(continued/)
+  })
+})
+
+describe('typeset steps', () => {
+  const steps = ['\\frac{4x^4}{4} + \\frac{2x^2}{2} + C', 'x^4 + x^2 + C', 'x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}']
+  const fracs: Action = { ...action, steps }
+  const math: MathMeasure = estimateMath
+
+  it('without a math measure (handwriting mode) every step is a line of text, as before', () => {
+    const lay = solutionLayout(fracs, frame, ctxOf())!
+    expect(lay.steps.every((s) => s.tex === undefined)).toBe(true)
+    expect(lay.steps[0].text).toBe('(4x⁴)/4 + (2x²)/2 + C')
+    for (let i = 1; i < lay.steps.length; i++) expect(lay.steps[i].y - lay.steps[i - 1].y).toBeCloseTo(lay.pitch)
+    expect(solutionShapes(fracs, lay).every((s) => s.type === 'text')).toBe(true)
+  })
+
+  it('a solution with nothing to stack stays text even with a math measure', () => {
+    const lay = solutionLayout(action, frame, ctxOf(), undefined, math)!
+    const plain = solutionLayout(action, frame, ctxOf())!
+    expect(lay.steps).toEqual(plain.steps)
+    expect(solutionShapes(action, lay).every((s) => s.type === 'text')).toBe(true)
+  })
+
+  it('one step with a fraction: every step of that solution is typeset', () => {
+    const lay = solutionLayout(fracs, frame, ctxOf(), undefined, math)!
+    expect(lay.steps.map((s) => s.tex)).toEqual(steps.map((s) => `\\displaystyle ${s}`))
+    const shapes = solutionShapes(fracs, lay, 'blue')
+    expect(shapes.map((s) => s.type)).toEqual(['mathline', 'mathline', 'mathline'])
+    expect(shapes[0].props).toEqual({ w: lay.steps[0].w, h: lay.steps[0].h, tex: lay.steps[0].tex, color: 'blue', size: lay.font * 0.9 })
+    // found and replaced like any other step
+    expect(shapes.map((s) => s.meta)).toEqual([0, 1, 2].map((step) => ({ ai: true, kind: 'solution', line_id: 'L1', ax: 80, ay: 150, aw: 340, ah: 80, step })))
+  })
+
+  it('taller lines push the next step down: no step overlaps another, and the block is as tall as its steps', () => {
+    const lay = solutionLayout(fracs, frame, ctxOf(), undefined, math)!
+    const line = lay.font * TEXT_LINE_HEIGHT
+    expect(lay.steps[0].h).toBeCloseTo(line * 2)
+    expect(lay.steps[1].h).toBeCloseTo(line)
+    for (let i = 1; i < lay.steps.length; i++) {
+      const prev = lay.steps[i - 1]
+      expect(lay.steps[i].y).toBeGreaterThanOrEqual(prev.y + prev.h + lay.font * STEP_GAP_EM - 1e-6)
+    }
+    const last = lay.steps[2]
+    expect(lay.rect.y).toBe(lay.steps[0].y)
+    expect(lay.rect.y + lay.rect.h).toBeCloseTo(last.y + last.h)
+    expect(lay.rect.h).toBeGreaterThan(solutionLayout(fracs, frame, ctxOf())!.rect.h)
+    expect(lay.steps[0].y).toBeGreaterThanOrEqual(220) // still under the ink
+    for (const r of ink) expect(overlap(lay.rect, r)).toBe(false)
+  })
+
+  it('room is found for the real height: something the text version clears sends the typeset block aside', () => {
+    const text = solutionLayout(fracs, frame, ctxOf())!
+    const tall = solutionLayout(fracs, frame, ctxOf(), undefined, math)!
+    // a line of writing just under where the text version ends
+    const below = { x: 90, y: text.rect.y + text.rect.h + 4, w: 300, h: tall.rect.h - text.rect.h - 8 }
+    expect(solutionLayout(fracs, frame, ctxOf({ ink: [...ink, below] }))!.moved).toBe(false)
+    const moved = solutionLayout(fracs, frame, ctxOf({ ink: [...ink, below] }), undefined, math)!
+    expect(moved.moved).toBe(true)
+    expect(overlap(moved.rect, below)).toBe(false)
+    for (let i = 1; i < moved.steps.length; i++) expect(moved.steps[i].y).toBeGreaterThanOrEqual(moved.steps[i - 1].y + moved.steps[i - 1].h)
+  })
+
+  it('equals signs are still one under another', () => {
+    const eq: Action = { ...action, steps: ['y = \\frac{1}{2}x', '2y = x'] }
+    const lay = solutionLayout(eq, frame, ctxOf(), undefined, math)!
+    const at = lay.steps.map((s) => s.x + math(s.tex!, lay.font).eq!)
+    expect(at[0]).toBeCloseTo(at[1])
+    expect(lay.equalsX).toBeCloseTo(at[0])
+  })
+
+  it('a step KaTeX cannot read stays a text shape; the others are typeset', () => {
+    const bad: Action = { ...action, steps: ['x = \\frac{1}{2}', 'a & b \\\\ c', 'x = 0.5'] }
+    const lay = solutionLayout(bad, frame, ctxOf(), undefined, math)!
+    expect(lay.steps.map((s) => !!s.tex)).toEqual([true, false, true])
+    expect(lay.steps[1].h).toBeCloseTo(lay.font * TEXT_LINE_HEIGHT)
+    expect(solutionShapes(bad, lay).map((s) => s.type)).toEqual(['mathline', 'text', 'mathline'])
   })
 })

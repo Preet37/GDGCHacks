@@ -125,3 +125,83 @@ describe('prettyMath (graph titles)', () => {
     expect(prettyMath('')).toBe('')
   })
 })
+
+describe('nothing raw reaches the page', () => {
+  it('degrees', () => {
+    expect(mathToPlain('\\sin 30^\\circ')).toBe('sin 30°')
+    expect(mathToPlain('\\sin 30^{\\circ}')).toBe('sin 30°')
+    expect(mathToPlain('Remember $\\sin 30^\\circ = \\frac{1}{2}$.')).toBe('Remember sin 30° = 1/2.')
+    expect(mathToPlain('Use \\sin 30^{\\circ} here.')).toBe('Use sin 30° here.')
+    expect(mathToPlain('45\\degree and 60^\\degree')).toBe('45° and 60°')
+    expect(mathToPlain('angle \\to -90\\circ')).toBe('angle → −90°')
+    expect(mathToPlain('\\sin 30^\\\\circ')).toBe('sin 30°') // a doubled backslash
+    expect(mathToPlain('90^\\circ\\text{ angle}')).toBe('90° angle')
+    expect(mathToPlain('f \\circ g')).toBe('f ∘ g') // composition is still composition
+    expect(mathToSpeech('\\sin 30^\\circ')).toBe('sin 30°')
+  })
+
+  it('a cut-off power leaves no caret or backslash', () => {
+    expect(mathToPlain('sin 30^\\.')).toBe('sin 30.')
+    expect(mathToPlain('Try sin 30^\\')).toBe('Try sin 30')
+    expect(mathToPlain('x^\\prime + y')).toBe('x′ + y')
+    expect(mathToPlain("f^{\\prime\\prime}(x)")).toBe('f′′(x)')
+  })
+
+  it('spacing commands', () => {
+    expect(mathToPlain('a\\,b\\;c\\!d\\quad e')).toBe('a b c d e')
+    expect(mathToPlain('\\int_0^1 x^2 \\, dx')).toBe('∫_0¹ x² dx')
+    expect(mathToPlain('5\\,\\mathrm{kg}')).toBe('5 kg')
+    expect(mathToPlain('a \\\\ b')).toBe('a b')
+    expect(mathToPlain('a \\\\[4pt] b')).toBe('a b')
+    expect(mathToPlain('\\phantom{0}x \\hspace{1em} y')).toBe('x y')
+  })
+
+  it('\\left and \\right, with any bracket', () => {
+    expect(mathToPlain('\\left(\\frac{a}{b}\\right)^2')).toBe('(a/b)²')
+    expect(mathToPlain('\\left\\{ 1, 2 \\right\\}')).toBe('{ 1, 2 }')
+    expect(mathToPlain('\\left| x \\right| + \\lvert y \\rvert')).toBe('| x | + | y |')
+    expect(mathToPlain('\\left\\| v \\right\\|')).toBe('‖ v ‖')
+    expect(mathToPlain('\\bigl( x \\bigr)')).toBe('( x )')
+  })
+
+  it('written braces, dollars and percent signs are kept', () => {
+    expect(mathToPlain('x \\in [0, 1) \\cup \\{2\\}')).toBe('x ∈ [0, 1) ∪ {2}')
+    expect(mathToPlain('\\mathbb{R} \\setminus \\{0\\}')).toBe('R ∖ {0}')
+    expect(mathToPlain('It costs \\$5, a 20\\% saving')).toBe('It costs $5, a 20% saving')
+    expect(mathToSpeech('\\{0\\}')).toBe('{0}')
+  })
+
+  it('words with an argument', () => {
+    expect(mathToPlain('\\text{area} = \\pi r^2')).toBe('area = π r²')
+    expect(mathToPlain('\\textcolor{red}{x} + \\color{blue} y')).toBe('x + y')
+    expect(mathToPlain('\\overrightarrow{AB} \\cdot \\vec{v}')).toBe('AB · v')
+    expect(mathToPlain('\\bar x + \\hat{y} + \\dot{z}')).toBe('x + y + z')
+    expect(mathToPlain('\\binom{n}{k}')).toBe('C(n, k)')
+    expect(mathToPlain('a \\stackrel{?}{=} b')).toBe('a = b')
+    expect(mathToPlain('\\operatorname{lcm}(a,b)')).toBe('lcm(a,b)')
+  })
+
+  it('Greek letters, relations, arrows and big operators', () => {
+    expect(mathToPlain('\\theta \\leq \\phi \\geq 2 \\neq 3 \\approx 4 \\to \\infty')).toBe('θ ≤ φ ≥ 2 ≠ 3 ≈ 4 → ∞')
+    expect(mathToPlain('a \\leqslant b \\geqslant c \\not= d')).toBe('a ≤ b ≥ c ≠ d')
+    expect(mathToPlain('\\sum_{i=1}^{n} i^2')).toBe('Σ_(i=1)ⁿ i²')
+    expect(mathToPlain('\\int f(x)\\,dx')).toBe('∫ f(x) dx')
+    expect(mathToPlain('p \\Longrightarrow q \\longleftrightarrow r')).toBe('p ⇒ q ↔ r')
+    expect(mathToPlain('\\triangle ABC \\cong \\triangle DEF')).toBe('△ ABC ≅ △ DEF')
+    expect(mathToPlain('p \\wedge q \\vee r')).toBe('p ∧ q ∨ r')
+  })
+
+  it('fractions in every spelling', () => {
+    expect(mathToPlain('\\tan\\frac{\\pi}{4}')).toBe('tan π/4')
+    expect(mathToPlain('\\frac ab + \\frac{a}b')).toBe('a/b + a/b')
+    expect(mathToPlain('\\tfrac12 \\times 4')).toBe('1/2 × 4')
+  })
+
+  it('no backslash survives, whatever the command', () => {
+    for (const s of ['\\foo{x} + \\bar', '\\begin{cases} x & x>0 \\\\ -x & x<0 \\end{cases}', '\\ 5 \\> \\: x', '\\hline a \\newline b', 'x \\', '\\underbrace{x+y}_{2}', '\\N \\R \\dfrac{}{}']) {
+      expect(mathToPlain(s), s).not.toMatch(/\\/)
+      expect(prettyMath(s), s).not.toMatch(/\\/)
+      expect(mathToSpeech(s), s).not.toMatch(/\\/)
+    }
+  })
+})

@@ -5,12 +5,13 @@ import { DevPanel } from './DevPanel'
 import { HelpButton } from './HelpButton'
 import { LessonDock, useLessonDock } from './lesson/LessonDock'
 import { LessonShapeUtil } from './shapes/LessonShape'
+import { MathShapeUtil } from './shapes/MathShape'
 import { Surface3dShapeUtil } from './shapes/Surface3dShape'
 import { pageIdFromUrl, restorePage, startAutosave } from './persist/saver'
 import { Tutor } from './sync/tutor'
 import { TutorOverlay } from './TutorOverlay'
 
-const shapeUtils = [Surface3dShapeUtil, LessonShapeUtil]
+const shapeUtils = [Surface3dShapeUtil, LessonShapeUtil, MathShapeUtil]
 const DEV = new URLSearchParams(location.search).has('dev')
 
 export default function App() {

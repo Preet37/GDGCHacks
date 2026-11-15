@@ -6,6 +6,7 @@ import { shapeUse } from '../practice/kind'
 import { drawFigures } from './figure'
 import { TEXT_LINE_HEIGHT, boxToPage, overlapRatio, type PageRect, type RenderContext } from './geometry'
 import { sheetInk } from './sheetInk'
+import { domMathMeasure } from './mathline'
 import { fontMeasure, headingShape, panTo, revealSolution, solutionLayout, solutionShapes } from './solution'
 import { mathToPlain, mathToSpeech } from './text'
 
@@ -236,7 +237,7 @@ export function applyResponse(editor: Editor, response: CheckResponse, bounds: P
     }
     if (a.type !== 'solution') return shapesForAction(a, bounds, ctx)
     try {
-      const layout = solutionLayout(a, bounds, ctx, fontMeasure())
+      const layout = solutionLayout(a, bounds, ctx, fontMeasure(), domMathMeasure())
       if (!layout) return []
       solutions.push(layout.rect)
       // black = the student's ink colour: the pen their line was written with
