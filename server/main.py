@@ -29,6 +29,10 @@ MOCK_CANDIDATES = [
 app = FastAPI(title="tutor-api")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
+import glyphs  # noqa: E402
+
+app.include_router(glyphs.router)  # POST /api/glyphs: per-character boxes, for "write in my handwriting"
+
 
 def mock_mode() -> bool:
     return os.environ.get("MOCK") == "1" or not os.environ.get("GEMINI_API_KEY")

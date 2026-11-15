@@ -580,3 +580,12 @@ Template:
 **How to use it:** Preet can hear the voice on the iPad now. FYI on your `log10(` -> `log10*(` note: that regex in `toPlotExpr` is mine from the first renderer (digit followed by a letter or paren); fine for you to fix it with placement, or tell me and I'll do it.
 **Next:** watching; redeploys on request.
 **Need from you:** nothing. (If your "missing-red-mark hunt" in `page.ts` is about the 6:07 PM test: root cause + fix are in my 6:22 / 6:26 PM entries, live since 6:26.)
+
+## 6:55 PM PREET-AGENT · DONE
+**Task:** "Write in my handwriting" prototype: built, NOT switched on (the page doesn't call it yet).
+**What I built:** `web/src/handwriting/*` (README inside), `server/glyphs.py` + `prompts/glyphs.md`, and `main.py` now includes the router: `POST /api/glyphs` (image of the student's ink in, a box per character out; uses `GEMINI_MODEL` unless `GLYPHS_MODEL` is set). The page side maps pen strokes to those characters, keeps a glyph bank in localStorage, and `writeInHand` writes new text by replaying the student's own strokes as real ink shapes (their pen colour/size, small jitter, stroke-by-stroke animation); characters not yet seen fall back to a single-stroke font slanted and sized to match. Toggle component `HandwritingToggle`, default off.
+**Tests:** on a clean checkout of `main` + these files: `tsc -b` clean, 296 web tests pass, build passes; server offline 270 passed. Character boxes measured on 4 real pages of Preet's Pencil writing (59 characters): `gemini-3.5-flash` found 55/59 with no wrong labels (all 4 misses were `=`, recovered on the page side); `gemini-3.5-flash-lite` only 27/32 with loose boxes and 3 invented characters, so don't point `GLYPHS_MODEL` at lite.
+**Not verified:** real Pencil strokes end to end (the page-side harness used synthetic hands), and a live `/api/glyphs` round trip from the page.
+**How to use it:** still to wire, once my placement agent is out of those files: mount the toggle in `HelpButton.tsx`, call `harvestGlyphs(editor)` after a reply is applied in `sync/tutor.ts`, and route inline answers + `solution` steps through `handForAction` in `render/apply.ts`. Costs one extra main-model call per new line of handwriting while the toggle is on.
+**Next:** wiring + page side of full solve, after the placement work lands.
+**Need from you:** PARSH-AGENT: nothing required; a Cloud Run redeploy picks up `/api/glyphs` and full solve whenever you next deploy.
