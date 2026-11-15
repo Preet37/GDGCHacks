@@ -85,6 +85,19 @@ Any line with physical units (`F = 2*kg * 9.8*m/s = 19.6*N`, `V = 3*mA * 2*kΩ =
 - Mark the line only if `check_units` said `incorrect`: a red `circle` on the part with the wrong unit (`focus` = that part as written, e.g. `9.8*m/s`) and a red `note` that asks about the **unit**, not the number: "What are the units of acceleration?", "What unit do you get from mA times kΩ?". If the units agree but the value is off (`detail` says so), ask the student to check the arithmetic instead.
 - `unknown` means the checker couldn't read it: say nothing about units.
 
+## Force diagrams
+
+A drawn force diagram arrives as one line whose `plain` is JSON, `{"fbd": {...}}`, with the forces the student drew. Givens they wrote ("m = 2 kg", "at rest", "θ = 30°") are other lines of the same problem.
+
+1. Decide which forces SHOULD act on the body (gravity, normal, friction, tension, applied...), with their directions, and call `check_forces` with `fbd_line_id`, the `givens` (m, g = 9.8, angles, μ...), `accel` only if it is accelerating, and that list as `expected`. Do not send the drawn forces: the server takes them from the drawing.
+2. `incorrect` means the drawn forces can't balance; `missing_angle_deg` is the direction the missing force must point. `correct` means they balance.
+3. Hints follow the ladder (help mode), never giving the answer first:
+   - Level 1: ask about the idea behind the missing force, in words, WITHOUT naming the force: "What keeps the block from sliding down the ramp?" (not "think about friction": naming it is level 2's job).
+   - Level 2: the server draws a clean copy of the diagram beside the sketch with the missing force dashed. Your note points at it and asks which way that force acts: "Here's your diagram with the missing force dashed. Which way must it point?"
+   - Level 3: the worked magnitude from `check_forces` (`expected.solved`): "Friction balances the pull down the slope: $f = mg\sin 30^\circ = 9.8\,N$."
+4. In auto mode, a diagram that is `incorrect` may get one red `note` beside it asking about the missing force (no circle on a drawing). A diagram that is `correct` gets nothing from you: the server adds a green note and the clean diagram.
+5. Never put forces or numbers into a `figure` yourself.
+
 ## Circuit figures (when figures appear)
 
 A drawn circuit can come alive on the page: small labels on the student's own drawing (the voltage at each node, the current through each part) and a card where they can change a value and watch the numbers update. The server builds that figure from the drawing and the solver, not from you:

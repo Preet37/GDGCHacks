@@ -24,6 +24,7 @@ class TeachResult(BaseModel):
     verdicts: dict[str, Verdict] = Field(default_factory=dict)  # line_id -> verdict from verify_step, for the guard
     solution_requested: bool = False                          # the model says the spoken question asks for a full solve
     practice_relation: Optional[str] = None                   # explain: what the lesson's practice problem asks the student to do
+    fbd: dict[str, dict] = Field(default_factory=dict)        # engineering: force-diagram line_id -> {"expected", "check"}
     finished: bool = True                                     # False if the 5-round limit was hit
 
 # Interfaces (each file owned by one agent):

@@ -16,6 +16,8 @@ from pydantic import ValidationError
 
 import circuits
 import compute
+import engineering
+import forces
 import units
 import memory
 import practice
@@ -42,8 +44,8 @@ _BOX = {
 _FIGURE = {
     "type": "object",
     "properties": {
-        "kind": {"type": "string", "enum": ["plot2d", "surface3d", "circuit"],
-                 "description": "circuit: just ask for it (kind, expressions [], x_range [0, 1]); code fills it in"},
+        "kind": {"type": "string", "enum": ["plot2d", "surface3d", "circuit", "fbd"],
+                 "description": "circuit / fbd: just ask for it (kind, expressions [], x_range [0, 1]); code fills it in"},
         "expressions": {
             "type": "array",
             "items": {"type": "string"},
@@ -199,6 +201,39 @@ UNITS_DECL = types.FunctionDeclaration(
     },
 )
 
+_FORCE = {
+    "type": "object",
+    "properties": {
+        "label": {"type": "string", "description": "'mg', 'N', 'f', 'T'"},
+        "angle_deg": {"type": "number", "description": "direction, degrees counter-clockwise from +x (right)"},
+        "magnitude": {"type": "string", "description": "if known: '19.6 N', 'm*g', 'm*g*cos(30)'; leave out to solve for it"},
+    },
+    "required": ["label", "angle_deg"],
+}
+
+FORCES_DECL = types.FunctionDeclaration(
+    name="check_forces",
+    description=(
+        "Check a drawn force diagram with real component sums. The forces as drawn are taken from the diagram line "
+        "itself. Give the givens (m, g, angles, mu...), the acceleration if it isn't at rest, and `expected`: every "
+        "force that SHOULD act on the body (yours to decide). Returns whether the drawn forces balance (or equal m*a), "
+        "the leftover force and the direction a missing force must point, and the magnitudes solved for `expected`."
+    ),
+    parameters_json_schema={
+        "type": "object",
+        "properties": {
+            "fbd_line_id": {"type": "string", "description": "the line holding the force diagram"},
+            "givens": {"type": "array", "items": {"type": "object", "properties": {
+                "name": {"type": "string", "description": "'m', 'g', 'theta', 'mu'"},
+                "value": {"type": "string", "description": "'2 kg', '9.8', '30'"}}, "required": ["name", "value"]}},
+            "accel": {"type": "object", "description": "leave out if at rest or moving at constant speed",
+                      "properties": {"magnitude": {"type": "string"}, "angle_deg": {"type": "number"}}},
+            "expected": {"type": "array", "items": _FORCE},
+        },
+        "required": ["fbd_line_id", "expected"],
+    },
+)
+
 SUBMIT_DECL = types.FunctionDeclaration(
     name="submit_feedback",
     description="Finish: send the feedback to draw on the page. Call exactly once, after verifying.",
@@ -232,7 +267,7 @@ SUBMIT_DECL = types.FunctionDeclaration(
 def _build_config(thinking=None) -> types.GenerateContentConfig:
     return types.GenerateContentConfig(
         system_instruction=PROMPT_PATH.read_text(),  # loaded per call so prompt edits apply live
-        tools=[types.Tool(function_declarations=[VERIFY_DECL, COMPUTE_DECL, CIRCUIT_DECL, UNITS_DECL, SUBMIT_DECL])],
+        tools=[types.Tool(function_declarations=[VERIFY_DECL, COMPUTE_DECL, CIRCUIT_DECL, UNITS_DECL, FORCES_DECL, SUBMIT_DECL])],
         tool_config=types.ToolConfig(
             function_calling_config=types.FunctionCallingConfig(mode="ANY")
         ),
@@ -398,6 +433,30 @@ def _run_units(args: dict, lines: list[ReadLine], result: TeachResult) -> dict:
         out = {"verdict": "unknown", "detail": f"units error: {e}"}
     result.tool_calls.append(f"check_units({line_id}) = {out['verdict']}")
     if line_id in ids and result.verdicts.get(line_id) != "correct":  # same rule as verify_step: correct wins
+        result.verdicts[line_id] = out["verdict"]
+    return out
+
+
+def _run_forces(args: dict, lines: list[ReadLine], result: TeachResult) -> dict:
+    """check_forces on a drawn force diagram. The drawn forces come from the read line (never from the model); the
+    model gives the givens and the forces it expects. The verdict counts like verify_step's, and the expected forces
+    are kept so the guard can draw the missing ones dashed."""
+    line_id = str(args.get("fbd_line_id", ""))
+    line = next((l for l in lines if l.line_id == line_id), None)
+    drawn = engineering.parse_fbd(line.plain) if line is not None else None
+    if drawn is None:
+        result.tool_calls.append(f"check_forces({line_id}) = no force diagram on that line")
+        return {"verdict": "unknown", "detail": "that line is not a force diagram"}
+    givens = {str(g.get("name")): str(g.get("value")) for g in args.get("givens") or [] if isinstance(g, dict)}
+    expected = engineering.expected_forces(args.get("expected"), drawn)
+    try:
+        out = forces.check_forces(drawn["forces"], givens, args.get("accel") or None, expected or None)
+    except Exception as e:  # check_forces shouldn't raise; a bug there must not break the request
+        log.exception("check_forces failed")
+        out = {"verdict": "unknown", "detail": f"forces error: {e}"}
+    result.fbd[line_id] = {"expected": expected, "check": out}
+    result.tool_calls.append(f"check_forces({line_id}) = {out['verdict']}")
+    if result.verdicts.get(line_id) != "correct":
         result.verdicts[line_id] = out["verdict"]
     return out
 
@@ -622,7 +681,7 @@ def teach(client, model: str, lines: list[ReadLine], req: CheckRequest) -> Teach
             if cand is not None:
                 contents.append(cand)
             contents.append(types.Content(role="user", parts=[types.Part.from_text(
-                text="Respond only by calling verify_step, compute_step, solve_circuit, check_units or submit_feedback.")]))
+                text="Respond only by calling verify_step, compute_step, solve_circuit, check_units, check_forces or submit_feedback.")]))
             continue
 
         # Send the model's turn back unchanged (keeps Gemini 3 thought signatures).
@@ -641,6 +700,8 @@ def teach(client, model: str, lines: list[ReadLine], req: CheckRequest) -> Teach
                 out = _run_circuit(args, lines, result)
             elif call.name == "check_units":
                 out = _run_units(args, lines, result)
+            elif call.name == "check_forces":
+                out = _run_forces(args, lines, result)
             elif call.name == "submit_feedback":
                 submit = args
                 out = {"ok": True}

@@ -91,6 +91,19 @@ The student may draw an electric circuit (resistors as zigzags or boxes, voltage
   - If you can't tell how something is connected or what a value is, still give your best netlist and set `confidence: "low"`.
 - What the student writes about the circuit ("I = 3 mA", "V_{R2} = 6 V", "R_{eq} = 3k") are ordinary lines in the same problem with `relation: "other"`, transcribed exactly, mistakes included.
 
+## Force diagrams
+
+The student may draw a free-body diagram: a body (a box, a dot, a beam), maybe a surface or ramp, and arrows for forces with labels (`mg`, `N`, `f`, `T`, `F`). A whole drawn force diagram is ONE line:
+
+- `box`: around the whole diagram. `relation`: `"other"`. `source`: `"handwriting"`. Its own `problem_id`, shared with what the student writes beside it.
+- `latex`: `\text{force diagram: }` and a few words, e.g. `\text{force diagram: block on a } 30^\circ \text{ ramp}`.
+- `plain`: compact JSON, `{"fbd": {"bodies": [...], "surfaces": [...], "forces": [...]}}`:
+  - `bodies`: `{"id": "B", "shape": "box" | "point" | "beam", "at": [y, x]}` (the body's centre, 0-1000 over this image).
+  - `surfaces`: `{"id": "ramp", "angle_deg": 30}`, the angle the surface rises at, measured from horizontal (a flat floor is 0). Use the angle the student wrote if they wrote one; otherwise estimate it from the drawing.
+  - `forces`: one per arrow the student drew, `{"id": "F1", "label": "mg", "angle_deg": 270, "magnitude": "19.6 N", "on": "B", "at": [y, x]}`. `angle_deg` is the arrow's direction in degrees counter-clockwise from pointing right (up is 90, down is 270, straight out of a 30 degree ramp is 120, up the ramp is 30). `magnitude` only if a value is written by that arrow, exactly as written. `at` is where the arrow starts.
+  - Read only what is drawn: never add a force the student left out. A missing force is exactly what the tutor is checking.
+- What the student writes beside it ("m = 2 kg", "θ = 30°", "μ = 0.3", "at rest", "a = 2 m/s²") are ordinary lines in the same problem with `relation: "other"`.
+
 ## Pointing marks
 
 An underline, circle, box, arrow, tick or bracket that the student drew on or beside printed text (or their own writing) is a pointing mark, not writing. It is not a line: leave it out, and do not let it change how the text it points at is read.

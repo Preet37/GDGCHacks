@@ -309,16 +309,21 @@ def merge(state: PageState, lines: list[ReadLine], result: TeachResult, mode: st
         # Engineering: circuit figures (x-ray labels + what-if card) are decided and filled in by code, never copied
         # from the model. Revealed only after a checked-correct answer or at hint level 3.
         import engineering
-        actions = engineering.circuit_figures(
-            lines, actions, result.verdicts if result.finished else {}, {p.problem_id: p.hint_level for p in problems},
-            state.lines, question, {hu.problem_id for hu in hint_updates})
+        levels = {p.problem_id: p.hint_level for p in problems}
+        verdicts = result.verdicts if result.finished else {}
+        hinted = {hu.problem_id for hu in hint_updates}
+        actions = engineering.circuit_figures(lines, actions, verdicts, levels, state.lines, question, hinted)
+        # Force diagrams: the clean diagram (missing forces dashed) at hint 2+ in help, or with a green note when the
+        # drawn forces balance. Built from the read diagram + check_forces, like the circuit figure.
+        actions = engineering.fbd_figures(lines, actions, result.fbd if result.finished else {}, verdicts, levels,
+                                          state.lines, mode, hinted)
 
     # Flagged / clear bookkeeping
     present = {l.line_id for l in lines}
     # A circuit figure, like a lesson, is not feedback on a line: flagging its line would make later automatic checks
     # skip anything new about the circuit (a flagged, unchanged line gets no new actions).
     action_ids = [a.line_id for a in actions if a.line_id and a.type != "lesson"
-                  and not (a.type == "figure" and a.figure is not None and a.figure.kind == "circuit")]
+                  and not (a.type == "figure" and a.figure is not None and a.figure.kind in ("circuit", "fbd"))]
     flagged = [i for i in state.flagged_line_ids if i not in set(clear)] + action_ids
     flagged = _ordered_unique(flagged)
     gone = [i for i in flagged if i not in present]

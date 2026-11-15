@@ -4,6 +4,7 @@ import type { Action, FigureSpec } from '../contract'
 import { compile } from 'mathjs'
 import { aiMeta, cardRect, lineRect, sizesFor } from './actions'
 import { renderCircuit } from './circuit'
+import { fbdToDataUrl } from './fbd'
 import { DEFAULT_CONTEXT, FIGURE_BASE_H, FIGURE_BASE_W, type PageRect, type RenderContext } from './geometry'
 
 /** Size the plot is rendered at; the image shape then scales it to the handwriting. */
@@ -163,10 +164,13 @@ export function drawFigures(editor: Editor, actions: Action[], bounds: PageRect,
       if (renderCircuit(editor, action, bounds, ctx)) handed++
       continue
     }
-    if (action.figure.kind !== 'plot2d') continue
+    const kind = action.figure.kind
+    if (kind !== 'plot2d' && kind !== 'fbd') continue // a kind this page doesn't know is skipped, never a crash
+    if (kind === 'fbd' && !action.figure.fbd) continue
     let src: string
     try {
-      src = plot2dToDataUrl(action.figure)
+      // fbd: the clean free-body diagram (Part 2), drawn and placed like a graph
+      src = kind === 'fbd' ? fbdToDataUrl(action.figure.fbd!, action.figure.title) : plot2dToDataUrl(action.figure)
     } catch (err) {
       console.warn('figure skipped', action.figure, err)
       continue

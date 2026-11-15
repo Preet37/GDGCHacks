@@ -132,7 +132,8 @@ def _submit(*actions, hints=()):
 
 def test_tools_and_schema_cover_finishing_a_line():
     tools = teach_mod._build_config().tools[0].function_declarations
-    assert [t.name for t in tools] == ["verify_step", "compute_step", "solve_circuit", "check_units", "submit_feedback"]
+    assert [t.name for t in tools] == ["verify_step", "compute_step", "solve_circuit", "check_units", "check_forces",
+                                       "submit_feedback"]
     assert "inline" in teach_mod._ACTION["properties"]["side"]["enum"]
     assert "black" in teach_mod._ACTION["properties"]["color"]["enum"]
 

@@ -136,3 +136,120 @@ def circuit_figures(lines: list[ReadLine], actions: list, verdicts: dict, hint_l
         if fig is not None:
             out.append(fig)
     return out
+
+
+# ---- free-body diagrams ----
+
+FBD_GREEN = "Nice: these forces balance."
+
+
+def _angle(v):
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+def _forces(raw, default_on: str) -> list[dict]:
+    out = []
+    for i, f in enumerate(raw if isinstance(raw, list) else []):
+        if not isinstance(f, dict):
+            continue
+        a = _angle(f.get("angle_deg"))
+        if a is None:
+            continue
+        force = {"id": str(f.get("id") or f"F{i + 1}"), "label": str(f.get("label") or f.get("id") or f"F{i + 1}"),
+                 "angle_deg": a % 360, "on": str(f.get("on") or default_on)}
+        if f.get("magnitude") not in (None, ""):
+            force["magnitude"] = str(f["magnitude"])
+        at = _point(f.get("at"))
+        if at:
+            force["at"] = at
+        out.append(force)
+    return out
+
+
+def parse_fbd(plain: str) -> dict | None:
+    """The force diagram a line holds ({"fbd": {bodies, surfaces, forces}}), cleaned; None if it isn't one."""
+    try:
+        data = json.loads(plain)
+    except (TypeError, ValueError):
+        return None
+    fbd = data.get("fbd") if isinstance(data, dict) else None
+    if not isinstance(fbd, dict):
+        return None
+    bodies = []
+    for i, b in enumerate(fbd.get("bodies") if isinstance(fbd.get("bodies"), list) else []):
+        if isinstance(b, dict):
+            body = {"id": str(b.get("id") or f"B{i + 1}"),
+                    "shape": b.get("shape") if b.get("shape") in ("box", "point", "beam") else "box"}
+            at = _point(b.get("at"))
+            if at:
+                body["at"] = at
+            bodies.append(body)
+    if not bodies:
+        bodies = [{"id": "B", "shape": "box"}]
+    surfaces = [{"id": str(s.get("id") or f"S{i + 1}"), "angle_deg": _angle(s.get("angle_deg"))}
+                for i, s in enumerate(fbd.get("surfaces") if isinstance(fbd.get("surfaces"), list) else [])
+                if isinstance(s, dict) and _angle(s.get("angle_deg")) is not None]
+    return {"bodies": bodies, "surfaces": surfaces, "forces": _forces(fbd.get("forces"), bodies[0]["id"])}
+
+
+def fbd_lines(lines: list[ReadLine]) -> list[ReadLine]:
+    return [l for l in lines if l.plain.lstrip().startswith("{") and parse_fbd(l.plain)]
+
+
+def expected_forces(raw, drawn: dict) -> list[dict]:
+    """The tutor's list of forces that should be on the diagram, cleaned like the drawn ones."""
+    return _forces(raw, drawn["bodies"][0]["id"])
+
+
+def build_fbd_figure(line: ReadLine, expected: list[dict] | None):
+    """The clean diagram for a force-diagram line: bodies, surfaces and forces from what was read; `expected` (the
+    forces that should be there) only when given, so the page can draw the missing ones dashed."""
+    from models import Action
+    fbd = parse_fbd(line.plain)
+    if fbd is None:
+        return None
+    if not fbd["surfaces"]:
+        fbd.pop("surfaces")
+    if expected:
+        fbd["expected"] = expected
+    title = "Your force diagram"
+    return Action(type="figure", line_id=line.line_id, box=line.box, side="right",
+                  figure={"kind": "fbd", "expressions": [], "x_range": (0, 1), "title": title, "fbd": fbd})
+
+
+def fbd_figures(lines: list[ReadLine], actions: list, fbd_info: dict, verdicts: dict, hint_levels: dict,
+                prev_lines: list[ReadLine], mode: str, hinted: set | None = None) -> list:
+    """`actions` with the force-diagram figures decided and filled in by code (any the model wrote are replaced).
+
+    - help mode at hint level 2 or more: the clean diagram, with the forces that should be there (`expected`, from
+      check_forces) so the missing ones are drawn dashed;
+    - the diagram checks correct (check_forces: balanced): a green "Nice" note plus the clean diagram.
+    Sent only when that problem changed or got a new hint, like the circuit figure."""
+    diagrams = {l.line_id for l in fbd_lines(lines)}
+    # A whole drawing is not a term to circle: on a force diagram the question is the feedback (a circle around the
+    # entire sketch only adds noise). Figures the model wrote are replaced by code's.
+    out = [a for a in actions if not (a.type == "figure" and a.figure is not None and a.figure.kind == "fbd")
+           and not (a.type in ("circle", "underline") and a.line_id in diagrams)]
+    before = {l.line_id: l.plain for l in prev_lines}
+    for line in fbd_lines(lines):
+        problem = [l for l in lines if l.problem_id == line.problem_id]
+        changed = any(before.get(l.line_id) != l.plain for l in problem) or line.problem_id in (hinted or set())
+        if not changed:
+            continue
+        info = fbd_info.get(line.line_id) or {}
+        level = hint_levels.get(line.problem_id, 0)
+        if verdicts.get(line.line_id) == "correct":
+            from models import Action
+            if not any(a.type == "note" and a.color == "green" and a.line_id == line.line_id for a in out):
+                out.append(Action(type="note", line_id=line.line_id, box=line.box, color="green", side="below", text=FBD_GREEN))
+            fig = build_fbd_figure(line, None)
+        elif mode == "help" and level >= 2:
+            fig = build_fbd_figure(line, info.get("expected"))
+        else:
+            continue
+        if fig is not None:
+            out.append(fig)
+    return out
