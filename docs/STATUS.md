@@ -1,172 +1,261 @@
 # Status of [need: name]
 
-As of the last entry in `AGENT_LOG.md` (8:36 PM Saturday, Nov 14) and `web/e2e/RESULTS.md` (runs at 7:29 to 7:58 PM and 8:16 to 8:31 PM). Update this after the iPad rehearsal.
+As of about 2:15 AM Sunday, Nov 15, 2026. Written from `AGENT_LOG.md` (to its last entry, 1:56 AM), `git log` (to `3c623fc`, 1:58 AM) and the code. `web/e2e/RESULTS.md` still describes the 7:29 to 8:31 PM Saturday runs; the later runs are only in the log. All times are Pacific.
 
-## State of the live site when the log ends
+## If you read one thing
 
-- **Every Gemini call fails.** At about 8:34 PM the project hit its monthly Gemini spend cap. `/api/check` and `/api/speak` return 502; `/api/health` still returns ok. Nothing works on the live site (marks, hints, lessons, voice) until Parsh raises the cap in AI Studio under Spend. It is not a code problem.
-- **Hosting:** deployed from `7afe935` at about 8:35 PM. It carries the page fixes from the end-to-end run.
-- **Cloud Run:** `tutor-api-00019-vig`, promoted about 8:17 PM, model `gemini-3.5-flash`. It does not have the 8:36 PM `server/practice.py` fix for "Solved". That fix is waiting for a tagged deploy.
-- **Tests:** server 298 offline tests pass, web 407 tests pass.
+**What works** (pen strokes on the real canvas, real server, real Gemini; last full run 11:34 to 11:44 PM Saturday):
+
+- A wrong step is circled with a question. Fixing it clears the mark.
+- Teach me plays a lesson with the Gemini voice and subtitles. "Your turn" writes a practice problem, and a correct handwritten answer gets a green note and "✓ Solved".
+- Help gives three different hints. Graphs and 3D surfaces draw. A written `solve` gives worked steps.
+- On a PDF worksheet: marks land on the handwriting, and Help on a circled printed problem answers that problem (2.6 s).
+
+**What is in `main` but not on the live site** (https://tutor-1098c.web.app is at `11c3b1b`, deployed about 11:30 PM Saturday, plus the sample PDFs):
+
+- Solve on printed integrals (`6ea3d5c`). On the live site this still answers "I could not check a full solution".
+- The "Solve it" button, every-step solutions, a solution moved beside the worksheet when there is no room, graph titles as math (`7ccc1fa`).
+- Typeset solution steps with stacked fractions (`d13aab5`). A solution lowered to clear the print (`9c80e34`).
+- These run only on the tunnel from Preet's laptop: https://3663-128-114-255-202.ngrok-free.app (address changes if ngrok restarts; the laptop must stay on).
+
+**What has never been tested on the iPad:**
+
+- Everything built after midnight: the "Solve it" button, every-step and typeset solutions, the solve fix for integrals, solution placement on a worksheet, math titles.
+- "Listen" since its 11:20 PM fix. It has never run with a real microphone that worked.
+- Help on a circled problem on a zoomed-out worksheet since its fix (passed in the harness only).
+
+**Three things to do before 11:30 AM, in this order:**
+
+1. **Get the latest code onto the URL you will demo from.** Preet signs in on his laptop (`gcloud auth login`, `firebase login`) and deploys `main` to production. If that is not done and checked by about 9:00 AM, stop and demo from the tunnel, or from the live site as it is with the shorter script in `docs/DEMO.md`.
+2. **Rehearse on the iPad on that URL**, with Preet's handwriting, in the order in `docs/DEMO.md`. Include Listen once. Cross out anything that fails. Say the 90-second pitch out loud twice.
+3. **Pick the name, finish the video, submit on Devpost.** Aim for 11:00 AM. The deadline is 11:30 AM. One track only: Best Integration of Gemini/Google API.
+
+## State of the live site
+
+| Item | State at 2:15 AM Sunday |
+| --- | --- |
+| Gemini calls | Working. See "Money and limits" for the two outages tonight. |
+| Cloud Run | `tutor-api-00028-bej`, built from `11c3b1b`, promoted about 11:30 PM Saturday. Model `gemini-3.5-flash`. |
+| Firebase Hosting | Page from `11c3b1b` (about 11:30 PM), then `e7c5533` at 11:50 PM, which only added the sample PDFs. |
+| Behind `main` by | `6ea3d5c`, `7ccc1fa`, `d13aab5`, `9c80e34` (listed above). |
+| Sample worksheets | Live: `/samples/derivatives.pdf`, `/samples/algebra.pdf`, `/samples/mixed.pdf`. One letter page each, four printed problems. |
+| Deploys | Moving to Preet's laptop. gcloud and firebase-tools are installed. Parsh granted Preet Editor on project `tutor-1098c`. Preet has not signed in yet, so nothing has been deployed from there. |
+| Tunnel | https://3663-128-114-255-202.ngrok-free.app serves the dev page on current `main` and Preet's local server. It is https, so the microphone can work. The local server uses a different key from the live one. |
+| `engineering` branch | Not merged, not on the live site. Circuits x-ray and what-if card, unit checking, free-body diagrams. It runs on a separate service, `tutor-api-eng`. Preet's agent tested it at 1:56 AM: four of its five demo flows passed. |
+| Tests | At 12:52 AM Sunday: server 304 offline tests pass, web 445 pass. Not re-counted after `d13aab5` and `9c80e34`. |
+
+Deploy plan from the log (1:15 AM): deploy `tutor-api` without `--set-env-vars` so the live key and model stay as they are, tagged with no traffic, check health and one real check, then promote; then Hosting from `main`. The earlier rule from 7:33 PM Saturday says Hosting goes first when the server starts sending something the old page rejects. `[need: check whether d13aab5 adds a field the old page rejects, and pick the order]`
+
+## Money and limits found tonight
+
+| When | What happened | Fix |
+| --- | --- | --- |
+| 8:35 PM Sat | The Gemini project hit its spend cap. Every call failed. `/api/health` stayed ok. | Parsh raised the cap to $10 at about 9:55 PM. |
+| 11:08 PM Sat | Prepaid credit ran out (`402 ... prepayment credits are depleted`). | Parsh topped up at about 11:20 PM. |
+| 11:24 PM Sat | The voice model `gemini-3.8-flash-lite-tts` hit its limit of 100 requests per day per project on this tier. | The server now falls back through `gemini-3.8-flash-tts`, `gemini-3.1-flash-tts-preview`, `gemini-2.5-flash-preview-tts`. Seen working at 11:34 to 11:44 PM: 1 clip from the lite model, 7 from the next. Lessons now fetch clips two steps ahead instead of all at once. |
+
+- The voice quota resets at midnight Pacific. Voice clips used after midnight (testing, the capture video) come out of Sunday's 100 per model. How many are left is not known.
+- The current credit balance is not known. `[need: balance from AI Studio]`
+- Measured cost: one check or one Help is 3 Gemini calls, about 21,000 input tokens, 350 to 500 output, no thinking tokens. A lesson is about 16,700 in and 1,300 out, plus one voice clip per step (150 to 180 audio tokens each).
+- `GET /api/debug/usage` shows live token counts per model since the instance started.
+- The page now shows failures: a red banner that stays for out-of-credit, and a 7 second toast for a timeout ("That took too long. Zoom in on one problem and try again").
 
 ## How things were tested
 
-Four levels, weakest first. Each feature below is listed under the strongest level it has reached.
+Four levels, weakest first. Each feature is listed under the strongest level it has reached.
 
 1. **Unit tests**: pytest and Vitest, no network, no model.
-2. **Headless browser with fake replies**: the page in headless Chrome with `?mock` or with `/api/check` intercepted. Also, on the server side, a local server on the lite model driven by a script.
-3. **Headless browser, real pen events, real server**: `web/e2e/run.mjs`. Each line is written on the canvas with pen pointer events tracing a stroke font, and the page calls Cloud Run with `gemini-3.5-flash`. No reply is faked. The stroke font is neater than real handwriting, and headless Chrome is not iPad Safari.
+2. **Headless browser with fake replies or typed text**, or a local server driven by a script.
+3. **Headless browser, real pen events, real server**: `web/e2e/run.mjs`, flows 1 to 17. Each line is written on the canvas with pen pointer events tracing a stroke font. No reply is faked. The stroke font is neater than real handwriting, and headless Chrome is not iPad Safari. `web/e2e/demo.mjs` runs the README's five demo problems the same way. `web/e2e/capture.mjs` films a walkthrough the same way.
 4. **A real iPad with Preet's handwriting.**
 
 ## Level 4: real iPad, Preet's handwriting
 
-Three rounds, all before about 6:20 PM. Nothing has been tried on the iPad since.
-
 | When | Setup | What Preet tried and saw |
 | --- | --- | --- |
-| About 4:50 PM | iPad to the laptop's dev page, local server on the lite model | Real handwriting was read. A red circle on `+ 1`, a graph and a "correct" note appeared. Notes were tiny next to large writing and the graph of `x^2 - 4` was clipped. With an imported PDF, the printed text was not read and Help flagged an old line. |
-| About 5:35 PM | Same setup, 16 photos | Core flows worked on real handwriting. Bugs seen: tiny feedback when zoomed out, a new note drawn on top of the old one, a finished answer written on a line that did not end in `=`, Help on finished correct work returned nothing, a hand-drawn circuit failed with "no ground node". |
-| About 6:20 PM | Live link on venue wifi | The live link loaded and worked on venue wifi. Voice input (hold Help) worked. A lesson played in the old card with the browser voice: visuals good, lesson too shallow, voice bad, card covering the work. A wrong derivative (`f'(x) = 3x^2 - 3x`) got no red circle. A spoken question got a question back. On a worksheet the hints were terse, repeated, drawn over the print, and the lesson was about the wrong problem. |
+| About 4:50 PM Sat | iPad to the laptop's dev page, lite model | Handwriting was read. A red circle, a graph and a "correct" note appeared. Notes were tiny, a graph was clipped, printed PDF text was not read. |
+| About 5:35 PM Sat | Same, 16 photos | Core flows worked. Bugs: tiny feedback when zoomed out, notes on top of each other, an answer written on a line with no `=`, Help on finished work silent, a circuit failed with "no ground node". |
+| About 6:20 PM Sat | Live link, venue wifi | Link loaded. Hold-Help voice input worked. Lesson played in the old card with the browser voice. A wrong derivative got no circle. Worksheet hints were terse and drawn over the print. |
+| About 11:05 PM Sat | Live site | A 3D surface drew. Help on a whole zoomed-out worksheet page timed out at 44 s. "Listen" said "This browser can't listen". |
+| About midnight | Live site, sample worksheet | Help hints worked. `y = x^2 - 4` with "graph it" worked. Spoken "solve problem one" was transcribed correctly but returned "I could not check a full solution". A 3D graph asked for at 12:02 AM never appeared, though the server sent it. |
 
-Fixes for every bug in this table are in. None of the fixes has been re-tested on the iPad.
+What happened to the bugs from the last two rounds:
+
+| Bug | Fix | Re-tested on the iPad? |
+| --- | --- | --- |
+| Worksheet Help timed out at 44 s | Below 50% zoom with nothing selected, only the circled part is sent (`d59ce5e`, live) | No. Harness flow 16 passes in 2.6 s. |
+| "This browser can't listen" | The microphone is opened first, inside the tap (`d59ce5e`, live) | No. |
+| "I could not check a full solution" on integrals | Checker bug fixed (`6ea3d5c`) | No. Not live. |
+| 3D graph missing at 12:02 AM | None. Not reproduced; it draws in the harness. | Open. |
+
+Fixes for the three afternoon rounds are all in and pass in the harness. The log does not say what else Preet tried in the 11:05 PM and midnight rounds beyond the rows above.
 
 ## Level 3: real pen events against the real server
 
-From `web/e2e/RESULTS.md`. "Reply" is from the last stroke and includes the 2 second pause; "check" is the request alone.
+Full run, 11:34 to 11:44 PM Saturday, dev page to Cloud Run `00028-bej`. Cost: 31 checks, 8 voice clips, 2 glyph calls.
 
 | Flow | Result | Measured |
 | --- | --- | --- |
-| Wrong derivative circled, then corrected and cleared | Pass, portrait and landscape, and again after the fixes | reply 8.8 s / 6.7 s, check 6.8 s / 4.7 s; fix to cleared 12.1 s / 11.8 s |
-| Correct work gets no marks | Pass | reply 7.2 s, check 5.1 s |
-| Algebra mistake (`2x = 20`) | Pass | reply 6.8 s, check 4.7 s |
-| Finish my line (`g'(x) =` gets `12x`) | Flaky: 3 of 4 runs before the fix, 1 of 1 after | check 3.9 to 6.1 s |
-| Full solve (`solve` written by `3x^2 - 3 = 0`) | Pass, 2 runs: three steps under the equation in order | reply 10.6 s / 9.4 s, check 8.5 s / 7.3 s |
-| Graph | Pass, portrait and landscape, no overlap with ink | reply 5.3 s / 7.1 s |
-| 3D surface, rotated by dragging with the pen | Pass, 1 run | reply 5.7 s |
-| Help ladder: three different hints, 2 and 3 without a tap | Pass, 2 runs | hint 1 at 4.6 s / 4.2 s; hint 2 after 18.3 s / 18.1 s; hint 3 after 24.8 s / 17.9 s |
-| Help on finished, correct work: green note | Pass | 5.9 s |
-| Teach me in portrait with the real Gemini voice: docked panel, 7 steps, subtitles, 7 of 7 clips returned and the audio element played, practice problem written at the end | Pass | lesson 8.6 to 11.3 s; tap to panel 9.9 to 12.7 s; clips 2.0 to 4.7 s each |
-| Teach me in landscape | Failed at 7:43 PM (page zoomed to 58%). Pass after the fix, 2 runs, with the voice blocked | zoom stayed 100% |
-| Practice answer written after the tutor's `=` | The answer was sent and the server's check returned `correct`. No green note and no "Solved" came back, in the 7:57 PM run and again against revision `00019` at 8:17 PM | n/a |
-| Two problems far apart: only the second is sent, the first keeps its marks | Pass | second check 4.3 s |
-| Page zoomed out to 40%: feedback sized to the handwriting | Pass | reply 7.2 s |
-| Worksheet PDF: mark on the handwriting, nothing on the print, Help answers the problem in view | Pass, and again after the fixes | import 0.3 s, check 5.1 s, help 9.1 s |
-| "Write in my handwriting": `12x` drawn as 4 pen strokes; `/api/glyphs` round trip | Pass, 1 run, with harness-generated strokes as the "handwriting" | check 6.3 s; glyphs 3.2 s and 4.9 s |
-| Reload in the same browser: ink and marks back, no request | Pass | n/a |
-| Saved page opened in a fresh browser on the live site | Ink and marks came back from Firestore. An extra check was sent before the fix. After the fix, Parsh saw no check in 15 s on live (8:35 PM) | n/a |
-| Live site smoke (7:48 and 7:50 PM) | Pass: page loads, mistake circled, one voice clip | check 4.7 s / 5.1 s; clip 2.3 s |
-| Live site smoke (8:35 PM) | Fail: spend cap | n/a |
+| 1 Wrong derivative circled, then corrected and cleared | Pass | check 4.8 s at 11:22 PM (`demo.mjs`); earlier: reply 8.8 s portrait, 6.7 s landscape, pause included |
+| 2 Correct work gets no marks | Pass | check 3.6 s at 11:22 PM |
+| 3 Algebra mistake | Pass | check 4.5 s at 11:22 PM (sign error); live smoke 6.0 s at 9:59 PM |
+| 4 Finish my line (`g'(x) =` gets `12x`) | Pass | check 3.9 to 6.1 s (earlier runs; flaky then, 3 of 4) |
+| 5 Full solve by writing `solve` | Pass | reply 10.6 s and 9.4 s (earlier runs) |
+| 6 Graph | Pass | check 3.6 s at 11:22 PM |
+| 7 3D surface, rotated with the pen | Pass | reply 5.7 s (earlier run) |
+| 8 Help ladder, three different hints | Pass | hint 1 at 4.2 to 4.6 s; next hints about 18 s apart (earlier runs) |
+| 9 Help on finished, correct work | Pass | 5.9 s (earlier run) |
+| 10 Teach me, voice, Your turn, Solved | Every product check passed: lesson 9.1 s, server voice, subtitles, practice problem, `8x + 5` gets a green note and "✓ Solved". Two harness checks failed because they assumed all clips are requested at once. The checks were changed; flow 10 was not re-run. | At 9:59 PM: lesson 8.8 s, tap to panel 12.4 s, 8 clips, 2.7 to 8.1 s each |
+| 11 Two problems far apart | Pass | |
+| 12 Page zoomed out to 40% | Pass | |
+| 13 Worksheet PDF: mark on handwriting, nothing on print | Pass | |
+| 14 "Write in my handwriting" with harness strokes | Pass | |
+| 15 Reload; restore in a fresh browser | Pass | |
+| Live site smoke | Pass | |
+| 16 Zoomed-out worksheet, circle a printed problem, Help | Pass (new at 11:48 PM). Only the circled problem was read; the hint was drawn under it. | 2.6 s |
+| 17 Sample worksheet `mixed.pdf`: "Solve it" writes worked steps under printed problem 1; `z = x^2 + y^2` and "graph" draws a 3D surface on the sheet | Pass at 12:49 AM Sunday, and again at 1:20 AM with typeset steps. Run against a local server on the new code, not the live site. | solve 8.4 s |
 
-Also in that run: Gemini read all of about 60 pen-drawn lines on 28 pages with the right text. On 2 of the 28 pages it labelled the handwriting `printed`. There were no console errors in any flow. The status line matched what happened in every flow.
+Other level 3 results tonight:
 
-Not covered by the harness: real sound, the iOS audio unlock, voice questions, circuits, pinch zoom, palm rejection, and a lesson with the real voice in landscape.
+- `demo.mjs` at 11:22 PM against Cloud Run `00025-seb`: 5 of 5. Wrong derivative (4.8 s), sign error `3x - 7 = 2` to `3x = -5` (4.5 s), wrong integral `∫ cos(x) dx = -sin(x) + C` (5.2 s), correct expansion with nothing drawn (3.6 s), graph (3.6 s).
+- `capture.mjs` filmed the walkthrough video on the dev page with real Gemini replies (see "Videos").
+- On the fixed code, local server, sample sheet image: "Solve problem one" gave `x^4 + x^2 + C` (7.0 s). "Walk me through problem 2 and solve it for me" gave `∫cos(x) dx = sin(x) + C` with a note (7.2 s). "Solve problem 3" on the algebra sheet gave `(x-2)(x-3) = 0`, `x = 2 or x = 3`. Handwritten `d/dx (x sin x)` gave two product-rule steps.
 
-## Level 2: headless browser with typed text or fake replies, or a local server on the lite model
+Not covered by any automated run: the microphone (Listen and hold-to-talk), real sound, the iOS audio unlock, pinch zoom, palm rejection, circuits, and Preet's own handwriting.
 
-- **"Solved" label on the page.** With `/api/check` intercepted and a green reply supplied, the label flipped to "Solved". With the real server it has not appeared yet (see above).
-- **Practice checked by the server.** Local server, lite model, scripted request: `g'(x) = 3x^2` under a given `g(x) = x^3` got "Correct. You've got it." (2.6 s); `g'(x) = 3x` got a red circle and a question; an open `g'(x) =` got nothing. The green note written by code appeared on 2 of 3 local runs; the miss was a test-script error.
-- **Your turn on the live site with typed text** (Parsh, 7:58 PM): the practice problem was written under the work and sent as `given`. His typed answer did not trigger a check; the page only watches ink.
-- **Full solve on the live site with typed text** (Parsh, 7:23 PM): `2x + 6 = 14` and `solve it` gave `2x = 8`, `x = 4` under the line.
-- **Teach me on the live site with typed text** (Parsh, 7:34 PM): docked panel, 8 steps, 8 voice clips returned.
-- **Live transcript bar while holding Help, placement on a worksheet image.** Headless screenshots only.
-- **Handwriting toggle with a synthetic learned hand** (7:20 PM): `12x` written as 21 ink strokes.
-- **Server forcing handwriting when `has_worksheet` is false; the mistake mark written by the server when the model is silent.** Local server on the lite model, plus unit tests. Flows 1 and 4 passed afterwards with `has_worksheet: false`, one run each. How often handwriting is still mislabelled after the fix has not been measured.
-- **Circuit read, solved, wrong answer circled.** Full pipeline on a generated sketch image with `gemini-3.5-flash` (read 5.0 s, teach 6.9 s), earlier in the day.
-- **`/api/speak` under load.** 9 parallel requests on a local server with the real key: 9 of 9 returned, in waves of 3, the last after 10.4 s.
-- **Character finding on real handwriting.** Measured on 4 real pages of Preet's Pencil writing: `gemini-3.5-flash` found 55 of 59 characters with no wrong labels; the lite model found 27 of 32.
+## Level 2: headless browser, typed text or fake replies
+
+- Page load checks of the live site after each Hosting deploy (toolbar present, no `/api` calls on load, no console errors). Buttons seen at 11:19 PM: Import PDF, Show what AI read, Write in my handwriting, Listen, Teach me, Help.
+- Circuit read, solved, wrong answer circled: on a generated sketch image, earlier on Saturday. Not from the canvas.
+- `/api/speak` under load: 9 parallel requests, 9 returned, in waves of 3.
+- The three fallback voice models: one call each returned audio.
+- Character finding on 4 real pages of Preet's writing: 55 of 59 characters with `gemini-3.5-flash`.
 
 ## Level 1: unit tests only
 
-- **The "Solved" fix** (`server/practice.py`, 8:36 PM): the ask line joins the statement's problem, and ink on the ask row counts as the answer. 298 server tests pass, including the exact failing request. Not deployed, not run against the model.
-- The blue note when a written "solve" produces nothing usable (also reproduced once on a local lite server).
-- The limit of 3 voice calls at a time and the single retry on a 429 (also checked with parallel requests, above).
+- **Listen** (`web/src/handsfree.ts`): phrase matching and the open/close logic. Never run with a real microphone since the fix.
+- **A solution moved beside the worksheet** when it would touch print or ink below its line. The sample sheets have room under each problem, so this has not been seen live.
+- The out-of-credit banner and the timeout toast as drawn by the page (the server's `reason` field was seen live at 11:19 PM).
+- The "Drag to spin it" label on a 3D surface.
 
 ## Not tested on an iPad
 
-Everything built after about 6:20 PM. In particular:
-
-- The docked lesson panel, in either orientation.
-- The Gemini voice: whether it is audible, the iOS audio unlock, and whether late clips fall back to the browser voice mid-lesson.
-- Subtitles in lessons and the live transcript while holding Help.
-- "Your turn" and "Solved".
-- Full solve.
-- Help that explains, the countdown and the prefetched hints.
-- Placement that avoids ink, print and buttons.
+- "Solve it" button. Every-step solutions. Typeset steps with stacked fractions. Solve on printed integrals.
+- Solution placement on a worksheet (lowered under the print, or moved beside the page).
+- Graph titles shown as math. The "Drag to spin it" label.
+- Listen since the fix: whether Safari opens the microphone, keeps it open, and whether hints are read aloud in the lesson voice.
+- Help on a circled problem on a zoomed-out worksheet since the fix.
+- The failure banners.
+- Voice fallback as heard on the iPad, and clips fetched two steps ahead.
 - "Write in my handwriting" with real Pencil strokes.
-- The blank-line fix for the wrong derivative that got no circle at 6:07 PM.
-- Worksheets and circuits since their fixes. 3D rotation by touch.
-- `/api/debug/recent` has only been read from a laptop.
+- Circuits since their fix.
+- `[need: Preet to confirm]` whether the docked lesson panel, the Gemini voice, "Your turn" and "Solved" were tried on the iPad in the 11:05 PM or midnight rounds. The log does not say.
 
 ## Known bugs and limits
 
 Open:
 
-- **"Solved" does not show on the live site** until the 8:36 PM fix is deployed and confirmed. Known limits of that fix: a gap of more than 150 units after the `=` is ignored, and a one-character answer after a misread prefix can be dropped as a duplicate.
-- **The spend cap** blocks everything until it is raised.
-- **Checked marks have a gap.** A red mark on a line the checker called correct is dropped by code. If the checker returns `unknown` (it could not parse the step), Gemini may still mark the line when it is very sure. That mark is not verified.
-- **In landscape, the tutor's question beside a line can run under the lesson panel.** The student's lines stay clear.
-- **A lesson with the voice blocked waits on "Tap to play with sound"** and then plays silently. Seen only in headless Chrome, which has no speech voices.
-- **Later lesson steps may use the browser voice.** With 3 voice calls at a time the last clip of 9 can arrive about 10 s after the request. If the page's 2.5 s lateness rule counts from the request, later steps fall back. Not checked.
-- **Hint 3 was 7 s late once** (24.8 s on the server).
-- **Typed text is not checked.** The page only watches ink. This matters for testing, not for the iPad.
-- A circle is narrowed to the wrong term by its position in the text. It is an estimate and can sit off on uneven handwriting.
-- Lines more than about 6 line heights apart, or off to the side, are not sent together. The step then has nothing to be checked against and gets no mark.
-- The first request after idle is slower (about 7 s measured earlier in the day).
-- Hint history is kept in server memory per page. A restart or a second Cloud Run instance loses it, and hints may then repeat an idea.
-- `compute_step` could not parse "integral of 2x dx" written in words.
-- The dev page has no cloud save (`web/` has no `.env.local`). A page opened through the fallback laptop address does not restore on another device.
-- `/api/debug/recent` is open to anyone. Firestore pages are readable by anyone with the page id. Remove or lock both after the weekend.
-- The top-level `README.md` is out of date.
+- **"Every mark is verified" is too strong.** A red mark on a line the checker called correct is dropped by code. When the checker returns `unknown`, the model may still mark the line if it is very sure. On a spoken request the model may write steps the checker could not confirm. Say "checked by a math engine where it can be".
+- **Help with nothing selected on a full worksheet page goes to problem 1.** Circle the problem, or zoom in on it, first. "Solve it" has the same rule: selection, else the last thing written or circled, else problem 1.
+- **Solutions and hints depend on Gemini reading the handwriting correctly.** A misread line is checked as misread. "Show what AI read" shows the reading.
+- **In landscape the tutor's note can sit under the lesson panel.**
+- **Lessons take 5 to 10 s to prepare** (8.8 and 9.1 s in the last two runs; about 12 s from tap to panel).
+- **Cost per check is about 21,000 input tokens**, mostly the tutor prompt sent in two rounds. Not reduced tonight.
+- **Voice quota:** 100 requests per day per voice model. The fallback covers it, with different voice models.
+- **A 3D graph did not appear on the iPad at 12:02 AM.** Not reproduced.
+- **Listen risks** (from the code and log): iPad Safari may refuse to reopen the recognizer without a tap, or end sessions quickly. After 6 dead sessions in a row Listen turns itself off and says so. Each spoken hint costs one voice clip.
+- Nothing solves by itself. The student has to ask. This is by design.
+- A circle is placed by estimating where the wrong term sits in the line. It can be off on uneven handwriting.
+- Lines more than about 6 line heights apart are not sent together, so the step has nothing to be checked against.
+- Hint history is in server memory. A restart or a second instance loses it.
+- The first request after idle is slower.
+- The tunnel page has no cloud save (`web/` has no `.env.local`).
+- `/api/debug/recent` and `/api/debug/usage` are open to anyone. Firestore pages are readable by anyone with the page id. Lock these after the weekend.
+- `web/e2e/README.md` and `RESULTS.md` do not mention flows 16 and 17 or the late runs. The header comment of `capture.mjs` says nothing is sped up; the code speeds the video up and labels it.
 
 Fixed tonight, and how far each fix was confirmed:
 
-- Landscape lesson zoomed the page to 58%: fixed. Harness on the dev page, 2 landscape runs and 1 portrait.
-- Handwriting labelled `printed` so the tutor stayed silent: page sends `has_worksheet`, server forces handwriting. Harness flows 1, 4 and 13 pass, one run each.
-- Opening a saved page sent an unrequested check: fixed. Confirmed on the live site at 8:35 PM.
-- Notes drawn over the gray "what AI read" label, the lesson's end cutting off the work in portrait, the status line over the undo strip: fixed. Harness on the dev page.
-- Two voice requests rejected with 429 during a lesson: server limit and retry, deployed in revision `00016`.
-- Silence after a written "solve" when the steps fail the check: now a blue note.
-- Teach me broken on live from about 7:31 to 7:33:35 PM (server sent `practice` before the page accepted it): fixed by the Hosting deploy. Rule: Hosting first when the page must accept a new field.
+| Fix | Confirmed by |
+| --- | --- |
+| "✓ Solved" after a correct practice answer | Harness against the live server, 9:59 PM and 11:34 PM |
+| Worksheet Help sends only the circled part | Harness flow 16, 11:48 PM. Live. |
+| Listen opens the microphone inside the tap | Unit tests only. Live. |
+| Out-of-credit and timeout messages | Server reply seen live; page side unit tests |
+| Voice fallback, clips two steps ahead | Seen in the 11:34 PM run. Live. |
+| Token counts at `/api/debug/usage` | Returns JSON on the live site |
+| Solve on printed integrals | Local server, 2 real checks, plus flow 17. Not live. |
+| Every-step solve, "Solve it", math titles | Flow 17 and three local checks. Not live. |
+| Typeset solution steps | Flow 17 at 1:20 AM. Not live. |
+| Solution lowered to clear the print | Flow 17. Not live. |
 
-The "Re-run after fixes" section of RESULTS.md lists three items as "not touched" that the log says were changed on the server at 8:09 PM: forcing handwriting, the green practice note from code, and hints always placed below. The log is the later and more specific source for those.
+## Videos
+
+On Preet's laptop in `teaser/out/` (git-ignored):
+
+| File | Length | What it is |
+| --- | --- | --- |
+| `tutor-teaser-18s.mp4` | 18 s | Teaser |
+| `tutor-launch.mp4` | 50 s | Launch video |
+| `demo-capture.mp4` | 110 s | Walkthrough of the real app recorded by `web/e2e/capture.mjs`: wrong derivative circled and fixed; a Help hint, then Solve it; a Teach me lesson, then "Your turn" and Solved; worksheet Solve it, a graph, a 3D surface. Real Gemini replies. Sped up about 2×, and labelled as such on screen. Stroke-font writing, not a hand. |
+| `submission-draft.mp4` | 118 s | The 18 s teaser followed by the walkthrough, with a music bed. Copy at `~/Downloads/tutor-submission-draft.mp4`. |
+
+The draft is under the 2-minute limit. It is not uploaded anywhere yet. `[need: video link]`
+
+## Still not done
+
+- Project name. `[need: name]` is still in every doc.
+- Devpost submission.
+- Production deploy of `main`.
+- iPad re-test of everything built after midnight.
+- Listen on a real microphone.
+- Pitch rehearsal.
+- The Zurich project's name and link in `docs/DEVPOST.md`.
+
+### Name ideas (suggestions only, nothing is decided)
+
+1. Margin
+2. Red Pen
+3. Show Your Work
+4. Office Hours
+5. Second Look
 
 ## Sunday morning checklist
 
-Before leaving home:
+Before leaving for the venue:
 
-- [ ] Confirm with Parsh that the Gemini spend cap has been raised.
-- [ ] iPad charged to 100%, charger and cable packed.
-- [ ] Pencil paired and charged. Spare tip if there is one.
-- [ ] Laptop charged, charger packed.
-- [ ] The 2-minute video saved on the iPad and the laptop, and uploaded where Devpost can link it.
+- [ ] iPad at 100%, charger and cable packed. Pencil paired and charged.
+- [ ] Laptop charged, charger packed. It must stay on if the tunnel is the demo URL.
+- [ ] `submission-draft.mp4` on the laptop and on the iPad.
 - [ ] Phone hotspot tested with the iPad.
 
-At the table, 9:00 AM:
+First, on the laptop:
 
-- [ ] Join venue wifi. Open `https://tutor-1098c.web.app/api/health` and expect `{"ok": true}`. Health stays ok when the spend cap is hit, so the next two steps are the real test.
-- [ ] On the laptop, start the dev page (`cd web && API_TARGET=https://tutor-api-191803288552.us-central1.run.app npm run dev -- --port 5174`) and re-run the harness: `node web/e2e/run.mjs`. It runs flows 1 to 15 and the live smoke pass. For a short version: `node web/e2e/run.mjs 1 10 live`. Each run makes paid Gemini calls, so run it once.
-- [ ] In the flow 10 result, check whether "Solved" appears after the practice answer. That decides the wording of the pitch (see `docs/DEMO.md`).
-- [ ] Hard-reload the page on the iPad so the newest build loads.
-- [ ] Open a fresh page id: `https://tutor-1098c.web.app/?page=sun-1`. Use a new id for each judge (`sun-2`, `sun-3`).
-- [ ] Run demo problem 1 once on the iPad. This also warms up Cloud Run.
-- [ ] Run problem 2 (Teach me, then Your turn) in portrait. Listen for the Gemini voice. Set the iPad volume so it is clear over the room. Check the panel's mute button is off.
-- [ ] Run problems 3 to 6 once each.
-- [ ] If something looks wrong, open `https://tutor-1098c.web.app/api/debug/recent` on the laptop. It lists the last 30 requests: what was read, which tools were called with their verdicts, and what was sent.
-- [ ] Hold Help and say a short question, to trigger the microphone permission prompt before a judge is watching.
-- [ ] Decide what from the "Only if rehearsed" list is in, from the rehearsal.
-- [ ] If wifi is slow, switch the iPad to the hotspot and repeat problem 1.
-- [ ] Fallback laptop address ready: with the dev page running as above, open `http://<laptop-ip>:5174` on the iPad (same network). Write the address on a sticky note. Voice questions do not work on this address because speech input needs https, and pages do not save to the cloud there.
-- [ ] iPad: Do Not Disturb on, auto-lock set to Never, Safari in full screen, other tabs closed.
-- [ ] Pre-write problem 1 on the first page, with its red mark showing, so the pitch starts without waiting.
+- [ ] `gcloud auth login` and `firebase login` as Preet.
+- [ ] Deploy `main` (plan above). Tell Parsh in `AGENT_LOG.md` before promoting, so nobody promotes over anybody.
+- [ ] After the deploy: `node web/e2e/run.mjs live --no-speak` once (smoke on the live site, 2 checks). Then flow 17 against production: start the dev page with `cd web && API_TARGET=https://tutor-api-191803288552.us-central1.run.app npm run dev -- --port 5174` and run `node web/e2e/run.mjs 17` once (2 checks). Do not run the full harness; it cost 31 checks and 8 voice clips.
+- [ ] If the deploy is not done by about 9:00 AM: check the tunnel is up (`ngrok http 5174`, dev page on port 5174, local server running) and write its address on a sticky note.
 
-Before 11:15 AM:
+Then, on the iPad:
 
-- [ ] Fill in `[need: name]` and the Zurich project's name and link in `docs/DEVPOST.md`.
-- [ ] Submit on Devpost with the video link. Deadline is 11:30 AM. One track only: Best Integration of Gemini/Google API.
-- [ ] No deploys after the last successful rehearsal. If a deploy is unavoidable and it adds a field the page must accept, Hosting goes first, then Cloud Run.
+- [ ] Open the AI Studio billing page on the laptop and read the credit balance.
+- [ ] Open `<demo URL>/api/debug/usage` and look at the voice model counts.
+- [ ] Hard-reload the page. Open a fresh page id: `?page=sun-1`.
+- [ ] Run the demo steps in `docs/DEMO.md` in order, in portrait. Note what fails.
+- [ ] Tap Listen once and say "I'm stuck". This also triggers the microphone permission prompt before a judge is watching. Decide whether Listen is in or out.
+- [ ] Set the volume during the lesson. Check the panel's mute button is off.
+- [ ] iPad: Do Not Disturb on, auto-lock Never, other tabs closed.
+- [ ] Say the 90-second pitch out loud twice with a timer.
+
+Before 11:00 AM:
+
+- [ ] Pick the name. Replace `[need: name]` in `docs/DEVPOST.md`, and the Zurich project's name and link.
+- [ ] Upload the video. Paste the link into Devpost.
+- [ ] Submit on Devpost. Deadline 11:30 AM.
+- [ ] No deploys after the last successful rehearsal.
 
 During judging, 11:30 AM to 1:00 PM:
 
 - [ ] Keep the video open in a tab on the laptop.
-- [ ] Between judges: new page id, pre-write problem 1, check the battery.
-- [ ] If a check returns nothing or an error, read the status line under "Show what AI read", then open `/api/debug/recent` on the laptop.
+- [ ] Between judges: new page id, pre-write step 1, check the battery.
+- [ ] If a check returns nothing: read the status line under "Show what AI read", then open `/api/debug/recent` on the laptop.
+- [ ] If a red banner says the tutor is out of credit: Parsh adds prepaid credit at https://ai.studio/projects. Play the video meanwhile.

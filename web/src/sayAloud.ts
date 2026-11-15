@@ -37,22 +37,34 @@ export async function sayAloud(text: string): Promise<void> {
   }
   try {
     const out = audioOut()
-    // a lesson is using the voice: don't talk over it
+    // a lesson is playing: don't talk over it
     if (out?.isBusy?.()) return
+    // a paused lesson still owns the audio output (resuming it would replay our clip): use the browser's voice
+    const free = !!out && !out.isOwned?.()
     let blob: Blob | null = null
     try {
-      blob = await (await import('./sync/api')).speak(text)
+      blob = free ? await (await import('./sync/api')).speak(text) : null
     } catch {
       blob = null
     }
     if (mine !== turn) return
-    if (blob && out && !out.isBusy?.()) {
+    if (blob && out && !out.isOwned?.()) {
       if (lastUrl) URL.revokeObjectURL(lastUrl)
       const url = (lastUrl = URL.createObjectURL(blob))
       const played = await new Promise<boolean>((resolve) => {
-        out.play(url, { onStart: () => {}, onEnd: () => resolve(true), onError: () => resolve(false) })
-        // a clip that never reports its end must not keep the microphone closed for ever
-        setTimeout(() => resolve(true), 45_000)
+        let started = false
+        const done = (ok: boolean) => {
+          clearInterval(watch)
+          resolve(ok)
+        }
+        out.play(url, { onStart: () => (started = true), onEnd: () => done(true), onError: () => done(false) })
+        // Something else took the output, or the system paused it: its end is never reported.
+        // Once it has started and is no longer playing, it is over as far as the microphone goes.
+        const watch = setInterval(() => {
+          if (started && !out.isBusy?.()) done(true)
+        }, 500)
+        // and whatever happens, never keep the microphone closed for ever
+        setTimeout(() => done(true), 45_000)
       })
       if (played || mine !== turn) return
     }

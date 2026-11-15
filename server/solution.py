@@ -82,8 +82,10 @@ def math_part(plain: str) -> str:
     if s and not compute._has_words(s):
         return s
     # 'Evaluate int(4*x^3 + 2*x) dx': the operation is the math, the words in front of it are not
+    # Only when what is in front really is just words: in `2*int(x) dx` or `x*sin(x) - int(sin(x)) dx` the
+    # front is part of the math, and dropping it would check the wrong thing.
     at = _OPERATION_START.search(s)
-    if at and compute.operation(s[at.start():].strip()) is not None:
+    if at and not re.search(r"[0-9=+\-*/^()±]", s[:at.start()]) and compute.operation(s[at.start():].strip()) is not None:
         return s[at.start():].strip()
     s = re.sub(r"^(?:[A-Za-z]+\b[\s,]*)+:", "", s)                 # 'solve for x: 2*x + 5 = 11'
     s = re.sub(r"^(?:[A-Za-z]{2,}\b[\s:,]*)+", "", s).strip()      # 'Solve 3*x^2 - 3 = 0'
@@ -189,18 +191,24 @@ def check_chain(base: str, steps: list[dict]) -> list[dict]:
     """A verdict per step (base -> step 1, step i -> step i+1), stopping at the first `incorrect`."""
     out, prev, good = [], base, base
     for s in steps:
-        v = judge(prev, s["plain"], s["relation"])
         rewriting = s["relation"] not in ("derivative", "integral")
-        if not rewriting and v["verdict"] != "correct" and prev != base:
-            # A later step labelled "integral"/"derivative" is usually the same answer tidied up
-            # (x^4 + x^2 + C after 4*x^4/4 + 2*x^2/2 + C). It is right if it equals the step before,
-            # or if it is itself a result of the operation the problem asks for.
+        if rewriting or prev == base:
+            v = judge(prev, s["plain"], s["relation"])
+        else:
+            # A later step labelled "integral"/"derivative" is the same answer tidied up
+            # (x^4 + x^2 + C after 4*x^4/4 + 2*x^2/2 + C), not an integral of the step before. It is right
+            # if it equals the step before AND that step was itself checked, or if it is a result of the
+            # operation the problem asks for. Never "the derivative of the previous step": for d/dx (x^3),
+            # `6*x` after `3*x^2` is a second derivative, and wrong.
             same = judge(prev, s["plain"], "equals")
-            of_base = judge(base, s["plain"], s["relation"]) if compute.operation(base) is not None else None
-            if same["verdict"] == "correct":
+            if same["verdict"] == "correct" and good == prev:
                 v = same
-            elif of_base is not None:
-                v = of_base
+            elif compute.operation(base) is not None:
+                v = judge(base, s["plain"], s["relation"])
+            elif same["verdict"] == "incorrect" and good == prev:
+                v = judge(prev, s["plain"], s["relation"])  # a labelled line (f(x) = ...): a real next operation
+            else:
+                v = _unknown("could not tie this step to a checked line")
         if v["verdict"] == "unknown" and rewriting and good and good != prev:
             # the step before couldn't be read: rewriting steps can be checked against the last line that could
             again = judge(good, s["plain"], s["relation"])
