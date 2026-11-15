@@ -3,6 +3,7 @@ import { Tldraw, type Editor } from 'tldraw'
 import 'tldraw/tldraw.css'
 import { DevPanel } from './DevPanel'
 import { HelpButton } from './HelpButton'
+import { LessonDock, useLessonDock } from './lesson/LessonDock'
 import { LessonShapeUtil } from './shapes/LessonShape'
 import { Surface3dShapeUtil } from './shapes/Surface3dShape'
 import { pageIdFromUrl, restorePage, startAutosave } from './persist/saver'
@@ -38,21 +39,28 @@ export default function App() {
     }
   }, [editor])
 
+  // An open lesson takes its own part of the screen (below the notebook, or to its right), so it
+  // never covers the work; the notebook, its toolbar and the Help buttons all fit in what is left.
+  const lessonDock = useLessonDock()
+
   return (
-    <div style={{ position: 'fixed', inset: 0 }}>
-      <Tldraw
-        persistenceKey="tutor-notebook"
-        shapeUtils={shapeUtils}
-        // required on https production hosts (tutor-1098c.web.app); dev and plain http work without it
-        licenseKey={import.meta.env.VITE_TLDRAW_LICENSE_KEY}
-        onMount={(e) => {
-          setEditor(e)
-          if (DEV) Object.assign(window, { editor: e })
-        }}
-      />
-      {tutor && <TutorOverlay tutor={tutor} />}
-      {editor && tutor && <HelpButton editor={editor} tutor={tutor} />}
-      {DEV && editor && <DevPanel editor={editor} />}
+    <div className="app-shell" data-dock={lessonDock.layout?.side}>
+      <div className="app-canvas">
+        <Tldraw
+          persistenceKey="tutor-notebook"
+          shapeUtils={shapeUtils}
+          // required on https production hosts (tutor-1098c.web.app); dev and plain http work without it
+          licenseKey={import.meta.env.VITE_TLDRAW_LICENSE_KEY}
+          onMount={(e) => {
+            setEditor(e)
+            if (DEV) Object.assign(window, { editor: e })
+          }}
+        />
+        {tutor && <TutorOverlay tutor={tutor} />}
+        {editor && tutor && <HelpButton editor={editor} tutor={tutor} />}
+        {DEV && editor && <DevPanel editor={editor} />}
+      </div>
+      <LessonDock {...lessonDock} />
     </div>
   )
 }

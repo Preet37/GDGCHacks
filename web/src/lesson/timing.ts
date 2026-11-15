@@ -51,11 +51,12 @@ export interface StepPlan {
  * Timing of one step. Motion waits for the picture to settle, then runs for most of the narration,
  * finishing a little before the talking does. A step without motion still stays long enough to read.
  */
-export function planStep(step: LessonStep, opts: { reveals?: boolean; rate?: number } = {}): StepPlan {
-  const speech = speechMs(step.say ?? '', opts.rate)
+export function planStep(step: LessonStep, opts: { reveals?: boolean; rate?: number; speechMs?: number } = {}): StepPlan {
+  // `speechMs` = the real length of the recorded narration, once it is known
+  const speech = opts.speechMs && opts.speechMs > 0 ? opts.speechMs : speechMs(step.say ?? '', opts.rate)
   const moves = (step.visual?.marks ?? []).some(markMoves)
   const moveStart = opts.reveals ? REVEAL_MS + 300 : 900
-  const moveMs = moves ? Math.min(9000, Math.max(2200, speech - moveStart - 900)) : 0
+  const moveMs = moves ? Math.min(16000, Math.max(2200, speech - moveStart - 900)) : 0
   const settle = opts.reveals ? REVEAL_MS + 900 : 1500
   const minMs = moves ? moveStart + moveMs + 700 : settle
   return { speechMs: speech, moveStart, moveMs, minMs }
@@ -65,6 +66,39 @@ export function planStep(step: LessonStep, opts: { reveals?: boolean; rate?: num
 export function motionAt(plan: StepPlan, elapsed: number): number {
   if (!plan.moveMs) return elapsed > 0 ? 1 : 0
   return easeInOut(span(elapsed, plan.moveStart, plan.moveMs))
+}
+
+/** The narration cut into words, with where in the narration (0..1) each word ends. */
+export interface Sweep {
+  words: string[]
+  ends: number[]
+}
+
+/**
+ * Split narration into words for subtitles and give each a share of the time: longer words take
+ * longer, and the voice rests after punctuation. Good enough to follow along without word timings.
+ */
+export function sweepPlan(text: string): Sweep {
+  const words = text.trim().split(/\s+/).filter(Boolean)
+  const weights = words.map((w) => {
+    const letters = w.replace(/[^\p{L}\p{N}]/gu, '').length
+    const pause = /[.!?:;]["')\]]*$/.test(w) ? 5 : /,["')\]]*$/.test(w) ? 2.5 : 0
+    return 2 + letters + pause
+  })
+  const total = weights.reduce((a, b) => a + b, 0) || 1
+  let sum = 0
+  const ends = weights.map((w) => (sum += w) / total)
+  if (ends.length) ends[ends.length - 1] = 1
+  return { words, ends }
+}
+
+/** How many words have been started when a fraction `t` (0..1) of the narration has been said. */
+export function wordsSpoken(sweep: Sweep, t: number): number {
+  if (!(t > 0)) return 0
+  if (t >= 1) return sweep.words.length
+  let n = 0
+  while (n < sweep.ends.length && sweep.ends[n] <= t) n++
+  return Math.min(sweep.words.length, n + 1)
 }
 
 /** Fraction of the step that has played, for the progress dot. */

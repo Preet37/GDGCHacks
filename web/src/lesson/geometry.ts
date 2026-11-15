@@ -11,13 +11,86 @@ export interface View {
   x1: number
   y0: number
   y1: number
+  /** true = the x axis is logarithmic (x0 and x1 are then both positive) */
+  xlog?: boolean
+}
+
+/** Where x sits across the view, 0 (left edge) to 1 (right edge). On a log axis equal ratios are equal distances. */
+export function xFrac(view: View, x: number): number {
+  if (!view.xlog) return (x - view.x0) / (view.x1 - view.x0)
+  if (!(x > 0)) return NaN
+  return Math.log(x / view.x0) / Math.log(view.x1 / view.x0)
+}
+
+/** The x at fraction t across the view (the inverse of xFrac). */
+export function xAtFrac(view: View, t: number): number {
+  return view.xlog ? view.x0 * (view.x1 / view.x0) ** t : view.x0 + (view.x1 - view.x0) * t
+}
+
+/** n + 1 sample positions from a to b: evenly spaced, or evenly spaced on a log axis. */
+export function sampleXs(a: number, b: number, n: number, log = false): number[] {
+  const out: number[] = []
+  const useLog = log && a > 0 && b > 0
+  for (let i = 0; i <= n; i++) {
+    const t = n ? i / n : 0
+    out.push(useLog ? a * (b / a) ** t : a + (b - a) * t)
+  }
+  return out
+}
+
+export interface LogTicks {
+  /** powers of ten in range */
+  major: number[]
+  /** 2..9 times each power of ten in range (grid lines only) */
+  minor: number[]
+  /** the ticks that get a number: the decades, plus 2x and 5x when fewer than two decades are in view */
+  labels: number[]
+}
+
+/** Ticks for a logarithmic axis from lo to hi (both positive). */
+export function logTicks(lo: number, hi: number): LogTicks {
+  const none = { major: [], minor: [], labels: [] }
+  if (!(lo > 0) || !(hi > lo) || !Number.isFinite(hi)) return none
+  const major: number[] = []
+  const minor: number[] = []
+  const eps = 1e-9
+  const k0 = Math.floor(Math.log10(lo) + eps)
+  const k1 = Math.floor(Math.log10(hi) + eps)
+  if (k1 - k0 > 400) return none
+  const inRange = (v: number) => v >= lo * (1 - eps) && v <= hi * (1 + eps)
+  for (let k = k0; k <= k1; k++) {
+    const p = Number((10 ** k).toPrecision(12))
+    if (inRange(p)) major.push(p)
+    for (let m = 2; m <= 9; m++) {
+      const v = Number((m * 10 ** k).toPrecision(12))
+      if (inRange(v)) minor.push(v)
+    }
+  }
+  const labels = major.length >= 2 ? major : [...major, ...minor.filter((v) => /^[25]/.test(v.toExponential()))].sort((a, b) => a - b)
+  return { major, minor, labels }
+}
+
+const SUPER = '⁰¹²³⁴⁵⁶⁷⁸⁹'
+
+/** A short label for a log-axis tick: 0.01, 1, 1000, then 10⁴ and 10⁻³ where plain digits get long. */
+export function logLabel(v: number): string {
+  const k = Math.log10(v)
+  if (Math.abs(k - Math.round(k)) < 1e-9 && (k > 3 || k < -2)) {
+    const digits = String(Math.abs(Math.round(k)))
+      .split('')
+      .map((d) => SUPER[Number(d)])
+      .join('')
+    return `10${k < 0 ? '⁻' : ''}${digits}`
+  }
+  return fmt(v, 6)
 }
 
 /** Compile a math.js expression in x. null if it can't be parsed. The function itself never throws. */
 export function compileExpr(expr: string): Fn | null {
   let node: { evaluate: (scope: { x: number }) => unknown }
   try {
-    node = compile(toPlotExpr(String(expr)))
+    // toPlotExpr reads the digit in log10( as a number to multiply by: put those names back together
+    node = compile(toPlotExpr(String(expr)).replace(/\b(log10|log2|log1p|expm1|atan2)\*\(/g, '$1('))
   } catch {
     return null
   }
@@ -36,6 +109,12 @@ export function lerp(a: number, b: number, t: number): number {
 }
 
 export function lerpView(a: View, b: View, t: number): View {
+  // between a linear and a log axis there is nothing sensible in between: go straight to the new one
+  if (!!a.xlog !== !!b.xlog) return b
+  if (b.xlog) {
+    const g = (p: number, q: number) => p * (q / p) ** t
+    return { x0: g(a.x0, b.x0), x1: g(a.x1, b.x1), y0: lerp(a.y0, b.y0, t), y1: lerp(a.y1, b.y1, t), xlog: true }
+  }
   return { x0: lerp(a.x0, b.x0, t), x1: lerp(a.x1, b.x1, t), y0: lerp(a.y0, b.y0, t), y1: lerp(a.y1, b.y1, t) }
 }
 
@@ -97,13 +176,11 @@ export function secantThrough(f: Fn, x: number, x2: number): Secant | null {
  * The region between the curve and the x axis from a to b, as a closed polygon:
  * along the axis at a, up over the curve, back down at b. Samples where f is undefined are left out.
  */
-export function areaPolygon(f: Fn, a: number, b: number, n = 80): [number, number][] {
+export function areaPolygon(f: Fn, a: number, b: number, n = 80, log = false): [number, number][] {
   const lo = Math.min(a, b)
   const hi = Math.max(a, b)
   const pts: [number, number][] = [[lo, 0]]
-  const steps = hi > lo ? n : 0
-  for (let i = 0; i <= steps; i++) {
-    const x = steps ? lo + ((hi - lo) * i) / steps : lo
+  for (const x of sampleXs(lo, hi, hi > lo ? n : 0, log)) {
     const y = f(x)
     if (Number.isFinite(y)) pts.push([x, y])
   }
@@ -112,17 +189,22 @@ export function areaPolygon(f: Fn, a: number, b: number, n = 80): [number, numbe
 }
 
 /** Signed area under f from a to b (trapezoid rule over the same samples as areaPolygon). */
-export function areaUnder(f: Fn, a: number, b: number, n = 80): number {
-  const pts = areaPolygon(f, a, b, n)
+export function areaUnder(f: Fn, a: number, b: number, n = 80, log = false): number {
+  const pts = areaPolygon(f, a, b, n, log)
   let sum = 0
   for (let i = 1; i < pts.length; i++) sum += ((pts[i][1] + pts[i - 1][1]) / 2) * (pts[i][0] - pts[i - 1][0])
   return b >= a ? sum : -sum
 }
 
-/** Where a mark is after a fraction `p` (0..1, already eased) of its step. */
-export function markAt(mark: LessonMark, p: number): { x: number | undefined; x2: number | undefined } {
-  const move = (from: number | undefined, to: number | undefined) =>
-    typeof from === 'number' && typeof to === 'number' ? lerp(from, to, p) : (from ?? to)
+/**
+ * Where a mark is after a fraction `p` (0..1, already eased) of its step. On a log axis it moves
+ * evenly across the screen (by ratio), not evenly in x.
+ */
+export function markAt(mark: LessonMark, p: number, log = false): { x: number | undefined; x2: number | undefined } {
+  const move = (from: number | undefined, to: number | undefined) => {
+    if (typeof from !== 'number' || typeof to !== 'number') return from ?? to
+    return log && from > 0 && to > 0 ? from * (to / from) ** p : lerp(from, to, p)
+  }
   return { x: move(mark.x, mark.to_x), x2: move(mark.x2, mark.to_x2) }
 }
 
@@ -182,23 +264,56 @@ function cachedFn(src: string): Fn | null {
   return fnCache.get(src) ?? null
 }
 
+/** A y range for curves on a log x axis: sampled evenly across the screen, wild values fenced out, a little air added. */
+export function logYRange(curves: Curve[], x0: number, x1: number): [number, number] | undefined {
+  const ys: number[] = []
+  for (const c of curves) {
+    if (!c.fn) continue
+    for (const x of sampleXs(x0, x1, 200, true)) {
+      const y = c.fn(x)
+      if (Number.isFinite(y)) ys.push(y)
+    }
+  }
+  if (!ys.length) return undefined
+  ys.sort((a, b) => a - b)
+  const q = (p: number) => ys[Math.min(ys.length - 1, Math.floor(p * (ys.length - 1)))]
+  const iqr = q(0.75) - q(0.25)
+  let lo = ys[0]
+  let hi = ys[ys.length - 1]
+  if (iqr > 0) {
+    lo = Math.max(lo, q(0.25) - 3 * iqr)
+    hi = Math.min(hi, q(0.75) + 3 * iqr)
+  }
+  if (hi === lo) {
+    lo -= 1
+    hi += 1
+  }
+  const pad = (hi - lo) * 0.08
+  return [lo - pad, hi + pad]
+}
+
 /** Turn a LessonVisual into a Scene: compile what can be compiled, and work out a y range if none was given. */
 export function buildScene(visual: LessonVisual): Scene {
   const expressions = (Array.isArray(visual.expressions) ? visual.expressions : []).map(String)
-  const [x0, x1] = pair(visual.x_range) ?? [-5, 5]
+  let [x0, x1] = pair(visual.x_range) ?? [-5, 5]
+  // a log axis needs a positive range: one that starts at or below zero is cut to three decades
+  const xlog = visual.x_log === true && x1 > 0
+  if (xlog && !(x0 > 0)) x0 = x1 / 1000
   const kind = visual.kind === 'surface3d' ? 'surface3d' : 'plot2d'
   const curves = kind === 'plot2d' ? expressions.map((src) => ({ src, fn: cachedFn(src) })) : []
   let ys = kind === 'plot2d' ? pair(visual.y_range) : null
   if (!ys && kind === 'plot2d') {
     try {
-      ys = pair(sampleYRange(expressions, [x0, x1]))
+      ys = xlog ? pair(logYRange(curves, x0, x1)) : pair(sampleYRange(expressions, [x0, x1]))
     } catch {
       ys = null
     }
   }
   const [y0, y1] = ys ?? [-5, 5]
   const marks = (Array.isArray(visual.marks) ? visual.marks : []).filter((m) => m && typeof m.type === 'string')
-  return { kind, curves, view: { x0, x1, y0, y1 }, marks, visual }
+  const view: View = { x0, x1, y0, y1 }
+  if (xlog && kind === 'plot2d') view.xlog = true
+  return { kind, curves, view, marks, visual }
 }
 
 /** The scene shown at each step: a step without a visual keeps the one before it (null until the first one). */

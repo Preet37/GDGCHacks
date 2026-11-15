@@ -18,8 +18,7 @@ import {
   tangentAt,
 } from './geometry'
 import { LessonPlayer } from './player'
-import { cleanLesson, lessonSize } from './render'
-import { CARD_H, CARD_W } from './size'
+import { cleanLesson } from './render'
 import { Narrator, pickVoice, START_TIMEOUT_MS, type SpeechEnv, type SynthLike, type UtteranceLike } from './speech'
 import { easeInOut, motionAt, planStep, speechMs, splitCaption, STEP_GAP_MS } from './timing'
 
@@ -450,14 +449,14 @@ describe('player', () => {
   })
 })
 
-describe('placing the card', () => {
+describe('cleaning a lesson', () => {
   it('keeps only what the player understands', () => {
     const dirty = {
       title: 'T',
       extra: 1,
       steps: [
         null,
-        { say: 'hello', write: '  ', junk: true, visual: { kind: 'plot2d', expressions: ['x', 3], x_range: ['-1', 2], marks: [{ type: 'tangent', x: 1, to_x: 'far' }, { type: 'wiggle' }, null] } },
+        { say: 'hello', write: '  ', junk: true, visual: { kind: 'plot2d', expressions: ['x', 3], x_range: ['-1', 2], x_log: 'yes', marks: [{ type: 'tangent', x: 1, to_x: 'far' }, { type: 'wiggle' }, null] } },
         {},
       ],
     } as unknown as Lesson
@@ -468,20 +467,5 @@ describe('placing the card', () => {
     expect(cleanLesson({ title: 'x', steps: [] })).toBeNull()
     expect(cleanLesson(undefined)).toBeNull()
     expect(cleanLesson(lesson)).toEqual(lesson)
-  })
-
-  it('sizes the card to about half the screen, keeping its shape', () => {
-    const view = { w: 1180, h: 820 }
-    const s = lessonSize({ w: 360, h: 260 }, view, 1)
-    expect(s.w).toBe(590)
-    expect(s.h / s.w).toBeCloseTo(CARD_H / CARD_W)
-    // zoomed out: still wide enough on screen to tap (460 px), and never taller than the screen
-    const far = lessonSize({ w: 360, h: 260 }, { w: 2360, h: 1640 }, 0.5)
-    expect(far.w * 0.5).toBeGreaterThanOrEqual(460)
-    const phone = lessonSize({ w: 360, h: 260 }, { w: 400, h: 300 }, 1)
-    expect(phone.h).toBeLessThanOrEqual(300)
-    // big handwriting asks for a bigger card, within reason
-    expect(lessonSize({ w: 900, h: 600 }, view, 1).w).toBeGreaterThan(590)
-    expect(lessonSize({ w: 9000, h: 600 }, view, 1).w).toBeLessThanOrEqual(760)
   })
 })

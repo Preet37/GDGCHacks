@@ -1,7 +1,8 @@
-import { lazy, Suspense } from 'react'
-import { BaseBoxShapeUtil, HTMLContainer, T, type RecordProps, type TLShape } from 'tldraw'
+import { useEffect, useRef, useSyncExternalStore } from 'react'
+import { HTMLContainer, Rectangle2d, ShapeUtil, T, useEditor, type RecordProps, type TLShape } from 'tldraw'
 import type { Lesson } from '../contract'
-import { CARD_H, CARD_W } from '../lesson/size'
+import { dock } from '../lesson/dock'
+import { focusLesson } from '../lesson/focus'
 
 export const LESSON_TYPE = 'lesson'
 
@@ -12,9 +13,6 @@ declare module 'tldraw' {
 }
 
 export type LessonShape = TLShape<typeof LESSON_TYPE>
-
-// The player (canvas drawing, KaTeX and its fonts, narration) is only loaded when a lesson is on the page.
-const LessonCard = lazy(() => import('../lesson/LessonCard'))
 
 const range = T.arrayOf(T.number)
 const color = T.literalEnum('red', 'green', 'blue', 'black')
@@ -32,6 +30,7 @@ const lessonProp = T.object({
         expressions: T.arrayOf(T.string),
         x_range: range,
         y_range: range.optional(),
+        x_log: T.boolean.optional(),
         marks: T.arrayOf(
           T.object({
             type: T.literalEnum('point', 'tangent', 'secant', 'area', 'vline', 'hline', 'label'),
@@ -50,60 +49,118 @@ const lessonProp = T.object({
   ),
 }) as unknown as T.Validator<Lesson>
 
-function Placeholder({ title }: { title: string }) {
+/** The marker is never bigger than this on the page, whatever was stored (older pages kept a whole card here). */
+const MAX_SIDE = 64
+
+function side(shape: LessonShape): number {
+  const s = Math.min(shape.props.w, shape.props.h)
+  return Number.isFinite(s) && s > 0 ? Math.min(MAX_SIDE, s) : 34
+}
+
+/**
+ * The small round "play" badge a lesson leaves next to the line it is about. Tapping it opens the
+ * lesson in the docked panel again.
+ */
+function Marker({ shape }: { shape: LessonShape }) {
+  const editor = useEditor()
+  const ref = useRef<HTMLButtonElement>(null)
+  const { lesson } = shape.props
+  const key = JSON.stringify(lesson)
+  const open = useSyncExternalStore(dock.subscribe, () => dock.get()?.key === key)
+  const s = side(shape)
+
+  // Native listeners: they run before tldraw's (so a tap neither inks nor drags the marker), and
+  // they act on touchend / click, which iOS counts as a user gesture, so the voice may start.
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    let touchAt = -1e9
+    const act = () => {
+      dock.open(lesson, { fromTap: true })
+      const b = editor.getShapePageBounds(shape.id)
+      if (b) focusLesson(editor, { x: b.x, y: b.y, w: b.w, h: b.h })
+    }
+    const on = (e: Event) => {
+      editor.markEventAsHandled(e)
+      e.stopPropagation()
+      if (e.type === 'touchend') {
+        e.preventDefault() // no synthetic click afterwards
+        touchAt = performance.now()
+        act()
+      } else if (e.type === 'click' && performance.now() - touchAt > 700) act()
+    }
+    const types = ['pointerdown', 'pointermove', 'pointerup', 'touchstart', 'touchmove', 'touchend', 'click', 'dblclick', 'contextmenu']
+    for (const t of types) el.addEventListener(t, on, { passive: false })
+    return () => {
+      for (const t of types) el.removeEventListener(t, on)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editor, shape.id, key])
+
   return (
-    <div
+    <button
+      ref={ref}
+      data-lesson-marker={open ? 'open' : 'closed'}
+      aria-label={`Open the lesson: ${lesson.title || 'lesson'}`}
+      title={lesson.title}
       style={{
-        width: '100%',
-        height: '100%',
+        width: s,
+        height: s,
         boxSizing: 'border-box',
-        border: '1px solid #dfe4ee',
-        borderRadius: 20,
-        background: '#fff',
+        padding: 0,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        padding: 24,
-        textAlign: 'center',
-        font: '600 20px system-ui, sans-serif',
-        color: '#69738a',
+        border: `${Math.max(1.5, s * 0.06)}px solid #2563eb`,
+        borderRadius: '50%',
+        background: open ? '#2563eb' : '#fff',
+        color: open ? '#fff' : '#2563eb',
+        boxShadow: '0 1px 4px rgba(37, 99, 235, 0.25)',
+        pointerEvents: 'all',
+        touchAction: 'manipulation',
+        cursor: 'pointer',
       }}
     >
-      {title}
-    </div>
+      <svg viewBox="0 0 24 24" width={s * 0.56} height={s * 0.56} aria-hidden="true" style={{ marginLeft: s * 0.05 }}>
+        <path d="M8 5.2v13.6a.9.9 0 0 0 1.37.77l11-6.8a.9.9 0 0 0 0-1.54l-11-6.8A.9.9 0 0 0 8 5.2z" fill="currentColor" />
+      </svg>
+    </button>
   )
 }
 
-export class LessonShapeUtil extends BaseBoxShapeUtil<LessonShape> {
+export class LessonShapeUtil extends ShapeUtil<LessonShape> {
   static override type = LESSON_TYPE
   static override props: RecordProps<LessonShape> = { w: T.number, h: T.number, lesson: lessonProp }
 
   override getDefaultProps(): LessonShape['props'] {
-    return { w: CARD_W, h: CARD_H, lesson: { title: '', steps: [] } }
+    return { w: 34, h: 34, lesson: { title: '', steps: [] } }
+  }
+
+  override getGeometry(shape: LessonShape) {
+    const s = side(shape)
+    return new Rectangle2d({ width: s, height: s, isFilled: true })
   }
 
   override canEdit() {
     return false
   }
 
-  override isAspectRatioLocked() {
-    return true
+  override canResize() {
+    return false
   }
 
   override component(shape: LessonShape) {
-    const { w, h, lesson } = shape.props
     return (
       <HTMLContainer>
-        <Suspense fallback={<Placeholder title={lesson.title} />}>
-          <LessonCard shapeId={shape.id} lesson={lesson} w={w} h={h} />
-        </Suspense>
+        <Marker shape={shape} />
       </HTMLContainer>
     )
   }
 
   override getIndicatorPath(shape: LessonShape) {
+    const s = side(shape)
     const path = new Path2D()
-    path.roundRect(0, 0, shape.props.w, shape.props.h, (20 * shape.props.w) / CARD_W)
+    path.arc(s / 2, s / 2, s / 2, 0, Math.PI * 2)
     return path
   }
 }

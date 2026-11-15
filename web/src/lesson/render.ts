@@ -1,8 +1,9 @@
 import { createShapeId, type Editor } from 'tldraw'
 import type { Action, Lesson, LessonMark, LessonStep, LessonVisual } from '../contract'
 import { aiMeta } from '../render/actions'
-import { requestAutoplay } from './autoplay'
-import { CARD_H, CARD_W } from './size'
+import { dock } from './dock'
+import { focusLesson, studentInk } from './focus'
+import { markerSize, markerSpot } from './layout'
 
 /** Must match LessonShapeUtil.type (web/src/shapes/LessonShape.tsx, registered in App.tsx). */
 const SHAPE_TYPE = 'lesson'
@@ -42,6 +43,7 @@ function cleanVisual(v: Partial<LessonVisual> | null | undefined): LessonVisual 
   }
   const y = pair(v.y_range)
   if (y) out.y_range = y
+  if (v.x_log === true) out.x_log = true
   if (Array.isArray(v.marks)) out.marks = v.marks.flatMap((m) => cleanMark(m) ?? [])
   return out
 }
@@ -65,50 +67,12 @@ export function cleanLesson(lesson: Partial<Lesson> | null | undefined): Lesson 
   return { title: typeof lesson.title === 'string' ? lesson.title : '', steps }
 }
 
-export interface Size {
-  w: number
-  h: number
-}
-
 /**
- * How big the card is, in page units: about half the screen wide (so it can be watched from where
- * the student sits), never narrower than the space the handwriting suggested or than a width at
- * which the controls are comfortable to tap, and never so big that it doesn't fit on screen.
- */
-export function lessonSize(suggested: Size, view: Size, zoom: number): Size {
-  const z = zoom > 0 && Number.isFinite(zoom) ? zoom : 1
-  const fitW = Math.min(view.w * 0.92, ((view.h * 0.94) / CARD_H) * CARD_W)
-  const want = Math.max(view.w * 0.5, 460 / z, Math.min(suggested.w, view.w * 0.62))
-  const w = Math.max(240, Math.min(want, 760 / z, fitW))
-  return { w, h: (w * CARD_H) / CARD_W }
-}
-
-/** Screen space taken by the page's own controls (Help column on the right, toolbar below), in px. */
-const CLEAR = { left: 20, top: 56, right: 112, bottom: 96 }
-
-/** If the card isn't fully on screen, slide the page just enough to bring it into view. */
-function bringIntoView(editor: Editor, card: { x: number; y: number; w: number; h: number }) {
-  const view = editor.getViewportPageBounds()
-  const z = editor.getZoomLevel() || 1
-  const shift = (lo: number, size: number, vLo: number, vSize: number, padLo: number, padHi: number) => {
-    const min = vLo + padLo / z
-    const max = vLo + vSize - padHi / z
-    if (size > max - min) return lo - min // doesn't fit: show its start
-    if (lo < min) return lo - min
-    if (lo + size > max) return lo + size - max
-    return 0
-  }
-  const dx = shift(card.x, card.w, view.x, view.w, CLEAR.left, CLEAR.right)
-  const dy = shift(card.y, card.h, view.y, view.h, CLEAR.top, CLEAR.bottom)
-  if (!dx && !dy) return
-  const cam = editor.getCamera()
-  editor.setCamera({ x: cam.x - dx, y: cam.y - dy, z: cam.z }, { animation: { duration: 450 } })
-}
-
-/**
- * Put a lesson card for a `lesson` action on the page at `rect` (page space; the top-left is kept,
- * the size is the card's own) and start playing it. Only the Lesson is stored in the shape, so it
- * plays again from a saved page. Never throws.
+ * Play the lesson of a `lesson` action. The lesson opens in the docked panel (never on top of the
+ * work) and starts playing; a small marker is left on the page in the corner of `rect` (page
+ * space, the free spot found next to the line) nearest the writing. The marker stores the Lesson, so it opens again from a
+ * saved page. The camera moves, if it has to, so the line stays in view beside the panel.
+ * Never throws.
  */
 export async function renderLesson(editor: Editor, action: Action, rect: { x: number; y: number; w: number; h: number }): Promise<void> {
   try {
@@ -117,18 +81,25 @@ export async function renderLesson(editor: Editor, action: Action, rect: { x: nu
       console.warn('lesson skipped: nothing to play', action)
       return
     }
-    const view = editor.getViewportPageBounds()
-    const size = lessonSize(rect, view, editor.getZoomLevel())
+    const spot = markerSpot(rect, studentInk(editor), markerSize(editor.getZoomLevel()))
     const id = createShapeId()
-    requestAutoplay(id)
+    const key = JSON.stringify(lesson)
+    // the same lesson asked for again: one marker is enough
+    const twins = editor
+      .getCurrentPageShapes()
+      .filter((s) => s.type === SHAPE_TYPE && JSON.stringify((s.props as { lesson?: unknown }).lesson) === key)
+      .map((s) => s.id)
     editor.run(
-      () =>
+      () => {
+        if (twins.length) editor.deleteShapes(twins)
         editor.createShapes([
-          { id, type: SHAPE_TYPE, x: rect.x, y: rect.y, meta: aiMeta('lesson', action.line_id), props: { w: size.w, h: size.h, lesson } },
-        ]),
+          { id, type: SHAPE_TYPE, x: spot.x, y: spot.y, meta: aiMeta('lesson', action.line_id), props: { w: spot.w, h: spot.h, lesson } },
+        ])
+      },
       { history: 'ignore', ignoreShapeLock: true },
     )
-    bringIntoView(editor, { x: rect.x, y: rect.y, ...size })
+    dock.open(lesson)
+    focusLesson(editor, spot)
   } catch (err) {
     console.warn('lesson skipped', action.lesson, err)
   }

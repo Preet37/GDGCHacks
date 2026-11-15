@@ -1,3 +1,4 @@
+import { audioOut } from './audio'
 import { speechMs } from './timing'
 
 /** The bits of the Web Speech API the narrator uses (so tests can fake them). */
@@ -243,5 +244,7 @@ export function narrator(): Narrator {
 
 /** Call from the tap that asks for a lesson, so the narration may start when the lesson arrives. */
 export function primeSpeech() {
+  // the recorded voice plays through one audio element, which iOS also only unlocks inside a tap
+  audioOut()?.unlock()
   narrator().prime()
 }

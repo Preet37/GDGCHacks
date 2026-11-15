@@ -1,71 +1,134 @@
-/* The lesson card: a sheet of the notebook's own paper with a small animated explanation on it.
-   Laid out at 640 x 704 and scaled as a whole, so type and touch targets grow with the card. */
-.lesson-frame {
-  position: relative;
+/* The notebook and the lesson panel share the screen: the panel docks below the notebook on an
+   upright screen and to its right on a wide one, so a lesson never lies on top of the work. */
+.app-shell {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
 }
 
-.lesson-card {
+.app-shell[data-dock='right'] {
+  flex-direction: row;
+}
+
+.app-canvas {
+  position: relative;
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+}
+
+/* With the sheet below, the notebook is short: Help and Teach me sit side by side above the
+   toolbar instead of stacking up into the style panel, and the two page chips step aside. */
+.app-shell[data-dock='bottom'] .tutor-controls {
+  flex-direction: row;
+  align-items: flex-end;
+  bottom: 76px;
+}
+
+.app-shell[data-dock='bottom'] .tutor-chip {
+  display: none;
+}
+
+.lesson-dock {
   --ink: #1d2740;
   --quiet: #69738a;
   --faint: #a3abbb;
   --line: #dfe4ee;
   --accent: #2563eb;
-  position: absolute;
-  top: 0;
-  left: 0;
-  transform-origin: 0 0;
+  position: relative;
+  z-index: 1001;
+  flex: none;
   box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
-  padding: 20px 20px 14px;
-  border: 1px solid var(--line);
-  border-radius: 20px;
+  min-width: 0;
+  min-height: 0;
   background: #fff;
-  box-shadow:
-    0 1px 2px rgba(29, 39, 64, 0.06),
-    0 10px 28px rgba(29, 39, 64, 0.1);
   color: var(--ink);
   font-family: KaTeX_Main, 'Times New Roman', serif;
   user-select: none;
   -webkit-user-select: none;
   -webkit-touch-callout: none;
-  animation: lesson-arrive 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  touch-action: manipulation;
 }
 
-@keyframes lesson-arrive {
+.lesson-dock[data-side='bottom'] {
+  width: 100%;
+  border-top: 1px solid var(--line);
+  box-shadow: 0 -8px 24px rgba(29, 39, 64, 0.09);
+  animation: lesson-rise 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+.lesson-dock[data-side='right'] {
+  height: 100%;
+  border-left: 1px solid var(--line);
+  box-shadow: -8px 0 24px rgba(29, 39, 64, 0.09);
+  animation: lesson-slide 380ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+
+@keyframes lesson-rise {
   from {
     opacity: 0;
-    translate: 0 14px;
+    translate: 0 28px;
   }
 }
 
-.lesson-card button {
+@keyframes lesson-slide {
+  from {
+    opacity: 0;
+    translate: 28px 0;
+  }
+}
+
+.lesson-panel-wait {
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  text-align: center;
+  font: 600 20px system-ui, sans-serif;
+  color: var(--quiet);
+}
+
+.lesson-panel {
+  container-type: inline-size;
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  padding: 8px 16px calc(6px + env(safe-area-inset-bottom));
+}
+
+.lesson-dock button {
   font: inherit;
   color: inherit;
   border: none;
   background: none;
   padding: 0;
   margin: 0;
-  pointer-events: all;
   touch-action: manipulation;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
 }
 
+.lesson-dock button:focus-visible {
+  outline: 3px solid #93b4f8;
+  outline-offset: 2px;
+}
+
 .lesson-head {
-  display: flex;
-  align-items: baseline;
-  gap: 16px;
-  height: 40px;
   flex: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  height: 44px;
 }
 
 .lesson-title {
   flex: 1;
   min-width: 0;
-  font-size: 27px;
+  font-size: 23px;
   font-weight: 700;
-  line-height: 40px;
   letter-spacing: -0.005em;
   white-space: nowrap;
   overflow: hidden;
@@ -74,18 +137,31 @@
 
 .lesson-count {
   flex: none;
+  margin-right: 6px;
   font-family: system-ui, sans-serif;
-  font-size: 15px;
+  font-size: 14px;
   color: var(--quiet);
   font-variant-numeric: tabular-nums;
 }
 
+/* picture and board: side by side in the wide bottom sheet, stacked in the tall right-hand panel */
+.lesson-body {
+  flex: 1 1 0;
+  min-height: 0;
+  display: flex;
+  gap: 16px;
+}
+
+.lesson-dock[data-side='right'] .lesson-body {
+  flex-direction: column;
+  gap: 4px;
+}
+
 .lesson-visual {
   position: relative;
-  flex: none;
-  width: 600px;
-  height: 372px;
-  margin-top: 10px;
+  flex: 1.5 1 0;
+  min-width: 0;
+  min-height: 0;
   border-radius: 12px;
   background: #fff;
   box-shadow: inset 0 0 0 1px #e9edf4;
@@ -97,6 +173,9 @@
 }
 
 .lesson-canvas {
+  position: absolute;
+  top: 0;
+  left: 0;
   display: block;
 }
 
@@ -115,15 +194,56 @@
   color: var(--quiet);
 }
 
-/* the big first Play: also where a tap goes when the browser won't speak without one */
-.lesson-card .lesson-start {
+/* shown while the recorded voice for this step is still on its way (the picture draws meanwhile) */
+.lesson-voice-wait {
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 14px 7px 10px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.94);
+  box-shadow:
+    0 0 0 1px var(--line),
+    0 4px 12px rgba(29, 39, 64, 0.12);
+  font: 500 14px system-ui, sans-serif;
+  color: #3b5488;
+  white-space: nowrap;
+  animation: lesson-caption-in 250ms ease 350ms both;
+}
+
+.lesson-voice-wait svg {
+  width: 18px;
+  height: 18px;
+  animation: lesson-spin 0.9s linear infinite;
+}
+
+.lesson-voice-wait circle {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 3;
+  stroke-linecap: round;
+  stroke-dasharray: 38 57;
+}
+
+@keyframes lesson-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* the big first Play: also where a tap goes when the browser won't make a sound without one */
+.lesson-dock .lesson-start {
   position: absolute;
   inset: 0;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 14px;
+  gap: 12px;
   background: rgba(255, 255, 255, 0.78);
 }
 
@@ -131,9 +251,9 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 108px;
-  height: 108px;
-  padding-left: 6px;
+  width: 88px;
+  height: 88px;
+  padding-left: 5px;
   box-sizing: border-box;
   border-radius: 50%;
   background: var(--accent);
@@ -147,14 +267,30 @@
 
 .lesson-start-label {
   font-family: system-ui, sans-serif;
-  font-size: 20px;
+  font-size: 18px;
   font-weight: 600;
   color: var(--ink);
 }
 
+/* the board: the line of math being written, and the short caption under it */
+.lesson-board {
+  flex: 1 1 0;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 6px;
+}
+
+.lesson-dock[data-side='right'] .lesson-board {
+  flex: none;
+  padding-top: 4px;
+}
+
 .lesson-write {
   flex: none;
-  height: 104px;
+  height: 84px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -162,11 +298,11 @@
 
 .lesson-math {
   width: 100%;
-  height: 96px;
+  height: 80px;
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 34px;
+  font-size: 30px;
   line-height: 1.2;
   transition: color 400ms ease;
 }
@@ -205,10 +341,12 @@
 
 .lesson-caption {
   flex: none;
-  height: 62px;
+  min-height: 28px;
+  max-height: 84px;
+  overflow: hidden;
   text-align: center;
-  font-size: 25px;
-  line-height: 31px;
+  font-size: 21px;
+  line-height: 28px;
   color: #3a445c;
   text-wrap: balance;
   animation: lesson-caption-in 380ms ease 120ms both;
@@ -228,58 +366,95 @@
   }
 }
 
+/* Subtitles: what the voice is saying, three lines at a time. Words are inked in as they are said;
+   a long narration scrolls so the line being said stays in view. */
+.lesson-subs {
+  flex: none;
+  margin-top: 8px;
+  padding: 8px 14px;
+  border-radius: 12px;
+  background: #f5f7fb;
+}
+
+/* exactly three lines tall, so scrolling never shows half a line */
+.lesson-subs-lines {
+  position: relative;
+  height: 84px;
+  overflow: hidden;
+  font-family: system-ui, -apple-system, sans-serif;
+  font-size: 19px;
+  line-height: 28px;
+  color: #98a1b5;
+  animation: lesson-caption-in 300ms ease both;
+}
+
+.lesson-subs span {
+  transition: color 180ms ease;
+}
+
+.lesson-subs .said {
+  color: var(--ink);
+}
+
 .lesson-controls {
   flex: none;
   display: flex;
   align-items: center;
-  gap: 6px;
-  height: 76px;
-  margin-top: auto;
-  padding-top: 8px;
-  border-top: 1px solid #eef1f6;
+  gap: 4px;
+  min-height: 60px;
+  margin-top: 4px;
 }
 
-.lesson-card .lesson-btn {
+.lesson-transport {
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.lesson-dock .lesson-btn {
   flex: none;
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 62px;
-  height: 62px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   color: #46506a;
 }
 
-.lesson-card .lesson-btn:active {
+.lesson-dock .lesson-btn.small {
+  width: 44px;
+  height: 44px;
+  color: var(--quiet);
+}
+
+.lesson-dock .lesson-btn:active {
   background: #eef2fb;
 }
 
-.lesson-card .lesson-btn:disabled {
+.lesson-dock .lesson-btn:disabled {
   color: #c9cfdb;
 }
 
-.lesson-card .lesson-btn.off {
+.lesson-dock .lesson-btn.off {
   color: var(--faint);
 }
 
-.lesson-card .lesson-play {
-  width: 68px;
-  height: 68px;
+.lesson-dock .lesson-play {
+  width: 56px;
+  height: 56px;
   background: var(--accent);
   color: #fff;
   box-shadow: 0 3px 10px rgba(37, 99, 235, 0.32);
 }
 
-.lesson-card .lesson-play:active {
+.lesson-dock .lesson-play:active {
   background: #1d4fd0;
   transform: scale(0.95);
 }
 
-.lesson-card button:focus-visible {
-  outline: 3px solid #93b4f8;
-  outline-offset: 2px;
-}
-
+/* one dot per step; each is a full-height tap target however many steps there are */
 .lesson-dots {
   flex: 1;
   min-width: 0;
@@ -288,13 +463,14 @@
   justify-content: center;
 }
 
-.lesson-card .lesson-dot {
+.lesson-dock .lesson-dot {
   display: flex;
   align-items: center;
   justify-content: center;
-  flex: 1;
-  max-width: 56px;
-  height: 62px;
+  flex: 1 1 0;
+  min-width: 0;
+  max-width: 64px;
+  height: 48px;
 }
 
 .lesson-dot > span {
@@ -315,14 +491,75 @@
 
 /* the current step is a short bar that fills as it plays */
 .lesson-dot.now > span {
-  width: 44px;
+  width: min(36px, 80%);
   background: linear-gradient(to right, var(--accent) calc(var(--p) * 100%), #cbd8f6 calc(var(--p) * 100%));
 }
 
+/* a narrow panel (the right-hand dock, a phone): the dots get a row of their own, so nine of them
+   are still easy to hit */
+@container (max-width: 640px) {
+  .lesson-controls {
+    flex-wrap: wrap;
+    justify-content: space-between;
+    row-gap: 0;
+  }
+
+  .lesson-dots {
+    order: -1;
+    flex: 0 0 100%;
+  }
+
+  .lesson-dock .lesson-dot {
+    max-width: none;
+    height: 44px;
+  }
+
+  .lesson-title {
+    font-size: 20px;
+  }
+}
+
+/* The lesson, put away: a pill at the top of the notebook. Tap to open it again. */
+.lesson-pill {
+  position: absolute;
+  top: 44px;
+  left: 50%;
+  z-index: 1000;
+  translate: -50% 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(70vw, 420px);
+  min-height: 40px;
+  padding: 0 16px 0 12px;
+  border: 1px solid #c7d7f5;
+  border-radius: 999px;
+  background: #fff;
+  color: #2c4a8c;
+  font: 600 14px system-ui, sans-serif;
+  box-shadow: 0 2px 10px rgba(37, 99, 235, 0.16);
+  touch-action: manipulation;
+  cursor: pointer;
+  animation: lesson-caption-in 250ms ease both;
+}
+
+.lesson-pill svg {
+  flex: none;
+  color: var(--accent, #2563eb);
+}
+
+.lesson-pill span {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .lesson-card,
+  .lesson-dock,
   .lesson-caption,
+  .lesson-subs-lines,
   .lesson-math.fresh .lesson-math-inner {
-    animation: none;
+    animation: none !important;
   }
 }

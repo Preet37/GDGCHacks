@@ -32,3 +32,29 @@ export async function postCheck(req: CheckRequest): Promise<CheckResponse> {
   }
   return res.json()
 }
+
+/**
+ * POST /api/speak: the narration `text` read out by the server's voice, as audio (WAV).
+ * Rejects if there is no voice to be had (no server, an error reply, ?mock): the caller falls back
+ * to the browser's own speech.
+ */
+export async function speak(text: string, signal?: AbortSignal): Promise<Blob> {
+  if (MOCK) throw new ApiError('No recorded voice without a server')
+  let res: Response
+  try {
+    res = await fetch('/api/speak', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ text }),
+      signal,
+    })
+  } catch {
+    throw new ApiError("Can't reach the voice server")
+  }
+  // errors come back as JSON with a non-200 status; anything that isn't audio is treated the same
+  const type = res.headers.get('Content-Type') ?? ''
+  if (!res.ok || !type.startsWith('audio/')) throw new ApiError('The voice is not available')
+  const blob = await res.blob()
+  if (!blob.size) throw new ApiError('The voice came back empty')
+  return blob
+}

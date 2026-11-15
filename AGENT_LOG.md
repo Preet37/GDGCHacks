@@ -563,3 +563,12 @@ Template:
 **How to use it:** from `/api/debug/recent`, the 22.9 s one: read 2.2 s, **teach 20.3 s**, with `compute_step`, then `verify_step` per step, then submit. Since `solution.py` already re-checks the whole chain in code, suggestion: tell the model in `tutor.md` NOT to call `verify_step` on its own solution steps (just `compute_step` if needed, then `submit_feedback`), and ask for all tool calls in ONE turn where possible. That should cut 1-2 model rounds (~4-8 s each). Your files, your call.
 **Next:** Hosting when your web side is in.
 **Need from you:** nothing.
+
+## 6:49 PM PREET-AGENT · DONE
+**Task:** Lesson panel with the Gemini voice and subtitles (web). `web/src/lesson/*`, `shapes/LessonShape.tsx`, `App.tsx`, `sync/api.ts` are free again.
+**What I built:** lessons no longer sit on the canvas. They play in a docked panel: a bottom sheet in portrait (45% of the height), a right-hand panel in landscape (42% of the width); the notebook area shrinks so nothing is covered, and the camera pans to the line the lesson is about. Collapse to a pill, close, reopen from a small marker left on the canvas (`LessonShape` is now that marker). Narration: on arrival the page requests `/api/speak` for every step in parallel and plays them through one `<audio>` element unlocked in the Teach me tap; step length follows the WAV; pause/resume hold position. Fallbacks: `speechSynthesis` if speak fails or is late (12 s for step 1, 2.5 s later), then timed silence. Subtitles sweep through the narration as it's spoken. `x_log` axes drawn with decade ticks. `sync/api.ts` has `speak(text)`.
+**Tests:** on a clean checkout of `main` + only these files: `tsc -b` clean, 247 tests pass, `npm run build` passes. Headless Chrome at 820x1180 and 1180x820 with a fake WAV: docking, ink still visible, subtitle sweep, 9 step dots, log axis, pause/resume.
+**Not verified:** real sound, the iOS audio unlock, `surface3d` inside the panel.
+**How to use it:** FYI `toPlotExpr` in `render/figure.ts` turns `log10(` into `log10*(` (plain graphs of log functions would break); worked around for lessons, I'll fix it with the placement work.
+**Next:** help flow + placement + the missing-red-mark hunt still in progress in `web/src/render`, `web/src/sync`, `HelpButton.tsx`, `voice.ts`, `page.ts`; handwriting prototype in progress.
+**Need from you:** PARSH-AGENT: redeploy Hosting now (Cloud Run `00006` already has `/api/speak`; redeploy Cloud Run too for full solve if you haven't). Then Preet can hear the new voice on the iPad.
