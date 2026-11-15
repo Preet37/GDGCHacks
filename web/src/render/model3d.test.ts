@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { Action, Model3dFigure, ModelPart } from '../contract'
 import example from '../../../contract/examples/model3d_bridge.json'
 import { drawModel3d, MODEL3D_MIN_H, MODEL3D_MIN_W, MODEL3D_TYPE } from './figure'
-import { loadsUsed, memberAxis, memberRadius, modelBounds, partGroups, partPoints } from './model3d/geometry'
+import { loadsUsed, memberAxis, memberRadius, modelBounds, partGroups, partPoints, thinStroke, TL_COLORS } from './model3d/geometry'
 
 const figureAction = example.actions.find((a) => a.type === 'figure') as unknown as Action
 const bridge = figureAction.figure!.model3d as Model3dFigure
@@ -81,5 +81,20 @@ describe('drawModel3d', () => {
     const boom = { run: () => { throw new Error('boom') } } as never
     expect(drawModel3d(boom, figureAction, { x: 0, y: 0, w: 1, h: 1 })).toBe(false)
     warn.mockRestore()
+  })
+})
+
+describe('marks drawn on the model', () => {
+  it('a pen stroke is thinned before it is stuck onto the model, keeping both ends', () => {
+    const pts: [number, number][] = Array.from({ length: 50 }, (_, i) => [i * 0.5, 0])
+    const thin = thinStroke(pts)
+    expect(thin[0]).toEqual([0, 0])
+    expect(thin[thin.length - 1]).toEqual([24.5, 0])
+    expect(thin.length).toBeLessThan(12)
+    expect(thinStroke([[5, 5]])).toEqual([[5, 5]]) // a tap is a dot
+  })
+
+  it('every tldraw colour has a hex', () => {
+    for (const c of ['black', 'blue', 'red', 'green', 'violet', 'orange']) expect(TL_COLORS[c]).toMatch(/^#[0-9a-f]{6}$/)
   })
 })

@@ -1,13 +1,14 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { BaseBoxShapeUtil, HTMLContainer, T, useEditor, type RecordProps, type TLShape } from 'tldraw'
+import { BaseBoxShapeUtil, DefaultColorStyle, HTMLContainer, T, useEditor, type RecordProps, type TLShape } from 'tldraw'
 import type { Model3dFigure } from '../contract'
-import { LOAD_COLORS, LOAD_WORDS, loadsUsed, partGroups } from '../render/model3d/geometry'
+import { LOAD_COLORS, LOAD_WORDS, loadsUsed, partGroups, thinStroke, TL_COLORS, type ModelMark } from '../render/model3d/geometry'
 import type { ModelView } from '../render/model3d/scene'
 
 /**
  * Engineering (Part 2): a 3D model of a structure (a bridge, a truss, a crane) the student can turn and tap.
  * Drag the view to turn it, tap a part (or step with ‹ ›) to see its job and the force it carries. Parts are
- * coloured by that force. Only the model is stored; the scene is rebuilt on mount, so it survives save/load.
+ * coloured by that force. In Draw mode the pen draws on the model: each stroke is stuck onto the parts in 3D
+ * (stored in `marks`), so it turns with the model. Only the model is stored; the scene is rebuilt on mount, so it survives save/load.
  */
 
 export const MODEL3D_TYPE = 'model3d'
@@ -21,6 +22,8 @@ interface Model3dProps {
   h: number
   title: string
   model: Model3dFigure
+  /** the student's strokes on the model (absent on cards saved before Draw mode) */
+  marks?: ModelMark[]
 }
 
 declare module 'tldraw' {
@@ -52,6 +55,15 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
   const [glFailed, setGlFailed] = useState(false)
   const [touched, setTouched] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
+  const [mode, setMode] = useState<'turn' | 'draw'>('turn')
+  const modeRef = useRef(mode)
+  modeRef.current = mode
+  /** the stroke being drawn, in CSS pixels inside the view (a flat preview until it is stuck onto the model) */
+  const [stroke, setStroke] = useState<[number, number][] | null>(null)
+  const marks = shape.props.marks ?? []
+  const marksRef = useRef(marks)
+  marksRef.current = marks
+  const marksKey = JSON.stringify(marks)
   const modelKey = JSON.stringify(model)
   // eslint-disable-next-line react-hooks/exhaustive-deps
   const groups = useMemo(() => partGroups(model), [modelKey])
@@ -72,6 +84,7 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
         if (cancelled) return
         view = createModelView(host, model, host.clientWidth || 1, host.clientHeight || 1)
         viewRef.current = view
+        setReady((n) => n + 1)
       })
       .catch((err) => {
         console.warn('model3d: WebGL view failed', err)
@@ -93,6 +106,15 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
     viewRef.current?.select(selected)
   }, [selected])
 
+  const [ready, setReady] = useState(0) // bumped when the view exists, so the marks are drawn into it
+  useEffect(() => {
+    viewRef.current?.setMarks(marksRef.current)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [marksKey, ready])
+
+  const saveMarks = (next: ModelMark[]) =>
+    editor.run(() => editor.updateShape({ id: shape.id, type: MODEL3D_TYPE, props: { marks: next } }), { ignoreShapeLock: true })
+
   // Drag to turn, tap to pick. Native listeners so tldraw neither inks nor pans (same as the 3D surface).
   useEffect(() => {
     const host = hostRef.current
@@ -101,11 +123,21 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
     let lastX = 0
     let lastY = 0
     let moved = 0
+    let drawing: [number, number][] | null = null
+    /** screen pixels inside the view -> its CSS pixels (the page may be zoomed) */
+    const local = (e: PointerEvent): [number, number] => {
+      const r = host.getBoundingClientRect()
+      const k = r.width ? host.clientWidth / r.width : 1
+      return [(e.clientX - r.left) * k, (e.clientY - r.top) * k]
+    }
     const claim = (e: Event) => {
       editor.markEventAsHandled(e)
       e.stopPropagation()
     }
+    // The card's own buttons sit inside the view: let their events reach React (their handlers claim them)
+    const onButton = (e: Event) => e.target instanceof Element && e.target.closest('button') !== null
     const down = (e: PointerEvent) => {
+      if (onButton(e)) return
       claim(e)
       if (active !== null || (e.pointerType === 'mouse' && e.button !== 0)) return
       active = e.pointerId
@@ -117,10 +149,19 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
       } catch {
         // pointer already gone
       }
+      if (modeRef.current === 'draw') {
+        drawing = [local(e)]
+        setStroke(drawing)
+      }
     }
     const move = (e: PointerEvent) => {
       if (e.pointerId !== active) return
       claim(e)
+      if (drawing) {
+        drawing = [...drawing, local(e)]
+        setStroke(drawing)
+        return
+      }
       const zoom = editor.getZoomLevel() || 1
       moved += Math.abs(e.clientX - lastX) + Math.abs(e.clientY - lastY)
       if (moved > TAP_SLOP) {
@@ -131,13 +172,31 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
       lastY = e.clientY
     }
     const end = (e: PointerEvent) => {
+      if (e.pointerId !== active) {
+        if (!onButton(e)) claim(e)
+        return
+      }
       claim(e)
-      if (e.pointerId !== active) return
       active = null
       try {
         host.releasePointerCapture(e.pointerId)
       } catch {
         // already released
+      }
+      if (drawing) {
+        const pts = thinStroke(drawing)
+        drawing = null
+        setStroke(null)
+        const view = viewRef.current
+        if (view && e.type === 'pointerup' && pts.length) {
+          // project() takes screen pixels inside the view, like pick()
+          const r = host.getBoundingClientRect()
+          const k = host.clientWidth ? r.width / host.clientWidth : 1
+          const stuck = view.project(pts.map(([x, y]) => [x * k, y * k]))
+          const name = editor.getStyleForNextShape(DefaultColorStyle)
+          if (stuck.length) saveMarks([...marksRef.current, { color: TL_COLORS[name] ?? '#1d1d1d', pts: stuck }])
+        }
+        return
       }
       if (moved <= TAP_SLOP && e.type === 'pointerup' && viewRef.current) {
         // screen pixels inside the view; pick() divides by the canvas's on-screen size, so the zoom doesn't matter
@@ -147,6 +206,7 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
       }
     }
     const touch = (e: TouchEvent) => {
+      if (onButton(e)) return
       claim(e)
       if (e.cancelable) e.preventDefault()
     }
@@ -155,7 +215,9 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
       e.preventDefault()
       viewRef.current?.zoomBy(Math.exp(-e.deltaY * 0.002))
     }
-    const swallow = (e: Event) => claim(e)
+    const swallow = (e: Event) => {
+      if (!onButton(e)) claim(e)
+    }
     host.addEventListener('pointerdown', down)
     host.addEventListener('pointermove', move)
     host.addEventListener('pointerup', end)
@@ -243,12 +305,52 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
               position: 'relative',
               pointerEvents: 'all',
               touchAction: 'none',
-              cursor: 'grab',
+              cursor: mode === 'draw' ? 'crosshair' : 'grab',
               userSelect: 'none',
               WebkitUserSelect: 'none',
               WebkitTouchCallout: 'none',
             }}
           >
+            {stroke && stroke.length > 1 && (
+              <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}>
+                <polyline
+                  points={stroke.map((p) => p.join(',')).join(' ')}
+                  fill="none"
+                  stroke={TL_COLORS[editor.getStyleForNextShape(DefaultColorStyle)] ?? '#1d1d1d'}
+                  strokeWidth={3}
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                />
+              </svg>
+            )}
+            <div style={{ position: 'absolute', left: 8, top: 8, display: 'flex', gap: 6, zIndex: 2 }}>
+              <div style={{ display: 'flex', border: '1px solid #d6dbe4', borderRadius: 8, overflow: 'hidden', pointerEvents: 'all' }}>
+                {(['turn', 'draw'] as const).map((m) => (
+                  <button
+                    key={m}
+                    aria-pressed={mode === m}
+                    aria-label={m === 'turn' ? 'Turn the model' : 'Draw on the model'}
+                    style={{ ...btn, border: 'none', borderRadius: 0, fontSize: 13, padding: '0 10px', background: mode === m ? '#2563eb' : '#fff', color: mode === m ? '#fff' : '#1f2a44' }}
+                    {...press(() => {
+                      setMode(m)
+                      setTouched(true)
+                    })}
+                  >
+                    {m === 'turn' ? '↻ Turn' : '✎ Draw'}
+                  </button>
+                ))}
+              </div>
+              {marks.length > 0 && (
+                <>
+                  <button style={{ ...btn, fontSize: 13, padding: '0 8px' }} aria-label="Undo last mark" {...press(() => saveMarks(marksRef.current.slice(0, -1)))}>
+                    ↶ Undo
+                  </button>
+                  <button style={{ ...btn, fontSize: 13, padding: '0 8px' }} aria-label="Clear marks" {...press(() => saveMarks([]))}>
+                    Clear
+                  </button>
+                </>
+              )}
+            </div>
             <div style={{ position: 'absolute', right: 8, top: 8, display: 'flex', flexDirection: 'column', gap: 6, zIndex: 2 }}>
               <button style={btn} aria-label="Zoom in" {...press(() => viewRef.current?.zoomBy(1.25))}>
                 +
@@ -274,7 +376,7 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
                   pointerEvents: 'none',
                 }}
               >
-                ↻ Drag to turn · tap a part
+                ↻ Drag to turn · tap a part · ✎ Draw to mark it up
               </div>
             )}
           </div>
@@ -335,10 +437,11 @@ export class Model3dShapeUtil extends BaseBoxShapeUtil<Model3dShape> {
     h: T.number,
     title: T.string,
     model: T.jsonValue as never,
+    marks: T.jsonValue.optional() as never,
   }
 
   override getDefaultProps(): Model3dShape['props'] {
-    return { w: 560, h: 460, title: '', model: { parts: [] } }
+    return { w: 560, h: 460, title: '', model: { parts: [] }, marks: [] }
   }
 
   override canEdit() {

@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import type { Model3dFigure, ModelPart } from '../../contract'
-import { LOAD_ARROW_COLOR, LOAD_COLORS, memberAxis, memberRadius, modelBounds, pickRadius } from './geometry'
+import { LOAD_ARROW_COLOR, LOAD_COLORS, memberAxis, memberRadius, modelBounds, pickRadius, type ModelMark } from './geometry'
 
 /**
  * Engineering (Part 2): a WebGL view of a model3d figure. One mesh per part, coloured by the force it carries,
@@ -20,6 +20,13 @@ export interface ModelView {
   pick(x: number, y: number): string | null
   /** Highlight every part with this name and fade the rest; null shows everything normally. */
   select(name: string | null): void
+  /**
+   * Stick a stroke drawn on the view (CSS pixels inside it) onto the model: each point lands on the part under it,
+   * just off its surface; points over empty space land on a plane through the model facing the camera.
+   */
+  project(points: [number, number][]): number[]
+  /** Draw these marks (replacing the ones drawn before). */
+  setMarks(marks: ModelMark[]): void
   dispose(): void
 }
 
@@ -175,6 +182,22 @@ export function createModelView(host: HTMLElement, model: Model3dFigure, w: numb
   canvas.addEventListener('webglcontextrestored', onRestored)
 
   const raycaster = new THREE.Raycaster()
+  const ray = (x: number, y: number) => {
+    const rect = canvas.getBoundingClientRect()
+    raycaster.setFromCamera(new THREE.Vector2((x / (rect.width || 1)) * 2 - 1, -(y / (rect.height || 1)) * 2 + 1), camera)
+    return raycaster
+  }
+  const solids = [...meshesByName.values()].flat()
+
+  // ---- the student's marks: tubes (WebGL lines are always 1 px), redrawn whenever they change
+  const marks = new THREE.Group()
+  marks.renderOrder = 5
+  scene.add(marks)
+  const markDisposables: { dispose(): void }[] = []
+  const clearMarks = () => {
+    for (const d of markDisposables.splice(0)) d.dispose()
+    marks.clear()
+  }
 
   return {
     rotateBy(dx, dy) {
@@ -194,12 +217,51 @@ export function createModelView(host: HTMLElement, model: Model3dFigure, w: numb
       draw()
     },
     pick(x, y) {
-      const rect = canvas.getBoundingClientRect()
-      const cw = rect.width || 1
-      const ch = rect.height || 1
-      raycaster.setFromCamera(new THREE.Vector2((x / cw) * 2 - 1, -(y / ch) * 2 + 1), camera)
-      const hit = raycaster.intersectObjects(pickables, false)[0]
+      const hit = ray(x, y).intersectObjects(pickables, false)[0]
       return (hit?.object.userData.name as string | undefined) ?? null
+    },
+    project(points) {
+      if (!points.length) return []
+      const out: number[] = []
+      const hits = points.map(([x, y]) => {
+        const hit = ray(x, y).intersectObjects(solids, false)[0]
+        if (!hit) return null
+        // a little off the surface, toward the camera, so the stroke isn't buried in it
+        const toward = camera.position.clone().sub(hit.point).normalize()
+        return hit.point.clone().addScaledVector(toward, R * 0.006)
+      })
+      // empty space: a plane facing the camera through the first point that hit the model (or the model's centre)
+      const anchor = hits.find((h) => h) ?? target.clone()
+      const normal = camera.position.clone().sub(target).normalize()
+      const plane = new THREE.Plane().setFromNormalAndCoplanarPoint(normal, anchor)
+      points.forEach(([x, y], i) => {
+        const p = hits[i] ?? ray(x, y).ray.intersectPlane(plane, new THREE.Vector3())
+        if (p) out.push(+p.x.toFixed(3), +p.y.toFixed(3), +p.z.toFixed(3))
+      })
+      return out
+    },
+    setMarks(list) {
+      clearMarks()
+      for (const m of list) {
+        const pts: THREE.Vector3[] = []
+        for (let i = 0; i + 2 < m.pts.length; i += 3) pts.push(new THREE.Vector3(m.pts[i], m.pts[i + 1], m.pts[i + 2]))
+        const material = new THREE.MeshBasicMaterial({ color: m.color })
+        markDisposables.push(material)
+        if (pts.length === 1) {
+          const dot = new THREE.SphereGeometry(R * 0.008, 10, 8)
+          const mesh = new THREE.Mesh(dot, material)
+          mesh.position.copy(pts[0])
+          marks.add(mesh)
+          markDisposables.push(dot)
+          continue
+        }
+        if (pts.length < 2) continue
+        const curve = new THREE.CatmullRomCurve3(pts)
+        const tube = new THREE.TubeGeometry(curve, Math.min(400, pts.length * 3), R * 0.0045, 6, false)
+        marks.add(new THREE.Mesh(tube, material))
+        markDisposables.push(tube)
+      }
+      draw()
     },
     select(name) {
       for (const [n, meshes] of meshesByName) {
@@ -218,6 +280,7 @@ export function createModelView(host: HTMLElement, model: Model3dFigure, w: numb
       disposed = true
       canvas.removeEventListener('webglcontextlost', onLost)
       canvas.removeEventListener('webglcontextrestored', onRestored)
+      clearMarks()
       for (const d of disposables) d.dispose()
       renderer.dispose()
       renderer.forceContextLoss()

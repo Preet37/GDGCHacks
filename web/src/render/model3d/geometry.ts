@@ -94,3 +94,39 @@ export function loadsUsed(model: Model3dFigure): ModelPart['load'][] {
   const used = new Set(model.parts.map((p) => p.load))
   return (['tension', 'compression', 'bending'] as const).filter((l) => used.has(l))
 }
+
+/** A stroke the student drew on the model, stuck to it in 3D (model coordinates), so it turns with the model. */
+export interface ModelMark {
+  color: string
+  /** x, y, z, x, y, z, ... (flat, so it stores as plain JSON) */
+  pts: number[]
+}
+
+/** tldraw's colour names -> the hex its default theme draws them with. */
+export const TL_COLORS: Record<string, string> = {
+  black: '#1d1d1d',
+  grey: '#9fa8b2',
+  'light-violet': '#e085f4',
+  violet: '#ae3ec9',
+  blue: '#4465e9',
+  'light-blue': '#4ba1f1',
+  yellow: '#f1ac4b',
+  orange: '#e16919',
+  green: '#099268',
+  'light-green': '#4cb05e',
+  'light-red': '#f87777',
+  red: '#e03131',
+  white: '#ffffff',
+}
+
+/** Drop points closer than `min` to the last kept one (a pen sends many; a 3D tube needs few). */
+export function thinStroke(pts: [number, number][], min = 3): [number, number][] {
+  const out: [number, number][] = []
+  for (const p of pts) {
+    const last = out[out.length - 1]
+    if (!last || Math.hypot(p[0] - last[0], p[1] - last[1]) >= min) out.push(p)
+  }
+  const end = pts[pts.length - 1]
+  if (end && out[out.length - 1] !== end && out.length > 0) out.push(end)
+  return out
+}

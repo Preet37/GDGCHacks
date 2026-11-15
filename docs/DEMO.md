@@ -153,7 +153,10 @@ Plain http: everything works except speaking a question (that needs https). Writ
 3. **Drag** inside the card to turn it; **+ / −** to zoom.
 4. **Tap a part** (a tower, a cable): it lights up, everything else fades, and the panel says what it does and why it
    carries that force. **‹ ›** steps through every part; **Show all** goes back.
-5. Works for other structures too: "how does a truss bridge carry a load?", "what forces act on a crane?". Takes about
+5. **Mark it up:** tap **✎ Draw** on the card and draw on the model (circle a tower, an arrow to a cable) in the
+   page's pen colour. Each stroke sticks onto the parts in 3D: tap **↻ Turn** and spin it, and the marks turn with the
+   bridge. **↶ Undo** / **Clear** remove them; they are saved with the page.
+6. Works for other structures too: "how does a truss bridge carry a load?", "what forces act on a crane?". Takes about
    8 to 10 s (the model is a big answer).
 
 ## (b) 90-second table pitch
