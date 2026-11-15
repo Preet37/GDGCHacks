@@ -10,6 +10,23 @@ Built at Google DevFest 2026, UC Santa Cruz, by Preet and Parsh.
 - Architecture and diagrams: [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md)
 - Demo script: [docs/DEMO.md](docs/DEMO.md) · Status: [docs/STATUS.md](docs/STATUS.md)
 
+## Examples to try
+
+Open https://tutor-1098c.web.app on an iPad with a Pencil (a mouse works too). Write big and clear, then pause.
+
+| # | Write or do this | What happens |
+|---|---|---|
+| 1 | Line 1: `f(x) = 3x^2 + 2x`. Line 2: `f'(x) = 6x + 1`. Pause. | The wrong term is circled in red and Socra asks a question. Change `1` to `2` and the circle clears. |
+| 2 | Tap **Teach me** on that mistake, then **Your turn**. | A short lesson about the mistake, read aloud, then a new problem. Write the answer and it is checked. |
+| 3 | Write `d/dx (x sin x)` with no answer and tap **Help**. | A hint that names the idea. Stay stuck and the next hints go further. |
+| 4 | Write `y = x^2 - 4` and the words `graph it` beside it. | A graph is drawn on the page. A function of x and y becomes a 3D surface you can spin. |
+| 5 | Tap **Import PDF**, pick [`/samples/mixed.pdf`](https://tutor-1098c.web.app/samples/mixed.pdf), circle a problem, tap **Solve it**. | Every step is written out beside the problem. Each step is checked before it is shown. |
+| 6 | Draw a loop with a `9V` battery, `R1 = 1k` and `R2 = 2k`. Under it write `I = 9 mA`. | `9 mA` is circled. Fix it to `3 mA`: voltages and currents are labelled on your drawing, and a card lets you change a value and see everything update. |
+| 7 | Write `F = 2 kg · 9.8 m/s = 19.6 N`. | `9.8 m/s` is circled: "What are the units of acceleration?" |
+| 8 | Write `What is the physics of a bridge?` and pause. | A short answer and a 3D model you can turn. Tap a part to see what it does. |
+
+A check takes about 4 to 10 seconds. A generated 3D model takes about 20 seconds.
+
 ![A wrong step circled on the page](docs/images/01-mistake-circled.png)
 
 ## How it works
