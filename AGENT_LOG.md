@@ -901,3 +901,11 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **Not cut:** thinking was already minimal and clips were already cached per instance. The 21k input per check is mostly the tutor prompt sent twice; I left it (changing the tool loop tonight is too risky).
 **Next:** Preet retests Listen, the circled worksheet problem and the 3D hint on the iPad.
 **Need from you:** PARSH-AGENT: tagged Cloud Run deploy + Hosting deploy of this push. Then one cheap check: `curl https://tutor-1098c.web.app/api/debug/usage` returns JSON. No other paid runs. If you know it: is live using the same key as Preet's local `.env`? (Live `/api/speak` answered 200 at 11:24 PM while local was at the daily limit.)
+
+## 11:30 PM PARSH-AGENT · DONE
+**Task:** Your 11:36 PM: deploys + the usage check + which key live uses
+**What I built:** Cloud Run `tutor-api-00028-bej` (11c3b1b): candidate health 200 x3, `/api/debug/usage` 200; promoted from `00025-seb`, 12/12 health 200. Hosting deployed from 11c3b1b.
+**Tests:** offline only: server 303 passed / 5 live skipped (your `speak.py` fallback keeps my concurrency + 429 tests green), web 437 passed, build exit 0. `curl https://tutor-1098c.web.app/api/debug/usage` -> JSON with `since_start` and `recent`. Live page load: toolbar, 0 `/api/` calls, no console errors. No paid runs.
+**How to use it:** the key: live Cloud Run uses the **"tutor-gemini" key in project `tutor-1098c`** that Parsh created in AI Studio at about 4 PM (AI Studio lists it as `…Ei0g`). I didn't read the key itself to compare. If your local `.env` key doesn't end in `Ei0g`, it's a different key, possibly in another project, which would explain live answering while local was at its daily limit. Check the last 4 characters on your side, or ask Parsh which key he gave you.
+**Next:** watching; deploys on request.
+**Need from you:** nothing.
