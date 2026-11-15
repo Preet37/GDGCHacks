@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { BaseBoxShapeUtil, DefaultColorStyle, HTMLContainer, T, useEditor, type RecordProps, type TLShape } from 'tldraw'
 import type { Model3dFigure } from '../contract'
-import { hasLooks, LOAD_COLORS, LOAD_WORDS, loadsUsed, partGroups, thinStroke, TL_COLORS, type ModelMark } from '../render/model3d/geometry'
+import { hasLooks, LOAD_COLORS, LOAD_WORDS, loadsUsed, model3dScale, partGroups, thinStroke, TL_COLORS, type ModelMark } from '../render/model3d/geometry'
 import type { ModelView } from '../render/model3d/scene'
 import { buildModel3d } from '../sync/api'
 import { claimLive, isFresh } from './fresh3d'
@@ -80,7 +80,13 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
   const legend = useMemo(() => loadsUsed(model), [modelKey])
 
   const viewW = Math.max(1, Math.round(w) - 2)
-  const viewH = Math.max(1, Math.round(h) - MODEL3D_TITLE_H - MODEL3D_PANEL_H - 2)
+  // the card's own UI grows with the card, so it stays readable on a card made while zoomed out
+  const k = model3dScale(w, h)
+  const titleH = Math.round(MODEL3D_TITLE_H * k)
+  const panelH = Math.round(MODEL3D_PANEL_H * k)
+  const viewH = Math.max(1, Math.round(h) - titleH - panelH - 2)
+  /** the card's button, at the card's scale */
+  const kbtn: React.CSSProperties = { ...btn, minWidth: 34 * k, height: 34 * k, borderRadius: 8 * k, fontSize: 18 * k }
 
   useEffect(() => {
     const host = hostRef.current
@@ -328,21 +334,21 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
           boxShadow: '0 2px 10px rgba(0,0,0,0.06)',
         }}
       >
-        <div style={{ height: MODEL3D_TITLE_H, flex: 'none', display: 'flex', alignItems: 'center', padding: '0 12px', fontSize: 16, fontWeight: 650, gap: 8 }}>
+        <div style={{ height: titleH, flex: 'none', display: 'flex', alignItems: 'center', padding: `0 ${12 * k}px`, fontSize: 16 * k, fontWeight: 650, gap: 8 * k }}>
           <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title || '3D model'}</span>
           {look === 'forces' && legend.map((l) => (
-            <span key={l} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 500, color: '#4b5568' }}>
-              <span style={{ width: 10, height: 10, borderRadius: 3, background: LOAD_COLORS[l] }} />
+            <span key={l} style={{ display: 'inline-flex', alignItems: 'center', gap: 4 * k, fontSize: 12 * k, fontWeight: 500, color: '#4b5568' }}>
+              <span style={{ width: 10 * k, height: 10 * k, borderRadius: 3 * k, background: LOAD_COLORS[l] }} />
               {l}
             </span>
           ))}
-          <div style={{ display: 'flex', border: '1px solid #d6dbe4', borderRadius: 8, overflow: 'hidden', pointerEvents: 'all' }}>
+          <div style={{ display: 'flex', border: `${k}px solid #d6dbe4`, borderRadius: 8 * k, overflow: 'hidden', pointerEvents: 'all' }}>
             {(['real', 'forces'] as const).map((l) => (
               <button
                 key={l}
                 aria-pressed={look === l}
                 aria-label={l === 'real' ? 'Show real materials' : 'Colour by force'}
-                style={{ ...btn, minWidth: 0, height: 26, border: 'none', borderRadius: 0, fontSize: 12, padding: '0 9px', background: look === l ? '#1f2a44' : '#fff', color: look === l ? '#fff' : '#1f2a44' }}
+                style={{ ...kbtn, minWidth: 0, height: 26 * k, border: 'none', borderRadius: 0, fontSize: 12 * k, padding: `0 ${9 * k}px`, background: look === l ? '#1f2a44' : '#fff', color: look === l ? '#fff' : '#1f2a44' }}
                 {...press(() => setLook(l))}
               >
                 {l === 'real' ? 'Real' : 'Forces'}
@@ -351,7 +357,7 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
           </div>
         </div>
         {glFailed ? (
-          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: '#777' }}>Couldn't draw this</div>
+          <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14 * k, color: '#777' }}>Couldn't draw this</div>
         ) : (
           <div
             ref={hostRef}
@@ -372,7 +378,7 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
               <button
                 // like the card's other buttons: tldraw captures the pointer on a press it isn't told about, so a click never arrives
                 {...press(() => setLive(true))}
-                style={{ position: 'absolute', inset: 0, zIndex: 4, border: 0, background: 'rgba(255,255,255,0.6)', color: '#2563eb', fontSize: 16, fontWeight: 600, touchAction: 'manipulation' }}
+                style={{ position: 'absolute', inset: 0, zIndex: 4, border: 0, background: 'rgba(255,255,255,0.6)', color: '#2563eb', fontSize: 16 * k, fontWeight: 600, touchAction: 'manipulation' }}
               >
                 Tap to show the 3D model
               </button>
@@ -380,12 +386,12 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
             {unbuilt && (
               <div
                 data-model3d-building={buildError ? 'error' : 'busy'}
-                style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, color: '#4b5568', fontSize: 15, zIndex: 3 }}
+                style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10 * k, color: '#4b5568', fontSize: 15 * k, zIndex: 3, textAlign: 'center' }}
               >
                 {buildError ? (
                   <>
                     <span>Couldn't build the model: {buildError}</span>
-                    <button style={{ ...btn, fontSize: 14, padding: '0 14px' }} {...press(() => setAttempt((n) => n + 1))}>
+                    <button style={{ ...kbtn, fontSize: 14 * k, padding: `0 ${14 * k}px` }} {...press(() => setAttempt((n) => n + 1))}>
                       Try again
                     </button>
                   </>
@@ -393,7 +399,7 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
                   <>
                     <span className="tutor-dot-pulse" />
                     <span>Building the 3D model of {model.subject}…</span>
-                    <span style={{ fontSize: 12, color: '#8a8f99' }}>about 15 to 20 seconds</span>
+                    <span style={{ fontSize: 12 * k, color: '#8a8f99' }}>about 15 to 20 seconds</span>
                   </>
                 )}
               </div>
@@ -410,14 +416,14 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
                 />
               </svg>
             )}
-            <div style={{ position: 'absolute', left: 8, top: 8, display: 'flex', gap: 6, zIndex: 2 }}>
-              <div style={{ display: 'flex', border: '1px solid #d6dbe4', borderRadius: 8, overflow: 'hidden', pointerEvents: 'all' }}>
+            <div style={{ position: 'absolute', left: 8 * k, top: 8 * k, display: 'flex', gap: 6 * k, zIndex: 2 }}>
+              <div style={{ display: 'flex', border: `${k}px solid #d6dbe4`, borderRadius: 8 * k, overflow: 'hidden', pointerEvents: 'all' }}>
                 {(['turn', 'draw'] as const).map((m) => (
                   <button
                     key={m}
                     aria-pressed={mode === m}
                     aria-label={m === 'turn' ? 'Turn the model' : 'Draw on the model'}
-                    style={{ ...btn, border: 'none', borderRadius: 0, fontSize: 13, padding: '0 10px', background: mode === m ? '#2563eb' : '#fff', color: mode === m ? '#fff' : '#1f2a44' }}
+                    style={{ ...kbtn, border: 'none', borderRadius: 0, fontSize: 13 * k, padding: `0 ${10 * k}px`, background: mode === m ? '#2563eb' : '#fff', color: mode === m ? '#fff' : '#1f2a44' }}
                     {...press(() => {
                       setMode(m)
                       setTouched(true)
@@ -429,20 +435,20 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
               </div>
               {marks.length > 0 && (
                 <>
-                  <button style={{ ...btn, fontSize: 13, padding: '0 8px' }} aria-label="Undo last mark" {...press(() => saveMarks(marksRef.current.slice(0, -1)))}>
+                  <button style={{ ...kbtn, fontSize: 13 * k, padding: `0 ${8 * k}px` }} aria-label="Undo last mark" {...press(() => saveMarks(marksRef.current.slice(0, -1)))}>
                     ↶ Undo
                   </button>
-                  <button style={{ ...btn, fontSize: 13, padding: '0 8px' }} aria-label="Clear marks" {...press(() => saveMarks([]))}>
+                  <button style={{ ...kbtn, fontSize: 13 * k, padding: `0 ${8 * k}px` }} aria-label="Clear marks" {...press(() => saveMarks([]))}>
                     Clear
                   </button>
                 </>
               )}
             </div>
-            <div style={{ position: 'absolute', right: 8, top: 8, display: 'flex', flexDirection: 'column', gap: 6, zIndex: 2 }}>
-              <button style={btn} aria-label="Zoom in" {...press(() => viewRef.current?.zoomBy(1.25))}>
+            <div style={{ position: 'absolute', right: 8 * k, top: 8 * k, display: 'flex', flexDirection: 'column', gap: 6 * k, zIndex: 2 }}>
+              <button style={kbtn} aria-label="Zoom in" {...press(() => viewRef.current?.zoomBy(1.25))}>
                 +
               </button>
-              <button style={btn} aria-label="Zoom out" {...press(() => viewRef.current?.zoomBy(0.8))}>
+              <button style={kbtn} aria-label="Zoom out" {...press(() => viewRef.current?.zoomBy(0.8))}>
                 −
               </button>
             </div>
@@ -451,13 +457,13 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
                 style={{
                   position: 'absolute',
                   left: '50%',
-                  bottom: 10,
+                  bottom: 10 * k,
                   transform: 'translateX(-50%)',
-                  padding: '6px 14px',
+                  padding: `${6 * k}px ${14 * k}px`,
                   borderRadius: 999,
                   background: 'rgba(20, 24, 33, 0.82)',
                   color: '#fff',
-                  fontSize: 14,
+                  fontSize: 14 * k,
                   fontWeight: 600,
                   whiteSpace: 'nowrap',
                   pointerEvents: 'none',
@@ -470,43 +476,43 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
         )}
         <div
           data-model3d-panel
-          style={{ height: MODEL3D_PANEL_H, flex: 'none', borderTop: '1px solid #eef0f4', padding: '10px 12px', boxSizing: 'border-box', display: 'flex', gap: 10 }}
+          style={{ height: panelH, flex: 'none', borderTop: '1px solid #eef0f4', padding: `${10 * k}px ${12 * k}px`, boxSizing: 'border-box', display: 'flex', gap: 10 * k }}
         >
           <div style={{ flex: 1, minWidth: 0, overflow: 'hidden' }}>
             {group ? (
               <>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 4 }}>
-                  <span data-model3d-part style={{ fontSize: 16, fontWeight: 650 }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 8 * k, marginBottom: 4 * k }}>
+                  <span data-model3d-part style={{ fontSize: 16 * k, fontWeight: 650 }}>
                     {group.name}
                   </span>
                   <span
-                    style={{ fontSize: 12, fontWeight: 600, color: '#fff', background: LOAD_COLORS[group.load], borderRadius: 999, padding: '2px 8px' }}
+                    style={{ fontSize: 12 * k, fontWeight: 600, color: '#fff', background: LOAD_COLORS[group.load], borderRadius: 999, padding: `${2 * k}px ${8 * k}px` }}
                   >
                     {LOAD_WORDS[group.load]}
                   </span>
                 </div>
-                <div style={{ fontSize: 14, lineHeight: 1.35, color: '#374151' }}>{group.explain ?? ''}</div>
+                <div style={{ fontSize: 14 * k, lineHeight: 1.35, color: '#374151' }}>{group.explain ?? ''}</div>
               </>
             ) : (
               <>
-                <div style={{ fontSize: 14, fontWeight: 600, marginBottom: 4 }}>{model.summary ?? 'Tap a part to see its job'}</div>
-                <div style={{ fontSize: 13, color: '#6b7280' }}>
+                <div style={{ fontSize: 14 * k, fontWeight: 600, marginBottom: 4 * k }}>{model.summary ?? 'Tap a part to see its job'}</div>
+                <div style={{ fontSize: 13 * k, color: '#6b7280' }}>
                   Tap a part, or step through all {groups.length} with ‹ ›. Green arrows are the outside forces.
                 </div>
               </>
             )}
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 6, justifyContent: 'center' }}>
-            <div style={{ display: 'flex', gap: 6 }}>
-              <button style={btn} aria-label="Previous part" {...press(() => step(-1))}>
+          <div style={{ display: 'flex', flexDirection: 'column', gap: 6 * k, justifyContent: 'center' }}>
+            <div style={{ display: 'flex', gap: 6 * k }}>
+              <button style={kbtn} aria-label="Previous part" {...press(() => step(-1))}>
                 ‹
               </button>
-              <button style={btn} aria-label="Next part" {...press(() => step(1))}>
+              <button style={kbtn} aria-label="Next part" {...press(() => step(1))}>
                 ›
               </button>
             </div>
             {group && (
-              <button style={{ ...btn, fontSize: 13 }} {...press(() => setSelected(null))}>
+              <button style={{ ...kbtn, fontSize: 13 * k }} {...press(() => setSelected(null))}>
                 Show all
               </button>
             )}

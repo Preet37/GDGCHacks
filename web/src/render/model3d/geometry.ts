@@ -167,3 +167,17 @@ export function thinStroke(pts: [number, number][], min = 3): [number, number][]
   if (end && out[out.length - 1] !== end && out.length > 0) out.push(end)
   return out
 }
+
+/**
+ * The model card's title, buttons and bottom panel are designed for a card this wide and grow with the card: a
+ * card made while the student is zoomed out is larger on the page, so they stay readable at that zoom. The
+ * height caps it, so they never take much more than a third of the card from the 3D view.
+ */
+const CARD_BASE_W = 520
+const CARD_BASE_H = 400
+
+/** How much larger than designed the model card's own UI is drawn, for a card of w x h (page units). Never smaller. */
+export function model3dScale(w: number, h: number): number {
+  const k = Math.min(w / CARD_BASE_W, h / CARD_BASE_H)
+  return Number.isFinite(k) ? Math.max(1, k) : 1
+}
