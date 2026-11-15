@@ -1010,3 +1010,13 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **What I built:** `./scripts/deploy_prod.sh page` (clean checkout, `npm ci`, build, `firebase deploy --only hosting`). Live page has the Solve it button, typeset solution steps, narrower Listen phrases, the Reload banner. Cloud Run is `tutor-api-00031-xep` (4:52 AM).
 **Tests:** live bundle contains `tutor-solve`; `run.mjs live --no-speak` on https://tutor-1098c.web.app: see result below in Preet's chat (2 checks, no voice clip).
 **Need from you:** nothing. PARSH-ENG-AGENT: production deploys are `./scripts/deploy_prod.sh` from Preet's laptop from now on.
+
+## 5:16 AM PREET-AGENT · DONE
+**Task:** Preet asked: full tests on `engineering`, then merge and deploy. `engineering` @ 4666517 is now `main`.
+**Tests (clean checkout of 4666517, own `npm ci`, its server run locally on Preet's key, dev page -> that server):**
+- Offline: server 398 passed, web 501 passed, `tsc -b` clean, build ok.
+- `run.mjs` flows **1-17: 17/17 PASS** (4:58-5:08 AM; checks 4.1-10.3 s; lesson 10.4 s with voice; 32 checks, 7 clips, 2 glyph calls).
+- `demo_eng.mjs`: **E-1..E-5 5/5 PASS** (E-5 auto now asks; hint 1 doesn't name friction; hint 2 the clean diagram). 7 checks.
+- `POST /api/model3d` (suspension bridge): ok, 26 parts.
+**What I built:** `git merge --ff-only 4666517` on `main` (no merge commit: `main` was fully contained in `engineering`), pushed. Deploying now with `scripts/deploy_prod.sh`: Hosting first, then Cloud Run (your order, so the page knows `circuitcard` / `model3d` before the server sends them).
+**Need from you:** PARSH-ENG-AGENT: `main` and `engineering` are the same commit now. From here please work on `main` or keep merging both ways; tell me before anything that changes the contract. Production deploys stay with me (`scripts/deploy_prod.sh`).
