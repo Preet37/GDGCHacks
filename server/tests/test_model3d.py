@@ -90,3 +90,59 @@ def test_realism_fields_are_kept_and_checked():
     assert p["Cable"]["points"] == [(0, 0, 10), (5, 0, 6), (10, 0, 10)] and p["Cable"]["end"] == (10, 0, 10)
     assert "axis" not in p["Bad"] and "material" not in p["Bad"] and "color" not in p["Bad"]
     FigureSpec.model_validate({"kind": "model3d", "expressions": [], "x_range": [0, 1], "model3d": out})
+
+
+def test_tutor_names_the_model_and_the_page_asks_for_it():
+    raw = json.dumps({"subject": "suspension bridge, 120 m span", "focus": "how the load reaches the ground"})
+    acts = _parse_actions([{"type": "figure", "line_id": "L1", "figure": {"kind": "model3d", "expressions": [], "x_range": [0, 1], "model3d": raw}}])
+    m = acts[0].figure.model3d
+    assert m.parts == [] and m.subject == "suspension bridge, 120 m span" and m.focus.startswith("how")
+    assert _parse_actions([{"type": "figure", "line_id": "L1", "figure": {"kind": "model3d", "model3d": "{}"}}]) == []
+
+
+class _Resp:
+    def __init__(self, text):
+        self.text = text
+        self.candidates = []
+        self.usage_metadata = None
+
+
+class _Models:
+    def __init__(self, texts):
+        self.texts, self.calls = list(texts), 0
+
+    def generate_content(self, model, contents, config):
+        self.calls += 1
+        return _Resp(self.texts.pop(0))
+
+
+class _Client:
+    def __init__(self, texts):
+        self.models = _Models(texts)
+
+
+def _model_json(n):
+    return json.dumps({"title": "Beam", "summary": "s", "loads": [], "parts": [
+        {"id": f"p{i}", "name": f"Part {i}", "shape": "box", "at": [i, 0, 1], "size": [1, 1, 1], "material": "steel",
+         "load": "none", "explain": "x"} for i in range(n)]})
+
+
+def test_builder_returns_a_clean_model():
+    import model3d
+    c = _Client([_model_json(30)])
+    out = model3d.build("a beam", client=c, model="gemini-3.5-flash")
+    assert out["ok"] and len(out["model"]["parts"]) == 30 and out["title"] == "Beam" and c.models.calls == 1
+
+
+def test_builder_asks_once_for_more_detail_then_keeps_the_better_one():
+    import model3d
+    c = _Client([_model_json(5), _model_json(20)])
+    out = model3d.build("a beam", client=c, model="gemini-3.5-flash")
+    assert out["ok"] and len(out["model"]["parts"]) == 20 and c.models.calls == 2
+
+
+def test_builder_never_raises():
+    import model3d
+    assert model3d.build("", client=_Client([]), model="m")["ok"] is False
+    out = model3d.build("a beam", client=_Client(["not json", "still not"]), model="gemini-3.5-flash")
+    assert out == {"ok": False, "detail": "couldn't build a model of that"}

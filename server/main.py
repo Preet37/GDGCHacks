@@ -98,6 +98,20 @@ async def circuit_solve(request: Request):
     return out
 
 
+@app.post("/api/model3d")
+def model3d_build(body: dict):
+    """Build the 3D model a tutor reply asked for: {subject, focus?} -> {ok, model, title} or {ok: false, detail}.
+    One Gemini call (structured JSON), so it is only called once per card; the page stores the result."""
+    import model3d
+    t0 = time.perf_counter()
+    if not isinstance(body, dict) or not isinstance(body.get("subject"), str):
+        return {"ok": False, "detail": "send {\"subject\": \"...\"}"}
+    out = model3d.build(body["subject"], body.get("focus") if isinstance(body.get("focus"), str) else None)
+    log.info("model3d ms=%d ok=%s parts=%s", int((time.perf_counter() - t0) * 1000), out.get("ok"),
+             len(out["model"]["parts"]) if out.get("ok") else 0)
+    return out
+
+
 @app.get("/api/debug/usage")
 def debug_usage():
     """Tokens used since this server instance started, per model, and by each of the last 30 checks."""

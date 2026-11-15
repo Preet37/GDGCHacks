@@ -1,4 +1,4 @@
-import type { CheckRequest, CheckResponse, CircuitElement, CircuitSolveResponse } from '../contract'
+import type { CheckRequest, CheckResponse, CircuitElement, CircuitSolveResponse, Model3dBuildRequest, Model3dBuildResponse } from '../contract'
 import { mockReply } from './mock'
 
 const MOCK = new URLSearchParams(location.search).has('mock') || import.meta.env.VITE_MOCK === '1'
@@ -97,5 +97,23 @@ export async function solveCircuit(elements: CircuitElement[], signal?: AbortSig
   } catch (err) {
     if ((err as Error)?.name === 'AbortError') throw err
     return { ok: false, detail: "can't reach the solver" }
+  }
+}
+
+
+/** Engineering (Part 2): have the server build the 3D model a reply named. Never throws: {ok: false, detail}. */
+export async function buildModel3d(req: Model3dBuildRequest, signal?: AbortSignal): Promise<Model3dBuildResponse> {
+  try {
+    const res = await fetch('/api/model3d', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(req),
+      signal,
+    })
+    if (!res.ok) return { ok: false, detail: `the server answered ${res.status}` }
+    return (await res.json()) as Model3dBuildResponse
+  } catch (err) {
+    if ((err as Error)?.name === 'AbortError') return { ok: false, detail: 'stopped' }
+    return { ok: false, detail: "couldn't reach the server" }
   }
 }

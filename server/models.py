@@ -111,9 +111,16 @@ class ModelLoad(BaseModel):
 
 
 class Model3dFigure(BaseModel):
-    parts: list[ModelPart]
+    parts: list[ModelPart]         # [] = not built yet: the page asks POST /api/model3d for `subject`
     loads: list[ModelLoad] = Field(default_factory=list)
     summary: Optional[str] = None
+    subject: Optional[str] = None  # what to build, e.g. "suspension bridge, 120 m main span"
+    focus: Optional[str] = None    # what the student asked about, so the model shows it
+
+
+class Model3dBuildRequest(BaseModel):
+    subject: str
+    focus: Optional[str] = None
 
 
 class FigureSpec(BaseModel):

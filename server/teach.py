@@ -46,7 +46,7 @@ _FIGURE = {
     "properties": {
         "kind": {"type": "string", "enum": ["plot2d", "surface3d", "circuit", "fbd", "model3d"],
                  "description": "circuit / fbd: just ask for it (kind, expressions [], x_range [0, 1]); code fills it in. "
-                                "model3d: a 3D structure to turn and tap; fill `model3d` (expressions [], x_range [0, 1])"},
+                                "model3d: a 3D structure to turn and tap; `model3d` names it (expressions [], x_range [0, 1])"},
         "expressions": {
             "type": "array",
             "items": {"type": "string"},
@@ -61,10 +61,8 @@ _FIGURE = {
         # a 400 INVALID_ARGUMENT). engineering.build_model3d parses and cleans it.
         "model3d": {
             "type": "string",
-            "description": "kind model3d only: a JSON object {\"parts\": [{\"id\", \"name\", \"shape\": box|cylinder|"
-                           "sphere|member, \"at\": [x,y,z], \"size\": [x,y,z], \"start\": [x,y,z], \"end\": [x,y,z], "
-                           "\"load\": tension|compression|bending|none, \"explain\"}], \"loads\": [{\"at\", \"dir\", "
-                           "\"label\"}], \"summary\"}. z up. See 3D models in your instructions",
+            "description": "kind model3d only: a JSON object {\"subject\": what to build and its main size, "
+                           "\"focus\": what the student asked}. The server builds the model. See 3D models",
         },
     },
     "required": ["kind", "expressions", "x_range"],
@@ -530,9 +528,9 @@ def _parse_actions(raw: Any, lines: list[ReadLine] | None = None) -> list[Action
                         raw = json.loads(raw)
                     except ValueError:
                         raw = None
-                model = engineering.build_model3d(raw)
+                model = engineering.model3d_request(raw) or engineering.build_model3d(raw)
                 if model is None:
-                    continue  # nothing in it can be drawn
+                    continue  # nothing in it can be drawn, and nothing to build
                 a["figure"] = {**a["figure"], "model3d": model, "expressions": [], "x_range": [0, 1]}
         if "steps" in a:  # the model sends {latex, plain, relation}; the page gets the LaTeX lines
             steps = a.pop("steps")

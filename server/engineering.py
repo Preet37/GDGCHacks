@@ -419,3 +419,17 @@ def build_model3d(raw) -> dict | None:
     if summary:
         out["summary"] = summary
     return out
+
+
+def model3d_request(raw) -> dict | None:
+    """The tutor names what to build ({"subject", "focus"}) and the page has the server build it: an unbuilt model."""
+    if not isinstance(raw, dict) or raw.get("parts"):
+        return None
+    subject = _short(raw.get("subject"), 200)
+    if subject is None:
+        return None
+    out: dict = {"parts": [], "loads": [], "subject": subject}
+    focus = _short(raw.get("focus"), 200)
+    if focus:
+        out["focus"] = focus
+    return out

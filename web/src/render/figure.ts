@@ -142,7 +142,8 @@ export function plot2dToDataUrl(spec: FigureSpec, w = FIGURE_W, h = FIGURE_H): s
 /** Put a model3d card on the page. Never throws; false if the action has no model to show. */
 export function drawModel3d(editor: Editor, action: Action, rect: PageRect): boolean {
   const model = action.figure?.model3d
-  if (!model || !Array.isArray(model.parts) || !model.parts.length) return false
+  // no parts but a subject: the card builds it (POST /api/model3d)
+  if (!model || !Array.isArray(model.parts) || (!model.parts.length && !model.subject)) return false
   try {
     editor.run(
       () =>

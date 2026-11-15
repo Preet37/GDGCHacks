@@ -3,6 +3,7 @@ import { BaseBoxShapeUtil, DefaultColorStyle, HTMLContainer, T, useEditor, type 
 import type { Model3dFigure } from '../contract'
 import { hasLooks, LOAD_COLORS, LOAD_WORDS, loadsUsed, partGroups, thinStroke, TL_COLORS, type ModelMark } from '../render/model3d/geometry'
 import type { ModelView } from '../render/model3d/scene'
+import { buildModel3d } from '../sync/api'
 
 /**
  * Engineering (Part 2): a 3D model of a structure (a bridge, a truss, a crane) the student can turn and tap.
@@ -33,6 +34,9 @@ declare module 'tldraw' {
 }
 
 export type Model3dShape = TLShape<typeof MODEL3D_TYPE>
+
+/** Cards whose model is being built right now (one request per card, however often it re-renders). */
+const building = new Set<string>()
 
 const btn: React.CSSProperties = {
   minWidth: 34,
@@ -77,7 +81,7 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
 
   useEffect(() => {
     const host = hostRef.current
-    if (!host) return
+    if (!host || !model.parts.length) return
     let cancelled = false
     let view: ModelView | null = null
     setGlFailed(false)
@@ -107,6 +111,26 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
   useEffect(() => {
     viewRef.current?.select(selected)
   }, [selected])
+
+  // A reply only names the model (`subject`): build it once on the server and store it in the card.
+  const unbuilt = !model.parts.length && !!model.subject
+  const [buildError, setBuildError] = useState<string | null>(null)
+  const [attempt, setAttempt] = useState(0)
+  useEffect(() => {
+    if (!unbuilt || building.has(shape.id)) return
+    building.add(shape.id)
+    setBuildError(null)
+    void buildModel3d({ subject: model.subject!, focus: model.focus })
+      .then((out) => {
+        if (out.ok && out.model?.parts.length) {
+          const props: Partial<Model3dProps> = { model: out.model }
+          if (out.title) props.title = out.title
+          editor.run(() => editor.updateShape({ id: shape.id, type: MODEL3D_TYPE, props }), { ignoreShapeLock: true, history: 'ignore' })
+        } else setBuildError(out.detail ?? "couldn't build the model")
+      })
+      .finally(() => building.delete(shape.id))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [unbuilt, attempt])
 
   const [ready, setReady] = useState(0) // bumped when the view exists, so the marks are drawn into it
   useEffect(() => {
@@ -329,6 +353,27 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
               WebkitTouchCallout: 'none',
             }}
           >
+            {unbuilt && (
+              <div
+                data-model3d-building={buildError ? 'error' : 'busy'}
+                style={{ position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: 10, color: '#4b5568', fontSize: 15, zIndex: 3 }}
+              >
+                {buildError ? (
+                  <>
+                    <span>Couldn't build the model: {buildError}</span>
+                    <button style={{ ...btn, fontSize: 14, padding: '0 14px' }} {...press(() => setAttempt((n) => n + 1))}>
+                      Try again
+                    </button>
+                  </>
+                ) : (
+                  <>
+                    <span className="tutor-dot-pulse" />
+                    <span>Building the 3D model of {model.subject}…</span>
+                    <span style={{ fontSize: 12, color: '#8a8f99' }}>about 15 to 20 seconds</span>
+                  </>
+                )}
+              </div>
+            )}
             {stroke && stroke.length > 1 && (
               <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none', zIndex: 1 }}>
                 <polyline

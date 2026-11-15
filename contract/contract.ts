@@ -60,9 +60,24 @@ export interface ModelLoad {
 }
 
 export interface Model3dFigure {
-  parts: ModelPart[];
+  parts: ModelPart[];         // [] = not built yet: the page asks POST /api/model3d for `subject` and stores the result
   loads?: ModelLoad[];
   summary?: string;           // one line under the title
+  subject?: string;           // what to build: "suspension bridge, 120 m main span"
+  focus?: string;             // what the student asked about
+}
+
+// POST /api/model3d (no page image; one Gemini call). Always status 200: {ok: false, detail} when it couldn't build one.
+export interface Model3dBuildRequest {
+  subject: string;
+  focus?: string;
+}
+
+export interface Model3dBuildResponse {
+  ok: boolean;
+  model?: Model3dFigure;
+  title?: string;
+  detail?: string;
 }
 
 // ---- Engineering (Part 2): circuits and free-body diagrams ----

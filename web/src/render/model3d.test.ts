@@ -76,6 +76,13 @@ describe('drawModel3d', () => {
     expect(s.props.model).not.toBe(bridge) // a copy, not the reply's object
   })
 
+  it('a model the reply only named is put on the page for the card to build', () => {
+    const { editor, created } = fakeEditor()
+    const named = { ...figureAction, figure: { ...figureAction.figure!, model3d: { parts: [], subject: 'truss bridge' } } } as Action
+    expect(drawModel3d(editor, named, { x: 0, y: 0, w: 1, h: 1 })).toBe(true)
+    expect(created[0].props.model).toEqual({ parts: [], subject: 'truss bridge' })
+  })
+
   it('no model or a broken editor: nothing drawn, no throw', () => {
     const { editor, created } = fakeEditor()
     const empty = { ...figureAction, figure: { ...figureAction.figure!, model3d: { parts: [] } } } as Action

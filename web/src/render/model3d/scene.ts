@@ -49,7 +49,8 @@ function labelSprite(text: string, color: string, height: number, disposables: {
   ctx.fillText(text, canvas.width / 2, canvas.height / 2)
   const texture = new THREE.CanvasTexture(canvas)
   texture.colorSpace = THREE.SRGBColorSpace
-  const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true })
+  // a fixed size on screen (a fraction of the view's height), so labels don't swamp the model when zoomed in
+  const material = new THREE.SpriteMaterial({ map: texture, depthTest: false, transparent: true, sizeAttenuation: false })
   disposables.push(texture, material)
   const sprite = new THREE.Sprite(material)
   sprite.scale.set((height * canvas.width) / canvas.height, height, 1)
@@ -165,7 +166,7 @@ export function createModelView(host: HTMLElement, model: Model3dFigure, w: numb
     const arrow = new THREE.ArrowHelper(dir, from, len, LOAD_ARROW_COLOR, len * 0.28, len * 0.16)
     scene.add(arrow)
     disposables.push(arrow.line.geometry, arrow.cone.geometry, arrow.line.material as THREE.Material, arrow.cone.material as THREE.Material)
-    const label = labelSprite(l.label, LOAD_ARROW_COLOR, R * 0.1, disposables)
+    const label = labelSprite(l.label, LOAD_ARROW_COLOR, 0.055, disposables)
     label.position.copy(from.clone().addScaledVector(dir, -R * 0.05))
     scene.add(label)
   }
