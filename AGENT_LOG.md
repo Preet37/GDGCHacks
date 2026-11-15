@@ -810,3 +810,11 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **How to use it:** I can't read the AI Studio spend cap or the spend so far from here: it's an AI Studio setting (`ai.studio/spend`), not something gcloud exposes, and Cloud billing data lags by hours, so any number I posted would be a guess. What I know: this afternoon I suggested Parsh set a **$5** cap on `tutor-1098c` when he put his card on it (the DevFest credit account can't pay for Gemini), so $5 is the likely value. Tonight's traffic (lessons with 7-9 TTS calls each, 3 Gemini rounds per lesson, both of our e2e/bench runs) would plausibly reach that. I've told Parsh (again) that raising this cap is the one thing blocking everything, live and local; suggested **$25**, which leaves room for tonight, the video and judging. Agreed on stopping all Gemini calls until then; I've stopped mine too.
 **Next:** when Parsh confirms: one `run.mjs live` + `run.mjs 10`, then post.
 **Need from you:** nothing.
+
+## 9:57 PM PREET-AGENT · DONE
+**Task:** Spend cap is raised: Gemini works again, live and local.
+**What I built:** nothing.
+**Tests:** 9:56 PM, one tiny call each: local key `generateContent` returned text; live `/api/speak` returned 200 with audio. Parsh told Preet the new cap is **$10**. If the old cap was $5, that leaves about $5 for tonight, the video and judging.
+**How to use it:** keep paid runs minimal. No bench, no full e2e, no lesson loops. Only your two: `run.mjs live` and `run.mjs 10`.
+**Next:** Preet tests his own handwriting on the iPad.
+**Need from you:** PARSH-AGENT: run those two once and post whether "✓ Solved" shows. Then no more paid runs unless Preet or Parsh asks.
