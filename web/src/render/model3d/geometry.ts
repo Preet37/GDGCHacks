@@ -29,19 +29,56 @@ export interface Bounds {
   radius: number
 }
 
-/** Every point a part covers (its corners, or its two ends). */
+/** Half extents of a box / cylinder / cone / sphere in x, y, z (before any `rotate`). */
+export function halfExtents(p: ModelPart): Vec3 {
+  const [sx, sy, sz] = p.size ?? [0, 0, 0]
+  if (p.shape === 'box') return [sx / 2, sy / 2, sz / 2]
+  if (p.shape === 'sphere') return [sx, sx, sx]
+  const axis = (p.axis ?? 'z').replace('-', '')
+  const r = sx
+  const h = sz / 2
+  return axis === 'x' ? [h, r, r] : axis === 'y' ? [r, h, r] : [r, r, h]
+}
+
+/** Every point a part covers (its corners, or the points of a member). A turned part counts its whole sphere. */
 export function partPoints(p: ModelPart): Vec3[] {
-  if (p.shape === 'member') return p.start && p.end ? [p.start, p.end] : []
+  if (p.shape === 'member') return p.points?.length ? p.points : p.start && p.end ? [p.start, p.end] : []
   if (!p.at || !p.size) return []
   const [x, y, z] = p.at
-  const [sx, sy, sz] = p.size
-  const hx = p.shape === 'box' ? sx / 2 : sx
-  const hy = p.shape === 'box' ? sy / 2 : sy
-  const hz = p.shape === 'sphere' ? sx : sz / 2
+  let [hx, hy, hz] = halfExtents(p)
+  if (p.rotate && p.rotate.some((r) => r !== 0)) hx = hy = hz = Math.hypot(hx, hy, hz)
   return [
     [x - hx, y - hy, z - hz],
     [x + hx, y + hy, z + hz],
   ]
+}
+
+/** How each material looks (colour, roughness, metalness). */
+export const MATERIAL_LOOKS: Record<NonNullable<ModelPart['material']>, { color: string; roughness: number; metalness: number; opacity?: number }> = {
+  steel: { color: '#8c96a3', roughness: 0.38, metalness: 0.75 },
+  concrete: { color: '#b9b5ad', roughness: 0.92, metalness: 0 },
+  stone: { color: '#a39684', roughness: 0.95, metalness: 0 },
+  wood: { color: '#a0703f', roughness: 0.8, metalness: 0 },
+  carbon: { color: '#2b2e33', roughness: 0.45, metalness: 0.3 },
+  rubber: { color: '#1c1c1e', roughness: 0.9, metalness: 0 },
+  glass: { color: '#a8d4ec', roughness: 0.08, metalness: 0.1, opacity: 0.45 },
+  asphalt: { color: '#3d4045', roughness: 0.97, metalness: 0 },
+  aluminium: { color: '#c7ccd2', roughness: 0.3, metalness: 0.85 },
+  cable: { color: '#5d6670', roughness: 0.5, metalness: 0.7 },
+  paint: { color: '#c8102e', roughness: 0.35, metalness: 0.2 },
+  water: { color: '#3d7fb5', roughness: 0.15, metalness: 0.1, opacity: 0.7 },
+  earth: { color: '#8a7357', roughness: 1, metalness: 0 },
+}
+
+/** A part's real look: its colour (paint), else its material, else plain grey steel-ish. */
+export function realLook(p: ModelPart): { color: string; roughness: number; metalness: number; opacity?: number } {
+  const base = p.material ? MATERIAL_LOOKS[p.material] : { color: '#9aa1ab', roughness: 0.6, metalness: 0.2 }
+  return p.color ? { ...base, color: p.color } : base
+}
+
+/** Models from before materials existed are shown by force (that was all they had). */
+export function hasLooks(model: Model3dFigure): boolean {
+  return model.parts.some((p) => p.material || p.color)
 }
 
 export function modelBounds(model: Model3dFigure): Bounds {

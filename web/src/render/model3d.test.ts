@@ -25,6 +25,10 @@ describe('model3d geometry', () => {
     const sph: ModelPart = { id: 's', name: 'S', shape: 'sphere', at: [1, 1, 1], size: [1, 1, 1], load: 'none' }
     expect(partPoints(sph)).toEqual([[0, 0, 0], [2, 2, 2]])
     expect(partPoints({ id: 'm', name: 'M', shape: 'member', load: 'none' })).toEqual([])
+    const wheel: ModelPart = { id: 'w', name: 'W', shape: 'cylinder', axis: 'y', at: [0, 1, 0.3], size: [0.3, 0.3, 0.4], load: 'none' }
+    expect(partPoints(wheel)).toEqual([[-0.3, 0.8, 0], [0.3, 1.2, 0.6]]) // lying on its side: length along y
+    const curve: ModelPart = { id: 'c', name: 'C', shape: 'member', points: [[0, 0, 5], [1, 0, 1], [2, 0, 5]], load: 'tension' }
+    expect(partPoints(curve)).toHaveLength(3)
   })
 
   it('a member runs from start to end', () => {
@@ -43,10 +47,10 @@ describe('model3d geometry', () => {
 
   it('segments with one name are one part; legend lists loads used', () => {
     const groups = partGroups(bridge)
-    const cable = groups.find((g) => g.name === 'Main cable (north)')!
-    expect(cable.ids).toHaveLength(8)
-    expect(cable.load).toBe('tension')
-    expect(groups.filter((g) => g.name === 'Hanger')).toHaveLength(1)
+    const hangers = groups.find((g) => g.name === 'Hanger')!
+    expect(hangers.ids).toHaveLength(22)
+    expect(hangers.load).toBe('tension')
+    expect(groups.filter((g) => g.name === 'Main cable')).toHaveLength(1)
     expect(loadsUsed(bridge)).toEqual(['tension', 'compression', 'bending'])
   })
 })

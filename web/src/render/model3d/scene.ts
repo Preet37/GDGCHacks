@@ -1,6 +1,6 @@
 import * as THREE from 'three'
 import type { Model3dFigure, ModelPart } from '../../contract'
-import { LOAD_ARROW_COLOR, LOAD_COLORS, memberAxis, memberRadius, modelBounds, pickRadius, type ModelMark } from './geometry'
+import { hasLooks, LOAD_ARROW_COLOR, LOAD_COLORS, memberAxis, memberRadius, modelBounds, pickRadius, realLook, type ModelMark } from './geometry'
 
 /**
  * Engineering (Part 2): a WebGL view of a model3d figure. One mesh per part, coloured by the force it carries,
@@ -20,6 +20,8 @@ export interface ModelView {
   pick(x: number, y: number): string | null
   /** Highlight every part with this name and fade the rest; null shows everything normally. */
   select(name: string | null): void
+  /** Colour parts by their real material, or by the force they carry. */
+  setLook(look: 'real' | 'forces'): void
   /**
    * Stick a stroke drawn on the view (CSS pixels inside it) onto the model: each point lands on the part under it,
    * just off its surface; points over empty space land on a plane through the model facing the camera.
@@ -55,9 +57,24 @@ function labelSprite(text: string, color: string, height: number, disposables: {
   return sprite
 }
 
-const UP = new THREE.Vector3(0, 1, 0) // three.js cylinders stand on y
+const UP = new THREE.Vector3(0, 1, 0) // three.js cylinders and cones run along y
+const AXIS_DIRS: Record<string, THREE.Vector3> = {
+  x: new THREE.Vector3(1, 0, 0),
+  '-x': new THREE.Vector3(-1, 0, 0),
+  y: new THREE.Vector3(0, 1, 0),
+  '-y': new THREE.Vector3(0, -1, 0),
+  z: new THREE.Vector3(0, 0, 1),
+  '-z': new THREE.Vector3(0, 0, -1),
+}
+const DEG = Math.PI / 180
 
 function partGeometry(p: ModelPart, radius: number, pickSleeve = false): { geometry: THREE.BufferGeometry; place(m: THREE.Object3D): void } | null {
+  if (p.shape === 'member' && p.points && p.points.length >= 3) {
+    // a curved member (a sagging cable, an arch): one smooth tube along its points
+    const r = pickSleeve ? Math.max(pickRadius(radius), memberRadius(p, radius)) : memberRadius(p, radius)
+    const curve = new THREE.CatmullRomCurve3(p.points.map((v) => new THREE.Vector3(...v)), false, 'centripetal')
+    return { geometry: new THREE.TubeGeometry(curve, Math.min(200, p.points.length * 8), r, pickSleeve ? 6 : 10, false), place() {} }
+  }
   if (p.shape === 'member' && p.start && p.end) {
     const { mid, length, dir } = memberAxis(p.start, p.end)
     const r = pickSleeve ? Math.max(pickRadius(radius), memberRadius(p, radius)) : memberRadius(p, radius)
@@ -75,13 +92,18 @@ function partGeometry(p: ModelPart, radius: number, pickSleeve = false): { geome
     p.shape === 'box'
       ? new THREE.BoxGeometry(sx, sy, sz)
       : p.shape === 'sphere'
-        ? new THREE.SphereGeometry(sx, 20, 14)
-        : new THREE.CylinderGeometry(sx, sx, sz, 24)
+        ? new THREE.SphereGeometry(sx, 24, 16)
+        : p.shape === 'cone'
+          ? new THREE.ConeGeometry(sx, sz, 32)
+          : new THREE.CylinderGeometry(sx, sx, sz, 32)
   return {
     geometry,
     place(m) {
       m.position.set(...p.at!)
-      if (p.shape === 'cylinder') m.rotation.x = Math.PI / 2 // stand it on z
+      const q = new THREE.Quaternion()
+      if (p.shape === 'cylinder' || p.shape === 'cone') q.setFromUnitVectors(UP, AXIS_DIRS[p.axis ?? 'z'])
+      if (p.rotate) q.premultiply(new THREE.Quaternion().setFromEuler(new THREE.Euler(p.rotate[0] * DEG, p.rotate[1] * DEG, p.rotate[2] * DEG)))
+      m.quaternion.copy(q)
     },
   }
 }
@@ -104,7 +126,7 @@ export function createModelView(host: HTMLElement, model: Model3dFigure, w: numb
   camera.up.set(0, 0, 1)
   const target = new THREE.Vector3(...bounds.center)
   // most structures are long and flat, so the sphere around them is mostly empty: start closer than it
-  let distance = (R / Math.sin(((FOV / 2) * Math.PI) / 180)) * 0.72
+  let distance = (R / Math.sin(((FOV / 2) * Math.PI) / 180)) * 0.58
 
   // ---- the parts
   const meshesByName = new Map<string, THREE.Mesh[]>()
@@ -112,10 +134,12 @@ export function createModelView(host: HTMLElement, model: Model3dFigure, w: numb
   for (const p of model.parts) {
     const g = partGeometry(p, R)
     if (!g) continue
-    const material = new THREE.MeshStandardMaterial({ color: LOAD_COLORS[p.load], roughness: 0.6, metalness: 0.05, transparent: true })
+    const material = new THREE.MeshStandardMaterial({ transparent: true })
     const mesh = new THREE.Mesh(g.geometry, material)
     g.place(mesh)
+    mesh.castShadow = mesh.receiveShadow = true
     mesh.userData.name = p.name
+    mesh.userData.part = p
     scene.add(mesh)
     disposables.push(g.geometry, material)
     meshesByName.set(p.name, [...(meshesByName.get(p.name) ?? []), mesh])
@@ -146,17 +170,67 @@ export function createModelView(host: HTMLElement, model: Model3dFigure, w: numb
     scene.add(label)
   }
 
-  // ---- ground grid under the model
-  const groundZ = bounds.min[2]
+  // ---- ground: a grid, and a plane that only shows the shadows
+  const groundZ = Math.min(0, bounds.min[2])
   const grid = new THREE.GridHelper(R * 2.2, 16, 0xd5dae3, 0xe6e9ef)
   grid.rotation.x = Math.PI / 2
   grid.position.set(bounds.center[0], bounds.center[1], groundZ)
   scene.add(grid)
   disposables.push(grid.geometry, grid.material as THREE.Material)
+  const shadowGeometry = new THREE.PlaneGeometry(R * 2.2, R * 2.2)
+  const shadowMaterial = new THREE.ShadowMaterial({ opacity: 0.18 })
+  const shadowPlane = new THREE.Mesh(shadowGeometry, shadowMaterial)
+  shadowPlane.position.set(bounds.center[0], bounds.center[1], groundZ + R * 0.001)
+  shadowPlane.receiveShadow = true
+  scene.add(shadowPlane)
+  disposables.push(shadowGeometry, shadowMaterial)
 
-  scene.add(new THREE.HemisphereLight(0xffffff, 0xb8bcc6, 1.6))
-  const key = new THREE.DirectionalLight(0xffffff, 1.4)
+  scene.add(new THREE.HemisphereLight(0xffffff, 0xb8bcc6, 1.25))
+  // the sun: fixed high above, so shadows fall on the ground the same way while the model turns
+  renderer.shadowMap.enabled = true
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap
+  const sun = new THREE.DirectionalLight(0xffffff, 1.5)
+  sun.position.set(bounds.center[0] + R * 0.6, bounds.center[1] - R * 0.8, groundZ + R * 2)
+  sun.target.position.set(...bounds.center)
+  sun.castShadow = true
+  sun.shadow.mapSize.set(2048, 2048)
+  const sc = sun.shadow.camera
+  sc.left = sc.bottom = -R * 1.2
+  sc.right = sc.top = R * 1.2
+  sc.near = R * 0.1
+  sc.far = R * 5
+  sun.shadow.bias = -0.0005
+  scene.add(sun, sun.target)
+  const key = new THREE.DirectionalLight(0xffffff, 0.7)
   scene.add(key)
+
+  // ---- how parts are coloured: their real look, or by the force they carry
+  let look: 'real' | 'forces' = hasLooks(model) ? 'real' : 'forces'
+  let selectedName: string | null = null
+  const paint = () => {
+    for (const [n, meshes] of meshesByName) {
+      for (const m of meshes) {
+        const mat = m.material as THREE.MeshStandardMaterial
+        const part = m.userData.part as ModelPart
+        const real = realLook(part)
+        if (look === 'real') {
+          mat.color.set(real.color)
+          mat.roughness = real.roughness
+          mat.metalness = real.metalness
+        } else {
+          mat.color.set(LOAD_COLORS[part.load])
+          mat.roughness = 0.6
+          mat.metalness = 0.05
+        }
+        const on = selectedName === null || n === selectedName
+        const base = look === 'real' ? (real.opacity ?? 1) : 1
+        mat.opacity = on ? base : 0.15
+        mat.depthWrite = on && base === 1
+        mat.emissive.set(selectedName !== null && on ? (look === 'real' ? 0x2a4a8a : 0x333333) : 0x000000)
+      }
+    }
+  }
+  paint()
 
   let azimuth = -Math.PI / 2.6
   let elevation = Math.PI / 7
@@ -264,15 +338,13 @@ export function createModelView(host: HTMLElement, model: Model3dFigure, w: numb
       draw()
     },
     select(name) {
-      for (const [n, meshes] of meshesByName) {
-        for (const m of meshes) {
-          const mat = m.material as THREE.MeshStandardMaterial
-          const on = name === null || n === name
-          mat.opacity = on ? 1 : 0.18
-          mat.depthWrite = on
-          mat.emissive.set(name !== null && on ? 0x333333 : 0x000000)
-        }
-      }
+      selectedName = name
+      paint()
+      draw()
+    },
+    setLook(next) {
+      look = next
+      paint()
       draw()
     },
     dispose() {

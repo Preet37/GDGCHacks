@@ -10,7 +10,7 @@ from images import decode_png
 from models import CheckRequest, CheckResponse, Debug
 
 log = logging.getLogger("tutor.pipeline")
-CHECK_BUDGET_S = {"explain": 60.0, "other": 20.0}  # seconds for read + tutor + retries, per check
+CHECK_BUDGET_S = {"explain": 60.0, "other": 30.0}  # seconds for read + tutor + retries, per check (a 3D model takes 10-20 s)
 
 # ---- GET /api/debug/recent: what the server saw and did for the last few requests. Never the image. ----
 

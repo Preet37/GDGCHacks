@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { BaseBoxShapeUtil, DefaultColorStyle, HTMLContainer, T, useEditor, type RecordProps, type TLShape } from 'tldraw'
 import type { Model3dFigure } from '../contract'
-import { LOAD_COLORS, LOAD_WORDS, loadsUsed, partGroups, thinStroke, TL_COLORS, type ModelMark } from '../render/model3d/geometry'
+import { hasLooks, LOAD_COLORS, LOAD_WORDS, loadsUsed, partGroups, thinStroke, TL_COLORS, type ModelMark } from '../render/model3d/geometry'
 import type { ModelView } from '../render/model3d/scene'
 
 /**
@@ -56,6 +56,8 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
   const [touched, setTouched] = useState(false)
   const [selected, setSelected] = useState<string | null>(null)
   const [mode, setMode] = useState<'turn' | 'draw'>('turn')
+  // real materials when the model has them; older models (force colours only) start in Forces
+  const [look, setLook] = useState<'real' | 'forces'>(() => (hasLooks(model) ? 'real' : 'forces'))
   const modeRef = useRef(mode)
   modeRef.current = mode
   /** the stroke being drawn, in CSS pixels inside the view (a flat preview until it is stuck onto the model) */
@@ -107,6 +109,9 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
   }, [selected])
 
   const [ready, setReady] = useState(0) // bumped when the view exists, so the marks are drawn into it
+  useEffect(() => {
+    viewRef.current?.setLook(look)
+  }, [look, ready])
   useEffect(() => {
     viewRef.current?.setMarks(marksRef.current)
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -286,12 +291,25 @@ function Model3dCard({ shape }: { shape: Model3dShape }) {
       >
         <div style={{ height: MODEL3D_TITLE_H, flex: 'none', display: 'flex', alignItems: 'center', padding: '0 12px', fontSize: 16, fontWeight: 650, gap: 8 }}>
           <span style={{ flex: 1, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{title || '3D model'}</span>
-          {legend.map((l) => (
+          {look === 'forces' && legend.map((l) => (
             <span key={l} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, fontSize: 12, fontWeight: 500, color: '#4b5568' }}>
               <span style={{ width: 10, height: 10, borderRadius: 3, background: LOAD_COLORS[l] }} />
               {l}
             </span>
           ))}
+          <div style={{ display: 'flex', border: '1px solid #d6dbe4', borderRadius: 8, overflow: 'hidden', pointerEvents: 'all' }}>
+            {(['real', 'forces'] as const).map((l) => (
+              <button
+                key={l}
+                aria-pressed={look === l}
+                aria-label={l === 'real' ? 'Show real materials' : 'Colour by force'}
+                style={{ ...btn, minWidth: 0, height: 26, border: 'none', borderRadius: 0, fontSize: 12, padding: '0 9px', background: look === l ? '#1f2a44' : '#fff', color: look === l ? '#fff' : '#1f2a44' }}
+                {...press(() => setLook(l))}
+              >
+                {l === 'real' ? 'Real' : 'Forces'}
+              </button>
+            ))}
+          </div>
         </div>
         {glFailed ? (
           <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: 14, color: '#777' }}>Couldn't draw this</div>

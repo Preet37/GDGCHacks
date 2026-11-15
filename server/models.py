@@ -83,14 +83,23 @@ class CircuitSolveRequest(BaseModel):
 Vec3 = tuple[float, float, float]
 
 
+Material = Literal["steel", "concrete", "stone", "wood", "carbon", "rubber", "glass", "asphalt", "aluminium", "cable",
+                   "paint", "water", "earth"]
+
+
 class ModelPart(BaseModel):
     id: str
     name: str
-    shape: Literal["box", "cylinder", "sphere", "member"]
-    at: Optional[Vec3] = None      # box / cylinder / sphere: centre
-    size: Optional[Vec3] = None    # box: full x, y, z extents; cylinder: [radius, radius, height] standing on z; sphere: [r, r, r]; member: [radius, 0, 0]
+    shape: Literal["box", "cylinder", "cone", "sphere", "member"]
+    at: Optional[Vec3] = None      # box / cylinder / cone / sphere: centre
+    size: Optional[Vec3] = None    # box: full x, y, z extents; cylinder / cone: [radius, radius, length]; sphere: [r, r, r]; member: [radius, 0, 0]
+    axis: Optional[Literal["x", "y", "z", "-x", "-y", "-z"]] = None  # cylinder / cone: the length runs along it (default z; a cone points that way)
+    rotate: Optional[Vec3] = None  # box / cylinder / cone: extra turn in degrees about x, y, z (a tilted wing)
     start: Optional[Vec3] = None   # member (a beam, bar, cable): one end
     end: Optional[Vec3] = None     # member: the other end
+    points: Optional[list[Vec3]] = None  # member: a curved path (a sagging cable, an arch); start/end are its ends
+    material: Optional[Material] = None  # how it looks
+    color: Optional[str] = None    # "#rrggbb", overrides the material's colour (a team's paint)
     load: Literal["tension", "compression", "bending", "none"] = "none"
     explain: Optional[str] = None  # its job and the force it carries, one or two sentences
 

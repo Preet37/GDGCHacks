@@ -32,14 +32,23 @@ export interface FigureSpec {
 
 export type Vec3 = [number, number, number];
 
+export type ModelMaterial =
+  | "steel" | "concrete" | "stone" | "wood" | "carbon" | "rubber" | "glass" | "asphalt" | "aluminium" | "cable"
+  | "paint" | "water" | "earth";
+
 export interface ModelPart {
   id: string;
   name: string;               // "Main cable", "Left tower"
-  shape: "box" | "cylinder" | "sphere" | "member";
-  at?: Vec3;                  // box / cylinder / sphere: centre
-  size?: Vec3;                // box: x, y, z extents; cylinder: [r, r, height] standing on z; sphere: [r, r, r]; member: [radius, 0, 0]
+  shape: "box" | "cylinder" | "cone" | "sphere" | "member";
+  at?: Vec3;                  // box / cylinder / cone / sphere: centre
+  size?: Vec3;                // box: x, y, z extents; cylinder / cone: [r, r, length]; sphere: [r, r, r]; member: [radius, 0, 0]
+  axis?: "x" | "y" | "z" | "-x" | "-y" | "-z";  // cylinder / cone: the length runs along it (default z; a cone points that way)
+  rotate?: Vec3;              // box / cylinder / cone: extra turn in degrees about x, y, z
   start?: Vec3;               // member (beam, bar, cable): one end
   end?: Vec3;                 // member: the other end
+  points?: Vec3[];            // member: a curved path (sagging cable, arch); start / end are its ends
+  material?: ModelMaterial;   // how it looks
+  color?: string;             // "#rrggbb": overrides the material's colour
   load: "tension" | "compression" | "bending" | "none";
   explain?: string;           // shown when the part is tapped: its job and the force it carries
 }

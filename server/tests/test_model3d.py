@@ -73,3 +73,20 @@ def test_schema_keeps_model3d_flat():
     # forced function calling has a limit on schema complexity: a nested model3d schema broke every check (400)
     from teach import _FIGURE
     assert _FIGURE["properties"]["model3d"]["type"] == "string"
+
+
+def test_realism_fields_are_kept_and_checked():
+    out = build_model3d({"parts": [
+        {"name": "Front wheel", "shape": "wheel", "at": [0, 1, 0.3], "size": [0.33, 0.33, 0.4], "axis": "y", "material": "tyre"},
+        {"name": "Nose", "shape": "cone", "at": [2, 0, 0.3], "size": [0.2, 0.2, 0.8], "axis": "+x", "color": "#FF0000"},
+        {"name": "Wing", "shape": "box", "at": [2, 0, 0.1], "size": [0.4, 1.8, 0.05], "rotate": [0, 370, 0], "material": "carbon fiber"},
+        {"name": "Cable", "shape": "member", "points": [[0, 0, 10], [5, 0, 6], [5, 0, 6], [10, 0, 10]], "material": "wire"},
+        {"name": "Bad", "shape": "box", "at": [0, 0, 0], "size": [1, 1, 1], "axis": "w", "material": "cheese", "color": "red"},
+    ]})
+    p = {x["name"]: x for x in out["parts"]}
+    assert p["Front wheel"]["shape"] == "cylinder" and p["Front wheel"]["axis"] == "y" and p["Front wheel"]["material"] == "rubber"
+    assert p["Nose"]["shape"] == "cone" and p["Nose"]["axis"] == "x" and p["Nose"]["color"] == "#ff0000"
+    assert p["Wing"]["rotate"] == (0, 10, 0) and p["Wing"]["material"] == "carbon"
+    assert p["Cable"]["points"] == [(0, 0, 10), (5, 0, 6), (10, 0, 10)] and p["Cable"]["end"] == (10, 0, 10)
+    assert "axis" not in p["Bad"] and "material" not in p["Bad"] and "color" not in p["Bad"]
+    FigureSpec.model_validate({"kind": "model3d", "expressions": [], "x_range": [0, 1], "model3d": out})

@@ -282,16 +282,27 @@ def fix_missing_direction(drawn: dict, expected: list[dict], check: dict) -> tup
 # The model describes a structure (a bridge, a truss, a crane) as parts; code checks every number and drops what can't
 # be drawn, so the page only ever gets a scene it can render. Nothing here is graded.
 
-MAX_PARTS = 40
+MAX_PARTS = 60
+MAX_PATH = 48  # points on one curved member
 MAX_LOADS = 8
 MAX_COORD = 1000.0
 SHAPE_NAMES = {
     "box": "box", "cube": "box", "block": "box", "slab": "box", "deck": "box", "plate": "box",
     "cylinder": "cylinder", "column": "cylinder", "pillar": "cylinder", "pier": "cylinder", "tower": "cylinder",
+    "wheel": "cylinder", "axle": "cylinder", "tube": "cylinder", "pipe": "cylinder", "disc": "cylinder", "disk": "cylinder",
+    "cone": "cone", "nose": "cone", "spire": "cone",
     "sphere": "sphere", "ball": "sphere", "joint": "sphere", "node": "sphere",
     "member": "member", "beam": "member", "bar": "member", "rod": "member", "cable": "member", "strut": "member",
     "tie": "member", "line": "member", "truss": "member", "hanger": "member",
 }
+MATERIALS = {"steel", "concrete", "stone", "wood", "carbon", "rubber", "glass", "asphalt", "aluminium", "cable", "paint",
+             "water", "earth"}
+MATERIAL_NAMES = {"aluminum": "aluminium", "carbon fibre": "carbon", "carbon fiber": "carbon", "carbon_fiber": "carbon",
+                  "tarmac": "asphalt", "road": "asphalt", "metal": "steel", "iron": "steel", "brick": "stone",
+                  "masonry": "stone", "timber": "wood", "tyre": "rubber", "tire": "rubber", "soil": "earth",
+                  "ground": "earth", "wire": "cable", "rope": "cable", "plastic": "paint"}
+AXES = {"x", "y", "z", "-x", "-y", "-z"}
+
 LOAD_NAMES = {
     "tension": "tension", "tensile": "tension", "pulled": "tension", "pull": "tension",
     "compression": "compression", "compressive": "compression", "pushed": "compression", "push": "compression",
@@ -331,10 +342,17 @@ def _part(raw, taken: set[str]) -> dict | None:
                   "load": LOAD_NAMES.get(str(raw.get("load", "")).strip().lower(), "none")}
     size = _vec(raw.get("size")) if raw.get("size") is not None else None
     if shape == "member":
-        start, end = _vec(raw.get("start") or raw.get("from")), _vec(raw.get("end") or raw.get("to"))
-        if start is None or end is None or math.dist(start, end) < 1e-6:
-            return None
-        part.update(start=start, end=end)
+        path = [p for p in (_vec(v) for v in (raw.get("points") or [])[:MAX_PATH]) if p is not None]
+        path = [p for i, p in enumerate(path) if i == 0 or math.dist(p, path[i - 1]) > 1e-6]
+        if len(path) >= 3:  # a curved member: its ends are the path's ends
+            part.update(points=path, start=path[0], end=path[-1])
+        else:
+            start, end = _vec(raw.get("start") or raw.get("from")), _vec(raw.get("end") or raw.get("to"))
+            if start is None or end is None:
+                start, end = (path[0], path[-1]) if len(path) == 2 else (None, None)
+            if start is None or end is None or math.dist(start, end) < 1e-6:
+                return None
+            part.update(start=start, end=end)
         if size is not None and size[0] > 0:
             part["size"] = (size[0], 0.0, 0.0)
     else:
@@ -349,11 +367,24 @@ def _part(raw, taken: set[str]) -> dict | None:
         size = tuple(abs(x) for x in size)
         if shape == "sphere":
             size = (size[0],) * 3
-        elif shape == "cylinder":
+        elif shape in ("cylinder", "cone"):
             size = (size[0], size[0], size[2] if size[2] > 0 else size[1])
         if min(size) <= 0:
             return None
         part.update(at=at, size=size)
+        axis = str(raw.get("axis", "")).strip().lower().replace("+", "")
+        if shape in ("cylinder", "cone") and axis in AXES and axis != "z":
+            part["axis"] = axis
+        rot = _vec(raw.get("rotate")) if raw.get("rotate") is not None else None
+        if shape != "sphere" and rot is not None and any(abs(r) > 1e-6 for r in rot):
+            part["rotate"] = tuple(((r + 180) % 360) - 180 for r in rot)
+    mat = str(raw.get("material", "")).strip().lower()
+    mat = MATERIAL_NAMES.get(mat, mat)
+    if mat in MATERIALS:
+        part["material"] = mat
+    color = str(raw.get("color") or raw.get("colour") or "").strip()
+    if re.fullmatch(r"#[0-9a-fA-F]{6}", color):
+        part["color"] = color.lower()
     explain = _short(raw.get("explain"), 300)
     if explain:
         part["explain"] = explain
