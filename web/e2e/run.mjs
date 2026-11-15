@@ -949,6 +949,75 @@ const flows = {
     },
   },
 
+  17: {
+    name: 'Sample worksheet: 3D graph under a printed problem, then the Solve button',
+    async run(rec) {
+      const s = await begin(17)
+      const input = await s.page.$('input[type=file]')
+      await input.uploadFile(path.resolve(path.dirname(new URL(import.meta.url).pathname), '../public/samples/mixed.pdf'))
+      let sheets = []
+      for (let i = 0; i < 60 && !sheets.length; i++) {
+        await L.sleep(250)
+        sheets = (await L.shapes(s)).filter((x) => x.meta?.worksheet)
+      }
+      if (!rec.ok(sheets.length === 1, `mixed.pdf was imported (${sheets.length} page image)`)) {
+        await finish(rec, s, `f17${SUFFIX}-import-failed`)
+        return s
+      }
+      await L.sleep(800)
+      const sheet = (await L.shapes(s)).find((x) => x.meta?.worksheet).screen
+      // the four problems are printed at these heights of the page (see how the samples were made)
+      const rowY = (i) => sheet.y + ((150 + i * 226) / 1056) * sheet.h
+      rec.note(`sheet on screen ${L.brief(sheet)}`)
+      // the Solve button on a fresh sheet, nothing written or selected: problem 1, every step
+      const before = await L.aiShapes(s)
+      const from = s.api.length
+      const b = await s.page.evaluate(() => {
+        const r = document.querySelector('.tutor-solve')?.getBoundingClientRect()
+        return r ? { x: r.x + r.width / 2, y: r.y + r.height / 2 } : null
+      })
+      if (rec.ok(!!b, 'there is a Solve button')) {
+        await L.uiTap(s, b.x, b.y)
+        const solve = await L.waitCheck(s, { from, mode: 'help', timeout: 60000 })
+        await L.sleep(4000)
+        rec.timings.solve_ms = solve?.ms
+        rec.ok(solve?.status === 200, `Solve returned 200 (${solve?.status}, ${solve?.ms} ms)`)
+        const sol = (solve?.res?.actions ?? []).find((x) => x.type === 'solution')
+        rec.evidence.solve = { question: solve?.req?.question, help_box: solve?.req?.help_box, actions: solve?.res?.actions?.map((x) => ({ type: x.type, line_id: x.line_id, text: x.text, steps: x.steps })), tools: solve?.res?.debug?.tool_calls }
+        rec.ok(!!sol && (sol.steps?.length ?? 0) >= 2, `the reply is a worked solution with steps (${JSON.stringify(sol?.steps ?? (solve?.res?.actions ?? []).map((x) => x.type + ':' + (x.text ?? '')))})`)
+        const after = await L.aiShapes(s)
+        const fresh = after.filter((x) => !before.some((o) => o.id === x.id))
+        rec.evidence.solutionShapes = fresh.map((x) => ({ kind: x.kind, text: x.text, screen: L.brief(x.screen) }))
+        rec.ok(fresh.length >= 2, `the steps were written on the page (${fresh.length} new shapes: ${fresh.map((x) => `${x.kind} ${L.brief(x.screen)}`).join('; ')})`)
+        const printRows = [0, 1, 2, 3].map((i) => ({ x: sheet.x + sheet.w * 0.07, y: rowY(i) - 4, w: sheet.w * 0.6, h: 34 }))
+        const onPrint = fresh.filter((x) => printRows.some((p) => L.overlap(x.screen, p) > 8))
+        rec.ok(onPrint.length === 0, `no step is written over a printed problem` + (onPrint.length ? ` (${onPrint.map((x) => L.brief(x.screen)).join('; ')})` : ''))
+      }
+      rec.shots.push(await L.shot(s, `f17${SUFFIX}-a-solved`))
+      const afterSolve = s.api.length
+      await L.tool(s, 'draw')
+      // under problem 4: the surface and the word "graph", the way Preet wrote it
+      const y4 = rowY(3) + 70
+      await L.write(s, 'z = x^2 + y^2', sheet.x + 90, y4, 20)
+      await L.write(s, 'graph', sheet.x + 330, y4 + 6, 20)
+      const reply = await L.waitCheck(s, { mode: 'auto', from: afterSolve, timeout: 60000 })
+      await L.sleep(3500)
+      rec.ok(reply?.status === 200, `auto check returned 200 (${reply?.status}, ${reply?.ms} ms)`)
+      const fig = reply?.res?.actions?.find((x) => x.type === 'figure')
+      rec.evidence.read = reply?.res?.lines?.map((l) => ({ plain: l.plain, src: l.source }))
+      rec.ok(fig?.figure?.kind === 'surface3d', `the server sent a surface3d figure (${fig?.figure?.kind ?? (reply?.res?.actions ?? []).map((x) => x.type).join(', ') ?? 'nothing'})`)
+      const surf = (await L.shapes(s)).find((x) => x.type === 'surface3d')
+      if (rec.ok(!!surf, 'a surface3d shape is on the page')) {
+        const r = surf.screen
+        rec.ok(r.x + r.w > 0 && r.y + r.h > 0 && r.x < VIEW.width && r.y < VIEW.height, `the surface is in view (${L.brief(r)}; screen ${VIEW.width}x${VIEW.height})`)
+        rec.ok(r.x >= 0 && r.y >= 0 && r.x + r.w <= VIEW.width && r.y + r.h <= VIEW.height, `the surface is fully on screen (${L.brief(r)})`)
+      }
+      rec.note(`status line: ${await L.statusText(s)}; toast: ${await L.toastText(s)}`)
+            await finish(rec, s, `f17${SUFFIX}-b-surface`)
+      return s
+    },
+  },
+
   14: {
     name: 'Handwriting toggle, finish my line',
     async run(rec) {

@@ -130,3 +130,23 @@ export function mathToPlain(text: string): string {
   }
   return out.replace(/ {2,}/g, ' ').trim()
 }
+
+/**
+ * A graph title as it would be written by hand: calculator syntax (`y = x^2 - 4*x`, `sqrt(x)`,
+ * `2*pi`, `<=`) -> `y = x² − 4x`, `√x`, `2π`, `≤`. An exponent Unicode has no characters for keeps its `^`.
+ */
+export function prettyMath(text: string): string {
+  return mathToPlain(
+    text
+      .replace(/<=/g, '≤')
+      .replace(/>=/g, '≥')
+      .replace(/!=/g, '≠')
+      .replace(/(?<![A-Za-z\\])sqrt\s*\(\s*([\w.]+)\s*\)/g, '√$1')
+      .replace(/(?<![A-Za-z\\])sqrt\s*(?=\()/g, '√')
+      .replace(/(?<![A-Za-z\\])pi(?![A-Za-z])/g, 'π')
+      .replace(/\^\(\s*([-+]?\d+|n)\s*\)/g, '^{$1}')
+      .replace(/(\d)\s*\*\s*(?=\d)/g, '$1 × ')
+      .replace(/(\d)\s*\*\s*(?=[A-Za-zπ√(])/g, '$1') // 4*x -> 4x
+      .replace(/\s*\*\s*/g, '·'),
+  )
+}

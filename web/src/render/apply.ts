@@ -4,10 +4,10 @@ import { handForAction, handwritingEnabled, studentPen } from '../handwriting'
 import { anchorOf, cardRect, isAiShape, isInlineNote, lineRect, shapesForAction, sizesFor } from './actions'
 import { shapeUse } from '../practice/kind'
 import { drawFigures } from './figure'
-import { boxToPage, overlapRatio, type PageRect, type RenderContext } from './geometry'
+import { TEXT_LINE_HEIGHT, boxToPage, overlapRatio, type PageRect, type RenderContext } from './geometry'
 import { sheetInk } from './sheetInk'
-import { fontMeasure, panTo, revealSolution, solutionLayout, solutionShapes } from './solution'
-import { mathToSpeech } from './text'
+import { fontMeasure, headingShape, panTo, revealSolution, solutionLayout, solutionShapes } from './solution'
+import { mathToPlain, mathToSpeech } from './text'
 
 type LessonModule = { renderLesson: (editor: Editor, action: Action, rect: PageRect, about?: PageRect | null) => Promise<void> }
 // The lesson player lives in ../lesson/render (loaded only when a lesson arrives). The glob
@@ -110,6 +110,21 @@ export function renderContext(editor: Editor): RenderContext {
   }
 }
 
+/**
+ * What each read line's problem says, by line_id, as readable text: the printed line of its
+ * problem if that was read, else the problem's first line.
+ */
+export function problemTexts(lines: CheckResponse['lines']): Map<string, string> {
+  const out = new Map<string, string>()
+  for (const l of lines) {
+    const same = lines.filter((o) => o.problem_id === l.problem_id)
+    const first = same.find((o) => o.source === 'printed') ?? same.find((o) => o.relation === 'start') ?? same[0] ?? l
+    const text = mathToPlain(first.latex || first.plain || '')
+    if (text) out.set(l.line_id, text)
+  }
+  return out
+}
+
 export interface OldShape {
   id: string
   meta: Record<string, unknown>
@@ -184,6 +199,9 @@ export function applyResponse(editor: Editor, response: CheckResponse, bounds: P
   ctx.lines = new Map(response.lines.map((l) => [l.line_id, boxToPage(l.box, bounds)]))
   ctx.printed = [...printed, ...response.lines.filter((l) => l.source === 'printed').map((l) => boxToPage(l.box, bounds))]
 
+  ctx.problems = problemTexts(response.lines)
+  ctx.headings = new Map()
+
   const existing = editor.getCurrentPageShapes().filter(isAiShape)
   const rects = new Map<string, PageRect | null>()
   for (const s of existing) {
@@ -230,6 +248,17 @@ export function applyResponse(editor: Editor, response: CheckResponse, bounds: P
     }
     return []
   })
+  // a solution with no room on the worksheet was put beside the page: its "Solution to: ..." line
+  for (const h of ctx.headings.values()) {
+    const rect = { x: h.x, y: h.y, w: h.w, h: h.font * TEXT_LINE_HEIGHT }
+    ctx.taken.push(rect)
+    solutions.push(rect)
+    try {
+      editor.run(() => editor.createShapes([headingShape(h)]), { history: 'ignore', ignoreShapeLock: true })
+    } catch (err) {
+      console.warn('solution heading not drawn', err)
+    }
+  }
   editor.run(
     () => {
       for (const shapes of batches) {

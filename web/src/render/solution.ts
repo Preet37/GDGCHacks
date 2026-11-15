@@ -15,6 +15,7 @@ import {
   expand,
   type PageRect,
   type RenderContext,
+  type SolutionHeading,
 } from './geometry'
 import { mathToPlain } from './text'
 
@@ -52,6 +53,8 @@ export interface SolutionLayout {
   equalsX: number | null
   /** there was no room below the line: the block is beside the working instead */
   moved: boolean
+  /** on a worksheet with no room below: the block is beside the page, under this heading (inside `rect`) */
+  heading?: SolutionHeading
 }
 
 /** Width of `text` at `font` px. The default guesses from the handwriting font's average glyph. */
@@ -105,6 +108,41 @@ function slideRight(from: PageRect, w: number, h: number, gap: number, ctx: Rend
   return null
 }
 
+/** Heading font over the steps' font, and the most of the problem's text it quotes. */
+export const HEADING_EM = 0.6
+export const HEADING_CHARS = 40
+
+/** "Solution to: <the problem>" for a solution written away from its problem. */
+export function headingText(problem?: string | null): string {
+  const t = (problem ?? '').replace(/\s+/g, ' ').trim()
+  if (!t) return 'Solution (continued from the problem on the left)'
+  return `Solution to: ${t.length > HEADING_CHARS ? t.slice(0, HEADING_CHARS).trimEnd() + '…' : t}`
+}
+
+const hits = (a: PageRect, b: PageRect) => a.x < b.x + Math.max(b.w, 1) && b.x < a.x + a.w && a.y < b.y + Math.max(b.h, 1) && b.y < a.y + a.h
+
+/**
+ * Where a `w` x `h` block goes when it has no room on the worksheet: on the blank canvas right of
+ * the page `anchor` is on (and of any page beside that one), its top level with the anchor, then
+ * down past whatever is already there (an earlier solution, ink, a graph).
+ */
+export function besideSheets(w: number, h: number, anchor: PageRect, sheets: PageRect[], obstacles: PageRect[], gap: number): PageRect {
+  const on = sheets.filter((s) => hits(s, anchor))
+  const right = (rs: PageRect[]) => Math.max(...rs.map((s) => s.x + s.w))
+  const r = { x: (on.length ? right(on) : anchor.x + anchor.w) + gap, y: anchor.y, w, h }
+  for (let i = 0; i < 400; i++) {
+    const pages = sheets.filter((s) => hits(r, s))
+    if (pages.length) {
+      r.x = right(pages) + gap
+      continue
+    }
+    const hit = obstacles.filter((o) => hits(r, o))
+    if (!hit.length) break
+    r.y = Math.max(...hit.map((o) => o.y + Math.max(o.h, 1))) + gap
+  }
+  return r
+}
+
 /** The line read just above `line` (same column), if there is one: its distance says how the student spaces their lines. */
 function pitchAbove(line: PageRect, ctx: RenderContext): number | null {
   let best: number | null = null
@@ -125,11 +163,15 @@ function pitchAbove(line: PageRect, ctx: RenderContext): number | null {
  *   another, and under the student's own equals sign when that doesn't push the block out to the left;
  * - spacing: the student's own (the distance to the line above), else 1.5 x the font;
  * - never over ink, other feedback or printed text: with no room below, the whole block goes
- *   beside the working (placeBeside: right first, then wherever is free).
+ *   beside the working (placeBeside: right first, then wherever is free);
+ * - on a worksheet with no room below (the next printed problem is in the way): the whole block
+ *   goes on the blank canvas right of the page under a small "Solution to: ..." heading
+ *   (besideSheets), one such block under another.
  * The block is claimed in `ctx.taken`. Null if there is nothing to write or nowhere to anchor it.
  */
 export function solutionLayout(action: Action, bounds: PageRect, ctx: RenderContext = DEFAULT_CONTEXT, measure: Measure = guess): SolutionLayout | null {
   const texts = (action.steps ?? []).map((s) => mathToPlain(s)).filter(Boolean)
+  ctx.headings?.delete(action)
   if (!texts.length || !action.box) return null
   const box = anchorRect(action, bounds)
   const read = lineRect(action, bounds, ctx)
@@ -175,7 +217,28 @@ export function solutionLayout(action: Action, bounds: PageRect, ctx: RenderCont
   }
 
   let moved = false
-  if (coveredArea(made.rect, ctx) > 0) {
+  let heading: SolutionHeading | undefined
+  const onSheet = (ctx.sheets ?? []).some((s) => hits(s, line))
+  // on a worksheet the steps also need a little clear paper under them
+  const probe = onSheet ? { ...made.rect, h: made.rect.h + font * 0.3 } : made.rect
+  if (onSheet && coveredArea(probe, ctx) > 0) {
+    const hf = Math.min(font, Math.max(font * HEADING_EM, MIN_SCREEN_FONT / ctx.zoom))
+    const text = headingText(action.line_id ? ctx.problems?.get(action.line_id) : null)
+    const headH = hf * (TEXT_LINE_HEIGHT + 0.3)
+    const headW = guess(text, hf)
+    const obstacles = [...(ctx.ink ?? []), ...(ctx.taken ?? []), ...(ctx.printed ?? [])]
+    const spot = besideSheets(Math.max(made.rect.w, headW), made.rect.h + headH, line, ctx.sheets ?? [], obstacles, sz.gap * 2)
+    made = build(font, spot.x, spot.y + headH, null)
+    const dx = spot.x - made.rect.x
+    if (dx) {
+      for (const s of made.steps) s.x += dx
+      if (made.equalsX !== null) made.equalsX += dx
+    }
+    made.rect = spot
+    heading = { text, x: spot.x, y: spot.y, font: hf, w: headW, anchor: line, line_id: action.line_id }
+    ctx.headings?.set(action, heading)
+    moved = true
+  } else if (coveredArea(made.rect, ctx) > 0) {
     // no room under the line: to the right of the working, level with the line and past whatever is
     // written after it; failing that, wherever the placement code finds room
     const level = { x: inked.x, y: middle - (font * TEXT_LINE_HEIGHT) / 2, w: inked.w, h: font * TEXT_LINE_HEIGHT }
@@ -192,7 +255,7 @@ export function solutionLayout(action: Action, bounds: PageRect, ctx: RenderCont
     moved = true
   }
   ctx.taken?.push(made.rect)
-  return { ...made, font, pitch: pitch(font), anchor: line, moved }
+  return { ...made, font, pitch: pitch(font), anchor: line, moved, heading }
 }
 
 type Shape = TLShapePartial & { x: number; y: number; id: TLShapeId }
@@ -207,6 +270,18 @@ export function solutionShapes(action: Action, layout: SolutionLayout, color: TL
     meta: { ...aiMeta('solution', action.line_id, layout.anchor), step: i },
     props: { richText: toRichText(s.text), font: 'draw', size: 's', scale: layout.font / BASE_FONT, color, textAlign: 'start', autoSize: true },
   }))
+}
+
+/** The heading of a solution written beside the worksheet: small gray text, replaced along with the steps. */
+export function headingShape(h: SolutionHeading): Shape {
+  return {
+    id: createShapeId(),
+    type: 'text',
+    x: h.x,
+    y: h.y,
+    meta: { ...aiMeta('solution', h.line_id, h.anchor), step: -1 },
+    props: { richText: toRichText(h.text), font: 'draw', size: 's', scale: h.font / BASE_FONT, color: 'grey', textAlign: 'start', autoSize: true },
+  }
 }
 
 /** Width of text in the handwriting font, measured on a canvas once the font is there; the estimate otherwise. */
@@ -291,7 +366,11 @@ export function revealSolution(editor: Editor, shapes: Shape[], layout: Solution
         return false
       }
       const shape = shapes[i]
-      if (opts.follow !== false) panTo(editor, { x: shape.x, y: shape.y, w: layout.steps[i]?.w ?? 0, h: layout.font * TEXT_LINE_HEIGHT })
+      if (opts.follow !== false) {
+        const step = { x: shape.x, y: shape.y, w: layout.steps[i]?.w ?? 0, h: layout.font * TEXT_LINE_HEIGHT }
+        const head = i === 0 ? layout.heading : undefined // the heading comes into view with the first step
+        panTo(editor, head ? union(step, { x: head.x, y: head.y, w: head.w, h: head.font * TEXT_LINE_HEIGHT }) : step)
+      }
       if (!(await writeOn(shape, texts[i]))) {
         stop()
         return false

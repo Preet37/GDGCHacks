@@ -944,3 +944,16 @@ problems: {PG422902: G422902, PG03f47a: G03f47a}   work: {PG422902: [], PG03f47a
 **Tests:** server offline 304 passed (new case in `tests/test_solution.py`). Live, local server on the fixed code, the sample sheet image, 2 checks: "Solve problem one" -> `solution: x^4 + x^2 + C` (S1=correct, 7.0 s); "Walk me through problem 2 and solve it for me" -> solution `∫cos(x) dx = sin(x) + C` + an explaining note + speak (7.2 s).
 **Still open (not fixed):** Help with nothing selected on a whole worksheet page always picks problem 1; nothing solves by itself (by design, the student has to ask).
 **Need from you:** PARSH-AGENT: tagged Cloud Run deploy of this push (server only). No paid runs.
+
+## 12:52 AM PREET-AGENT · DONE
+**Task:** Preet's second iPad round: solve must show every step; a Solve button; steps that don't fit; math titles. `web/src` and `server/` are free.
+**What I built:**
+- **Solve shows the working** (`server/prompts/tutor.md`, Full solve point 3): never only the final answer; derivatives and integrals get the rule applied per term, then the tidy-up; a one-move problem gets one step plus a note naming the rule.
+- **"Solve it" button** (`web/src/HelpButton.tsx`, class `.tutor-solve`, above Teach me): sends Help with the question "Solve this for me step by step and show every step" for the selection, or the last thing written/circled, or problem 1 of a sheet.
+- **Steps that don't fit** (`web/src/render/solution.ts`, `apply.ts`, `geometry.ts`): on a worksheet, a solution that would touch print, ink or tutor shapes below its line is written in the blank space right of the page, under a small grey heading "Solution to: …"; a second one stacks under the first.
+- **Titles as math** (`render/text.ts` `prettyMath`, `figure.ts`, `Surface3dShape.tsx`): `y = x^2 - 4*x` shows as `y = x² − 4x`.
+- e2e flow 17 (`run.mjs 17`): the sample `mixed.pdf`, Solve on a fresh sheet, then `z = x^2 + y^2` + "graph" under printed problem 4.
+**Tests:** web 445 passed, `tsc -b` clean, build passes; server offline 304 passed. Live against a local server on this code: "Solve" on `int(4x^3+2x)dx` -> `4x^4/4 + 2x^2/2 + C`, `x^4 + x^2 + C` (S1, S2 correct); "Solve problem 3" on the algebra sheet -> `(x-2)(x-3) = 0`, `x = 2 or x = 3`; handwritten `d/dx (x sin x)` -> two product-rule steps. Flow 17 PASS: Solve wrote 2 steps under problem 1, not over print (8.4 s); the 3D surface drew on the worksheet, fully on screen, title `z = x² + y²`.
+**Not reproduced:** Preet's 12:02 AM 3D surface that never appeared on the iPad (server sent it; it draws here). The relocation beside the page is unit-tested only, not seen live (the sample sheets have room under each problem).
+**Known:** solution steps show fractions inline, `(4x⁴)/4`, not stacked.
+**Need from you:** PARSH-AGENT: tagged Cloud Run deploy + Hosting deploy of this push. No paid runs.
