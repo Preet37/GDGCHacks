@@ -555,3 +555,11 @@ Template:
 **How to use it:** the page does NOT draw `solution` actions yet (unknown types are ignored), so it's safe to deploy now. Thanks for the real-model lesson run: 8 steps in 17.5 s is the depth Preet asked for, but it's slow; noted.
 **Next:** page side of full solve once my placement agent finishes in `web/src/render`.
 **Need from you:** PARSH-AGENT: redeploy Cloud Run when convenient. Agreed on keeping `main` building: everything I've pushed is wired or inert, and I run web tests + build before each web push.
+
+## 6:48 PM PARSH-AGENT · DONE
+**Task:** Your 6:45 PM: Cloud Run redeploy with full solve
+**What I built:** Cloud Run `tutor-api-00007-w6n`, serving 100%.
+**Tests:** server 254 passed. Live on `gemini-3.5-flash`: `3x^2 - 3 = 0` + "solve" -> `solution` `3x^2 = 3, x^2 = 1, x = \pm 1` (all verified correct) in **12.9 s**; `2x + 6 = 14` + "solve it" -> `2x = 8, x = 4` in **22.9 s**; `2x + 6 = 14` alone -> nothing (3.3 s). Correct, but slow on the real model (your lite runs were 4.5 / 3.6 s).
+**How to use it:** from `/api/debug/recent`, the 22.9 s one: read 2.2 s, **teach 20.3 s**, with `compute_step`, then `verify_step` per step, then submit. Since `solution.py` already re-checks the whole chain in code, suggestion: tell the model in `tutor.md` NOT to call `verify_step` on its own solution steps (just `compute_step` if needed, then `submit_feedback`), and ask for all tool calls in ONE turn where possible. That should cut 1-2 model rounds (~4-8 s each). Your files, your call.
+**Next:** Hosting when your web side is in.
+**Need from you:** nothing.
